@@ -50,6 +50,24 @@ type DateQuickFilterValue = "all" | "last7" | "last30" | "custom";
 const LEADS_PAGE_SIZE = 100;
 const LEADS_SEARCH_PAGE_SIZE = 1000;
 
+function getPaginationPages(totalPages: number, currentPage: number) {
+  if (totalPages <= 10) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const pages = new Set<number>([1, 2, 3, 4, 5, totalPages]);
+
+  for (let page = 10; page < totalPages; page += 10) {
+    pages.add(page);
+  }
+
+  for (const page of [currentPage - 1, currentPage, currentPage + 1]) {
+    if (page > 0 && page <= totalPages) pages.add(page);
+  }
+
+  return Array.from(pages).sort((a, b) => a - b);
+}
+
 const LEAD_SEARCH_COLUMNS = [
   "propietario",
   "telefono",
@@ -744,9 +762,8 @@ export default function LeadsPage() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [leads, setLeads] = useState<LeadTableRow[]>([]);
   const [loadingLeads, setLoadingLeads] = useState(true);
-  const [loadingMoreLeads, setLoadingMoreLeads] = useState(false);
   const [totalLeadsCount, setTotalLeadsCount] = useState<number | null>(null);
-  const [hasMoreLeads, setHasMoreLeads] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const [pageError, setPageError] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -885,18 +902,13 @@ export default function LeadsPage() {
     return resolved ?? PHASE_ID_MAP[phase] ?? 1;
   }
 
-  async function loadLeadsFromSupabase(options?: { append?: boolean }) {
-    const append = options?.append ?? false;
-    const from = append ? leads.length : 0;
+  async function loadLeadsFromSupabase(options?: { page?: number }) {
+    const page = options?.page ?? 1;
+    const from = (page - 1) * LEADS_PAGE_SIZE;
     const to = from + LEADS_PAGE_SIZE - 1;
 
     setPageError(null);
-
-    if (append) {
-      setLoadingMoreLeads(true);
-    } else {
-      setLoadingLeads(true);
-    }
+    setLoadingLeads(true);
 
     let query = supabase
       .from("crm_leads_view")
@@ -907,36 +919,59 @@ export default function LeadsPage() {
       query = query.eq("comercial_name", userWithRole.crmUser.name);
     }
 
+    if (showFavoritesOnly) query = query.eq("is_favorite", true);
+    if (domainFilter !== "all") query = query.eq("dominio_desc", domainFilter);
+    if (phaseFilter !== "all") {
+      query = query.ilike("fase_name", PHASE_LABELS[phaseFilter]);
+    }
+    if (statusFilter !== "all") {
+      const statusValues: Record<Exclude<StatusFilterValue, "all">, string[]> = {
+        activa: ["Activa", "Activo", "Identificada", "Identificado", "Cualificada", "Seguimiento"],
+        caliente: ["Caliente"],
+        desestimada: ["Desestimada"],
+      };
+      query = query.in("estado", statusValues[statusFilter]);
+    }
+    if (dateQuickFilter !== "all") {
+      let fromDate = dateFromFilter;
+      let toDate = dateToFilter;
+
+      if (dateQuickFilter === "last7" || dateQuickFilter === "last30") {
+        const todayValue = toLocalDateInputValue(new Date());
+        const daysBack = dateQuickFilter === "last7" ? 6 : 29;
+        fromDate = addDaysToDateInputValue(todayValue, -daysBack);
+        toDate = todayValue;
+      }
+
+      if (fromDate) query = query.gte("fecha", fromDate);
+      if (toDate) query = query.lte("fecha", toDate);
+    }
+
     const { data, error, count } = await query.range(from, to);
 
     if (error) {
       console.error("Supabase leads error:", error);
       setPageError("No se pudieron cargar los leads. Intentá actualizar la página.");
       setLoadingLeads(false);
-      setLoadingMoreLeads(false);
       return;
     }
 
     const rows = (data ?? []) as CrmLeadRow[];
     const mapped = rows.map((row) => mapCrmLeadToLead(row));
-    const nextTotal = count ?? (append ? leads.length + mapped.length : mapped.length);
-    const nextLoadedCount = from + mapped.length;
+    const nextTotal = count ?? mapped.length;
     const nextFavorites = new Set(
       rows.filter((row) => row.is_favorite).map((row) => String(row.id))
     );
 
-    setLeads((prev) => (append ? [...prev, ...mapped] : mapped));
+    setLeads(mapped);
     setFavoriteIds((prev) => {
-      if (!append) return nextFavorites;
-
-      const merged = new Set(prev);
-      for (const id of nextFavorites) merged.add(id);
-      return merged;
+      const next = new Set(prev);
+      for (const id of nextFavorites) next.add(id);
+      return next;
     });
+    setCurrentPage(page);
     setTotalLeadsCount(nextTotal);
-    setHasMoreLeads(nextLoadedCount < nextTotal);
     setLoadingLeads(false);
-    setLoadingMoreLeads(false);
   }
 
   async function handleImportCsv(importedLeads: Lead[]): Promise<string | null> {
@@ -996,7 +1031,7 @@ export default function LeadsPage() {
       return message;
     }
 
-    await loadLeadsFromSupabase({ append: false });
+    await loadLeadsFromSupabase({ page: 1 });
     setSearchRefreshKey((value) => value + 1);
     return null;
   }
@@ -1057,7 +1092,7 @@ export default function LeadsPage() {
       return message;
     }
 
-    await loadLeadsFromSupabase({ append: false });
+    await loadLeadsFromSupabase({ page: 1 });
     setSearchRefreshKey((value) => value + 1);
     return null;
   }
@@ -1138,7 +1173,7 @@ export default function LeadsPage() {
     const savedRow = savedRows?.[0] as CrmLeadRow | undefined;
     const mappedLead = savedRow ? mapCrmLeadToLead(savedRow) : next;
 
-    await loadLeadsFromSupabase({ append: false });
+    await loadLeadsFromSupabase({ page: 1 });
     setSearchRefreshKey((value) => value + 1);
     setSelectedLead(mappedLead);
   }
@@ -1233,8 +1268,23 @@ export default function LeadsPage() {
     }
     void loadPhaseIdMap();
     void loadRelationIdMaps();
-    void loadLeadsFromSupabase({ append: false });
   }, [userLoading, userWithRole]);
+
+  useEffect(() => {
+    if (userLoading || !userWithRole?.crmUser || searchTerm.trim()) return;
+    void loadLeadsFromSupabase({ page: 1 });
+  }, [
+    dateFromFilter,
+    dateQuickFilter,
+    dateToFilter,
+    domainFilter,
+    phaseFilter,
+    searchTerm,
+    showFavoritesOnly,
+    statusFilter,
+    userLoading,
+    userWithRole,
+  ]);
 
   useEffect(() => {
     const trimmedSearch = searchTerm.trim();
@@ -1308,6 +1358,7 @@ export default function LeadsPage() {
         if (cancelled) return;
 
         setSearchResults(rows.map((row) => mapCrmLeadToLead(row)));
+        setCurrentPage(1);
         setFavoriteIds((prev) => {
           const next = new Set(prev);
           for (const row of rows) {
@@ -1326,6 +1377,19 @@ export default function LeadsPage() {
       window.clearTimeout(timeoutId);
     };
   }, [searchTerm, searchRefreshKey, userLoading, userWithRole]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    dateFromFilter,
+    dateQuickFilter,
+    dateToFilter,
+    domainFilter,
+    phaseFilter,
+    searchTerm,
+    showFavoritesOnly,
+    statusFilter,
+  ]);
 
   function clearLeadFilters() {
     setSearchTerm("");
@@ -1506,7 +1570,21 @@ export default function LeadsPage() {
     });
   }, [filteredLeads, sortKey, sortDir]);
 
-  const visibleTableLeads = sortedLeads;
+  const isSearchPagination = Boolean(searchTerm.trim());
+  const paginationTotal = isSearchPagination
+    ? sortedLeads.length
+    : totalLeadsCount ?? 0;
+  const totalPages = Math.max(
+    1,
+    Math.ceil(paginationTotal / LEADS_PAGE_SIZE)
+  );
+  const paginationPages = getPaginationPages(totalPages, currentPage);
+  const visibleTableLeads = isSearchPagination
+    ? sortedLeads.slice(
+        (currentPage - 1) * LEADS_PAGE_SIZE,
+        currentPage * LEADS_PAGE_SIZE
+      )
+    : sortedLeads;
 
   return (
     <>
@@ -1757,7 +1835,7 @@ export default function LeadsPage() {
                   setSearchRefreshKey((value) => value + 1);
                   return;
                 }
-                void loadLeadsFromSupabase({ append: false });
+                void loadLeadsFromSupabase({ page: 1 });
               }}
               disabled={loadingLeads || loadingSearchResults}
               title="Refrescar tabla"
@@ -2326,19 +2404,44 @@ export default function LeadsPage() {
               )}
             </table>
 
-            {hasMoreLeads && !searchTerm.trim() && (
-              <div className="flex justify-center border-t border-border bg-background px-6 py-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void loadLeadsFromSupabase({ append: true })}
-                  disabled={loadingMoreLeads}
-                  className="h-8 text-xs font-semibold"
-                >
-                  {loadingMoreLeads ? "Cargando..." : "Ver más"}
-                </Button>
-              </div>
+            {totalPages > 1 && (
+              <nav
+                className="flex flex-wrap items-center justify-center gap-1 border-t border-border bg-background px-6 py-4"
+                aria-label="Paginación de oportunidades"
+              >
+                {paginationPages.map((page, index) => {
+                  const previousPage = paginationPages[index - 1];
+                  const showEllipsis = previousPage && page - previousPage > 1;
+
+                  return (
+                    <span key={page} className="inline-flex items-center gap-1">
+                      {showEllipsis && (
+                        <span className="px-1 text-sm text-muted-foreground">
+                          ...
+                        </span>
+                      )}
+                      <Button
+                        type="button"
+                        variant={page === currentPage ? "default" : "outline"}
+                        size="sm"
+                        className="h-8 min-w-8 px-2 text-sm font-medium"
+                        onClick={() => {
+                          if (isSearchPagination) {
+                            setCurrentPage(page);
+                          } else {
+                            void loadLeadsFromSupabase({ page });
+                          }
+                        }}
+                        disabled={loadingLeads || page === currentPage}
+                        aria-current={page === currentPage ? "page" : undefined}
+                        aria-label={`Ir a la página ${page}`}
+                      >
+                        {page}
+                      </Button>
+                    </span>
+                  );
+                })}
+              </nav>
             )}
           </div>
         ) : (
