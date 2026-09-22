@@ -46,7 +46,7 @@ export default function CRMLayout({
         <Menu className="h-4 w-4" />
       </button>
 
-      <div className="flex flex-col flex-1 md:ml-56 min-w-0 overflow-hidden">
+      <div className="flex flex-col flex-1 md:ml-48 min-w-0 overflow-hidden">
         {children}
       </div>
     </div>

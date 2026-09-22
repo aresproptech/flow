@@ -22,6 +22,8 @@ import {
   Table2,
   RefreshCw,
   Star,
+  Eraser,
+  FileUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -50,6 +52,7 @@ type LeadsViewMode = "table" | "kanban";
 
 type PhaseFilterValue = "all" | Lead["phase"];
 type StatusFilterValue = "all" | Lead["status"];
+type DomainFilterValue = "all" | string;
 type DateFilterField = "fechaNoticia";
 type DateQuickFilterValue = "all" | "last7" | "last30" | "custom";
 
@@ -177,7 +180,7 @@ const DATE_QUICK_FILTER_OPTIONS: Array<{
   value: DateQuickFilterValue;
   label: string;
 }> = [
-  { value: "all", label: "Selecciona el periodo" },
+  { value: "all", label: "Período (Todos)" },
   { value: "last7", label: "Últimos 7 días" },
   { value: "last30", label: "Últimos 30 días" },
   { value: "custom", label: "Personalizado" },
@@ -763,6 +766,7 @@ export default function LeadsPage() {
   const [searchResults, setSearchResults] = useState<LeadTableRow[] | null>(null);
   const [loadingSearchResults, setLoadingSearchResults] = useState(false);
   const [searchRefreshKey, setSearchRefreshKey] = useState(0);
+  const [domainFilter, setDomainFilter] = useState<DomainFilterValue>("all");
   const [phaseFilter, setPhaseFilter] = useState<PhaseFilterValue>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilterValue>("all");
   const [dateFilterField, setDateFilterField] =
@@ -1337,6 +1341,7 @@ export default function LeadsPage() {
 
   function clearLeadFilters() {
     setSearchTerm("");
+    setDomainFilter("all");
     setPhaseFilter("all");
     setStatusFilter("all");
     setDateFilterField("fechaNoticia");
@@ -1386,7 +1391,7 @@ export default function LeadsPage() {
   }
 
   const dateFilterLabel = useMemo(() => {
-    if (dateQuickFilter === "all") return "Selecciona el periodo";
+    if (dateQuickFilter === "all") return "Período (Todos)";
 
     let fromDate = dateFromFilter;
     let toDate = dateToFilter;
@@ -1398,7 +1403,7 @@ export default function LeadsPage() {
       toDate = todayValue;
     }
 
-    if (!fromDate && !toDate) return "Selecciona el periodo";
+    if (!fromDate && !toDate) return "Período (Todos)";
     if (fromDate && toDate) {
       return `${formatDateInputLabel(fromDate)} - ${formatDateInputLabel(toDate)}`;
     }
@@ -1429,6 +1434,7 @@ export default function LeadsPage() {
       : searchableLeads;
 
     return baseLeads.filter((lead) => {
+      if (domainFilter !== "all" && lead.dominio !== domainFilter) return false;
       if (phaseFilter !== "all" && lead.phase !== phaseFilter) return false;
       if (statusFilter !== "all" && lead.status !== statusFilter) return false;
 
@@ -1487,6 +1493,7 @@ export default function LeadsPage() {
     searchTerm,
     showFavoritesOnly,
     favoriteIds,
+    domainFilter,
     phaseFilter,
     statusFilter,
     dateFilterField,
@@ -1583,15 +1590,29 @@ export default function LeadsPage() {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Buscar leads..."
+                placeholder="Buscar por nombre o domicilio"
                 className="h-10 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground sm:h-8 lg:w-[260px]"
               />
             </div>
 
             <select
+              value={domainFilter}
+              onChange={(e) => setDomainFilter(e.target.value)}
+              className="h-10 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-sm font-medium text-foreground outline-none sm:h-8 sm:flex-none sm:w-[170px]"
+              aria-label="Filtrar por dominio"
+            >
+              <option value="all">Dominio (Todos)</option>
+              {domainOptions.map((domain) => (
+                <option key={domain} value={domain}>
+                  {domain}
+                </option>
+              ))}
+            </select>
+
+            <select
               value={phaseFilter}
               onChange={(e) => setPhaseFilter(e.target.value as PhaseFilterValue)}
-              className="h-10 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-xs font-medium text-foreground outline-none sm:h-8 sm:flex-none sm:w-[150px]"
+              className="h-10 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-sm font-medium text-foreground outline-none sm:h-8 sm:flex-none sm:w-[150px]"
               aria-label="Filtrar por fase"
             >
               {PHASE_FILTER_OPTIONS.map((option) => (
@@ -1604,7 +1625,7 @@ export default function LeadsPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as StatusFilterValue)}
-              className="h-10 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-xs font-medium text-foreground outline-none sm:h-8 sm:flex-none sm:w-[160px]"
+              className="h-10 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-sm font-medium text-foreground outline-none sm:h-8 sm:flex-none sm:w-[160px]"
               aria-label="Filtrar por estado"
             >
               {[
@@ -1621,7 +1642,7 @@ export default function LeadsPage() {
               <button
                 type="button"
                 onClick={() => setDatePopoverOpen((prev) => !prev)}
-                className="inline-flex h-10 w-full items-center justify-between gap-3 rounded-md border border-border bg-background px-3 text-left text-xs font-medium text-foreground outline-none transition hover:bg-muted/50 sm:h-8 sm:min-w-[245px] sm:w-auto"
+                className="inline-flex h-10 w-full items-center justify-between gap-3 rounded-md border border-border bg-background px-3 text-left text-sm font-medium text-foreground outline-none transition hover:bg-muted/50 sm:h-8 sm:min-w-[245px] sm:w-auto"
                 aria-label="Seleccionar periodo"
               >
                 <span className="truncate">{dateFilterLabel}</span>
@@ -1677,7 +1698,7 @@ export default function LeadsPage() {
                       }}
                       className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm font-medium text-foreground hover:bg-muted"
                     >
-                      Selecciona el periodo
+                      Período (Todos)
                     </button>
                     <button
                       type="button"
@@ -1740,17 +1761,20 @@ export default function LeadsPage() {
             </div>
 
             {(searchTerm ||
+              domainFilter !== "all" ||
               phaseFilter !== "all" ||
               statusFilter !== "all" ||
               dateQuickFilter !== "all") && (
               <Button
                 type="button"
                 size="sm"
-                variant="ghost"
-                className="h-8 px-2 text-xs font-semibold text-muted-foreground"
+                variant="outline"
+                className="h-8 w-8 p-0"
                 onClick={clearLeadFilters}
+                title="Limpiar filtros"
+                aria-label="Limpiar filtros"
               >
-                Limpiar
+                <Eraser className="h-3.5 w-3.5" />
               </Button>
             )}
           </div>
@@ -1758,8 +1782,24 @@ export default function LeadsPage() {
           <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:flex-nowrap">
             <Button
               size="sm"
+              variant={showFavoritesOnly ? "default" : "outline"}
+              className="h-8 w-8 p-0"
+              onClick={() => setShowFavoritesOnly((prev) => !prev)}
+              title="Filtrar favoritos"
+              aria-label="Filtrar favoritos"
+            >
+              <Star
+                className={cn(
+                  "h-3.5 w-3.5",
+                  showFavoritesOnly && "fill-current"
+                )}
+              />
+            </Button>
+
+            <Button
+              size="sm"
               variant="outline"
-              className="h-7 w-7 p-0"
+              className="h-8 w-8 p-0"
               onClick={() => {
                 if (searchTerm.trim()) {
                   setSearchRefreshKey((value) => value + 1);
@@ -1779,28 +1819,25 @@ export default function LeadsPage() {
               />
             </Button>
 
-            <Button
-              size="sm"
-              variant={showFavoritesOnly ? "default" : "outline"}
-              className="h-7 w-7 p-0"
-              onClick={() => setShowFavoritesOnly((prev) => !prev)}
-              title="Filtrar favoritos"
-              aria-label="Filtrar favoritos"
-            >
-              <Star
-                className={cn(
-                  "h-3.5 w-3.5",
-                  showFavoritesOnly && "fill-current"
-                )}
-              />
-            </Button>
+            {canEdit && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="hidden h-8 w-8 p-0 sm:inline-flex"
+                onClick={() => setImportOpen(true)}
+                title="Importar CSV"
+                aria-label="Importar CSV"
+              >
+                <FileUp className="h-3.5 w-3.5" />
+              </Button>
+            )}
 
             <div className="inline-flex items-center rounded-lg border border-border bg-background p-1">
               <button
                 type="button"
                 onClick={() => setViewMode("table")}
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors",
+                  "inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm font-semibold transition-colors",
                   viewMode === "table"
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:text-foreground"
@@ -1818,7 +1855,7 @@ export default function LeadsPage() {
                   setSelectedIds(new Set());
                 }}
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors",
+                  "inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm font-semibold transition-colors",
                   viewMode === "kanban"
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:text-foreground"
@@ -1829,21 +1866,10 @@ export default function LeadsPage() {
               </button>
             </div>
 
-            {canEdit && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="hidden h-7 gap-1.5 text-xs font-semibold sm:inline-flex"
-                onClick={() => setImportOpen(true)}
-              >
-                Importar CSV
-              </Button>
-            )}
-
             {canEdit && viewMode === "table" && (
               <Button
                 size="sm"
-                className="hidden h-7 gap-1.5 text-xs font-semibold sm:inline-flex"
+                className="hidden h-8 gap-1.5 text-sm font-semibold sm:inline-flex"
                 onClick={() => {
                   if (selectionMode) {
                     setSelectionMode(false);
@@ -1860,7 +1886,7 @@ export default function LeadsPage() {
             {canEdit && (
               <Button
                 size="sm"
-                className="hidden h-7 gap-1.5 text-xs font-semibold sm:inline-flex"
+                className="hidden h-8 gap-1.5 text-sm font-semibold sm:inline-flex"
                 onClick={() => setModalOpen(true)}
               >
                 <Plus className="h-3.5 w-3.5" />

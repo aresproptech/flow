@@ -27,7 +27,7 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   {
-    label: "Dashboard",
+    label: "Métricas",
     href: "/dashboard",
     icon: LayoutDashboard,
     roles: ["Admin", "Coordinador", "Comercial"],
@@ -119,7 +119,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-56 flex-col bg-sidebar border-r border-sidebar-border transition-transform duration-200 ease-in-out md:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex w-48 flex-col bg-sidebar border-r border-sidebar-border transition-transform duration-200 ease-in-out md:translate-x-0",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -129,7 +129,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             alt="Ares Proptech"
             width={1376}
             height={534}
-            className="h-7 w-auto"
+            className="h-12 w-auto"
             priority
           />
         </div>
