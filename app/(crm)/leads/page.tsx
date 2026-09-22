@@ -1926,6 +1926,7 @@ export default function LeadsPage() {
             <table className="w-full table-fixed border-collapse text-sm md:w-[2700px] md:[table-layout:fixed]">
               <colgroup>
                 <col className="w-10 md:w-[48px]" />
+                <col className="w-[72px] md:w-[90px]" />
                 <col className="w-[28%] md:w-[230px]" />
                 <col className="w-[42%] md:w-[310px]" />
                 <col style={{ width: 95 }} className="hidden md:table-column" />
@@ -1954,6 +1955,16 @@ export default function LeadsPage() {
                   </th>
 
                   <th
+                    onClick={() => handleSort("id")}
+                    className="group cursor-pointer select-none whitespace-nowrap px-2 py-2.5 md:px-3"
+                  >
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
+                      ID
+                      <SortIcon col="id" sortKey={sortKey} sortDir={sortDir} />
+                    </span>
+                  </th>
+
+                  <th
                     onClick={() => handleSort("ownerName")}
                     className="group cursor-pointer select-none whitespace-nowrap px-2 py-2.5 md:px-3"
                   >
@@ -1966,6 +1977,7 @@ export default function LeadsPage() {
                       />
                     </span>
                   </th>
+
                   <th
                     onClick={() => handleSort("address")}
                     className="group cursor-pointer select-none whitespace-nowrap px-2 py-2.5 md:px-3"
@@ -2248,6 +2260,10 @@ export default function LeadsPage() {
                       </button>
                     </td>
 
+                    <td className="whitespace-nowrap px-2 py-2.5 text-sm text-muted-foreground md:px-3">
+                      {lead.id.padStart(6, "0")}
+                    </td>
+
                     <td className="truncate whitespace-nowrap px-2 py-2.5 md:px-3">
                       <span className="font-bold text-foreground">
                         {lead.ownerName}
@@ -2394,7 +2410,7 @@ export default function LeadsPage() {
                 <tbody>
                   <tr>
                     <td
-                      colSpan={20}
+                      colSpan={21}
                       className="px-6 py-10 text-center text-sm text-muted-foreground"
                     >
                       No hay leads que coincidan con la búsqueda.
