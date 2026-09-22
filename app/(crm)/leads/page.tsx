@@ -2171,26 +2171,26 @@ export default function LeadsPage() {
                     </td>
 
                     <td className="truncate whitespace-nowrap px-2 py-2.5 md:px-3">
-                      <span className="font-medium text-foreground">
+                      <span className="font-bold text-foreground">
                         {lead.ownerName}
                       </span>
                     </td>
 
-                    <td className="truncate whitespace-nowrap px-2 py-2.5 text-xs text-muted-foreground md:px-3">
+                    <td className="truncate whitespace-nowrap px-2 py-2.5 text-sm text-muted-foreground md:px-3">
                       {lead.address}
                     </td>
 
-                    <td className="whitespace-nowrap px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell">
+                    <td className="whitespace-nowrap px-3 py-2.5 text-sm text-muted-foreground hidden md:table-cell">
                       {lead.cp}
                     </td>
 
-                    <td className="truncate whitespace-nowrap px-2 py-2.5 text-xs text-muted-foreground md:px-3">
+                    <td className="truncate whitespace-nowrap px-2 py-2.5 text-sm text-muted-foreground md:px-3">
                       {lead.distrito}
                     </td>
 
                     <td className="px-3 py-2.5 hidden md:table-cell">
                       <span
-                        className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap"
+                        className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-sm font-medium whitespace-nowrap"
                         style={getPhaseBadgeStyle(lead.phase)}
                       >
                         <Circle className="h-1.5 w-1.5 fill-current" />
@@ -2204,7 +2204,7 @@ export default function LeadsPage() {
 
                         return (
                           <span
-                            className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap"
+                            className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-sm font-medium whitespace-nowrap"
                             style={{
                               backgroundColor: statusConfig.backgroundColor,
                               color: statusConfig.color,
@@ -2218,53 +2218,53 @@ export default function LeadsPage() {
                       })()}
                     </td>
 
-                    <td className="whitespace-nowrap px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell">
+                    <td className="whitespace-nowrap px-3 py-2.5 text-sm text-muted-foreground hidden md:table-cell">
                       {fmt(lead.fechaNoticia)}
                     </td>
 
-                    <td className="whitespace-nowrap px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell">
+                    <td className="whitespace-nowrap px-3 py-2.5 text-sm text-muted-foreground hidden md:table-cell">
                       {fmt(lead.fechaContacto)}
                     </td>
 
-                    <td className="whitespace-nowrap px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell">
+                    <td className="whitespace-nowrap px-3 py-2.5 text-sm text-muted-foreground hidden md:table-cell">
                       {fmt(lead.fechaValoracion)}
                     </td>
 
-                    <td className="whitespace-nowrap px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell">
+                    <td className="whitespace-nowrap px-3 py-2.5 text-sm text-muted-foreground hidden md:table-cell">
                       {lead.hora || "—"}
                     </td>
 
                     <td className="px-3 py-2.5 hidden md:table-cell">
                       {lead.medio && lead.medio !== "—" ? (
                         <span
-                          className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium whitespace-nowrap"
+                          className="inline-flex items-center rounded-full border px-2 py-0.5 text-sm font-medium whitespace-nowrap"
                           style={getMedioBadgeStyle(lead.medio)}
                         >
                           {lead.medio}
                         </span>
                       ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
+                        <span className="text-sm text-muted-foreground">—</span>
                       )}
                     </td>
 
-                    <td className="whitespace-nowrap px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell">
+                    <td className="whitespace-nowrap px-3 py-2.5 text-sm text-muted-foreground hidden md:table-cell">
                       {lead.month}
                     </td>
 
                     <td className="px-3 py-2.5 hidden md:table-cell">
                       {lead.dominio && lead.dominio !== "—" ? (
                         <span
-                          className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium whitespace-nowrap"
+                          className="inline-flex items-center rounded-full border px-2 py-0.5 text-sm font-medium whitespace-nowrap"
                           style={getDominioBadgeStyle(lead.dominio)}
                         >
                           {lead.dominio}
                         </span>
                       ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
+                        <span className="text-sm text-muted-foreground">—</span>
                       )}
                     </td>
 
-                    <td className="max-w-[110px] truncate whitespace-nowrap px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell">
+                    <td className="max-w-[110px] truncate whitespace-nowrap px-3 py-2.5 text-sm text-muted-foreground hidden md:table-cell">
                       {lead.planner ?? "—"}
                     </td>
 
@@ -2277,7 +2277,7 @@ export default function LeadsPage() {
                             .map((n) => n[0])
                             .join("")}
                         </span>
-                        <span className="max-w-[125px] truncate text-xs text-muted-foreground">
+                        <span className="max-w-[125px] truncate text-sm text-muted-foreground">
                           {lead.owner}
                         </span>
                       </div>
@@ -2285,24 +2285,24 @@ export default function LeadsPage() {
 
                     <td className="px-3 py-2.5 hidden md:table-cell">
                       <span
-                        className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium whitespace-nowrap"
+                        className="inline-flex items-center rounded-full border px-2 py-0.5 text-sm font-medium whitespace-nowrap"
                         style={getSourceBadgeStyle(lead.source)}
                       >
                         {lead.source}
                       </span>
                     </td>
 
-                    <td className="whitespace-nowrap px-3 py-2.5 text-xs font-medium text-foreground hidden md:table-cell">
+                    <td className="whitespace-nowrap px-3 py-2.5 text-sm text-foreground hidden md:table-cell">
                       {lead.valor}
                     </td>
 
-                    <td className="whitespace-nowrap px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell">
+                    <td className="whitespace-nowrap px-3 py-2.5 text-sm text-muted-foreground hidden md:table-cell">
                       <MaskedPhone value={lead.phone} />
                     </td>
 
                     <td className="px-3 py-2.5 hidden md:table-cell">
                       <span
-                        className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium whitespace-nowrap"
+                        className="inline-flex items-center rounded-full border px-2 py-0.5 text-sm font-medium whitespace-nowrap"
                         style={getEnVentaBadgeStyle(lead.enVenta)}
                       >
                         {lead.enVenta}
