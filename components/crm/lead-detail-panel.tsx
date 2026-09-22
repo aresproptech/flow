@@ -2266,7 +2266,10 @@ export function LeadDetailPanel({
       <div className="relative grid shrink-0 gap-4 border-b border-border px-5 py-4 md:grid-cols-[minmax(0,1fr)_minmax(280px,auto)] md:items-start">
         <div className="min-w-0 text-center md:text-left">
           <h2 className="truncate text-3xl font-bold tracking-tight text-foreground">
-            {effectiveLead.id.padStart(6, "0")} - {effectiveLead.ownerName}
+            <span className="font-normal">
+              {effectiveLead.id.padStart(6, "0")} - {" "}
+            </span>
+            {effectiveLead.ownerName}
           </h2>
           <div className="mx-auto mt-1 h-1 w-10 rounded-full bg-primary md:mx-0" />
 
