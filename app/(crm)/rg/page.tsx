@@ -194,7 +194,7 @@ export default function RGPage() {
 
       const [contactsResult, leadsResult] = await Promise.all([
         supabase
-          .from("opportunity_contacts")
+          .from("opportunity_activities")
           .select(
             "id, opportunity_id, fecha, memo, created_at, event_type, effective_at, metadata"
           )

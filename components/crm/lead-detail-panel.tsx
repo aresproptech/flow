@@ -1367,7 +1367,7 @@ export function LeadDetailPanel({
         .select("*")
         .eq("opportunity_id", numericLeadId),
       supabase
-        .from("visitas")
+        .from("opportunity_buyers")
         .select("*")
         .eq("opportunity_id", numericLeadId)
         .order("fecha_visita", { ascending: false }),
@@ -1498,7 +1498,7 @@ export function LeadDetailPanel({
 
   async function loadObservations(leadId: string) {
     const { data, error } = await supabase
-      .from("opportunity_contacts")
+      .from("opportunity_activities")
       .select(
         "id, created_at, fecha, memo, resultado, event_type, actor_profile_id, effective_at, metadata, parent_event_id"
       )
@@ -1657,7 +1657,7 @@ export function LeadDetailPanel({
 
   async function loadRgEntries(leadId: string) {
     const { data, error } = await supabase
-      .from("opportunity_contacts")
+      .from("opportunity_activities")
       .select(
         "id, created_at, fecha, memo, resultado, event_type, actor_profile_id, effective_at, metadata, parent_event_id"
       )
@@ -1676,7 +1676,7 @@ export function LeadDetailPanel({
 
   async function loadValuationEntries(leadId: string) {
     const { data, error } = await supabase
-      .from("opportunity_contacts")
+      .from("opportunity_activities")
       .select(
         "id, created_at, fecha, memo, resultado, event_type, actor_profile_id, effective_at, metadata, parent_event_id"
       )
@@ -1800,13 +1800,13 @@ export function LeadDetailPanel({
     if (!insertedId) {
       setSavingNote(false);
       setNoteError(
-        "La observación no devolvió ID al guardarse. Revisá permisos/RLS de opportunity_contacts."
+        "La observación no devolvió ID al guardarse. Revisá permisos/RLS de opportunity_activities."
       );
       return;
     }
 
     const { data: persistedRow, error: readBackError } = await supabase
-      .from("opportunity_contacts")
+      .from("opportunity_activities")
       .select(
         "id, created_at, fecha, memo, resultado, event_type, actor_profile_id, effective_at, metadata, parent_event_id"
       )
@@ -1825,7 +1825,7 @@ export function LeadDetailPanel({
     if (!persistedRow) {
       setSavingNote(false);
       setNoteError(
-        "La observación se insertó, pero no se puede leer después. Revisá políticas RLS de SELECT en opportunity_contacts."
+        "La observación se insertó, pero no se puede leer después. Revisá políticas RLS de SELECT en opportunity_activities."
       );
       return;
     }

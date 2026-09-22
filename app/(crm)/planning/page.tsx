@@ -173,19 +173,19 @@ export default function PlanningPage() {
       const [leadsResult, valuationsResult, rgResult, visitsResult] = await Promise.all([
         supabase.from("crm_leads_view").select("*").order("created_at", { ascending: false }),
         supabase
-          .from("opportunity_contacts")
+          .from("opportunity_activities")
           .select(
             "id, opportunity_id, fecha, memo, created_at, event_type, effective_at, metadata"
           )
           .eq("event_type", "valuation"),
         supabase
-          .from("opportunity_contacts")
+          .from("opportunity_activities")
           .select(
             "id, opportunity_id, fecha, memo, created_at, event_type, effective_at, metadata"
           )
           .eq("event_type", "rg"),
         supabase
-          .from("visitas")
+          .from("opportunity_buyers")
           .select("id, opportunity_id, fecha_visita, hora, created_at"),
       ]);
 

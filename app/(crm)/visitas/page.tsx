@@ -207,7 +207,7 @@ export default function VisitasPage() {
     }
 
     const { data, error } = await supabase
-      .from("visitas")
+      .from("opportunity_buyers")
       .select("*")
       .order("fecha_visita", { ascending: false });
     if (error) {

@@ -787,9 +787,9 @@ export default function DashboardPage() {
 
       const [contactsResponse, visitsResponse] = await Promise.all([
         supabase
-          .from("opportunity_contacts")
+          .from("opportunity_activities")
           .select("id, opportunity_id, fecha, memo, created_at, event_type"),
-        supabase.from("visitas").select("id, opportunity_id, fecha_visita, created_at"),
+        supabase.from("opportunity_buyers").select("id, opportunity_id, fecha_visita, created_at"),
       ]);
 
       if (contactsResponse.error) {

@@ -593,13 +593,13 @@ export default function EncargosPage() {
 
     const [contactsResult, visitsResult] = await Promise.all([
       supabase
-        .from("opportunity_contacts")
+        .from("opportunity_activities")
         .select("opportunity_id, fecha")
         .in("opportunity_id", safeFinalLeadIds)
         .eq("event_type", "rg")
         .gte("fecha", formatDate(fifteenDaysAgo)),
       supabase
-        .from("visitas")
+        .from("opportunity_buyers")
         .select("opportunity_id, fecha_visita")
         .in("opportunity_id", safeFinalLeadIds)
         .gte("fecha_visita", formatDate(thirtyDaysAgo)),
