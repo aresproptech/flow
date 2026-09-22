@@ -370,7 +370,7 @@ type LeadDetailTab =
 type EditLeadTab = "oportunidad" | "propietario" | "inmueble";
 
 const LEAD_DETAIL_TABS: Array<{ value: LeadDetailTab; label: string }> = [
-  { value: "resumen", label: "Resumen" },
+  { value: "resumen", label: "General" },
   { value: "valoracion", label: "Valoración" },
   { value: "encargo", label: "Encargo" },
   { value: "rg", label: "R.G." },
