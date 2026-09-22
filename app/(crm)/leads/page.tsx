@@ -16,7 +16,6 @@ import {
   ChevronUp,
   ChevronDown,
   ChevronsUpDown,
-  Trash2,
   Search,
   LayoutGrid,
   Table2,
@@ -30,14 +29,6 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { type Lead, PHASE_LABELS } from "@/lib/crm-data";
 import { canEditLeads, canViewAllLeads, useUser } from "@/lib/hooks/useUser";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 
 type LeadTableRow = Lead & {
   medio: string;
@@ -757,9 +748,6 @@ export default function LeadsPage() {
   const [totalLeadsCount, setTotalLeadsCount] = useState<number | null>(null);
   const [hasMoreLeads, setHasMoreLeads] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [selectionMode, setSelectionMode] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [searchTerm, setSearchTerm] = useState("");
@@ -1341,6 +1329,7 @@ export default function LeadsPage() {
 
   function clearLeadFilters() {
     setSearchTerm("");
+    setShowFavoritesOnly(false);
     setDomainFilter("all");
     setPhaseFilter("all");
     setStatusFilter("all");
@@ -1519,71 +1508,29 @@ export default function LeadsPage() {
 
   const visibleTableLeads = sortedLeads;
 
-  const visibleSelectedCount = useMemo(
-    () => visibleTableLeads.filter((l) => selectedIds.has(l.id)).length,
-    [visibleTableLeads, selectedIds]
-  );
-
-  const allVisibleSelected =
-    visibleTableLeads.length > 0 &&
-    visibleSelectedCount === visibleTableLeads.length;
-
-  function toggleRowSelection(id: string) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  function toggleSelectAllVisible(checked: boolean) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (checked) {
-        for (const lead of visibleTableLeads) next.add(lead.id);
-      } else {
-        for (const lead of visibleTableLeads) next.delete(lead.id);
-      }
-      return next;
-    });
-  }
-
-  async function handleConfirmDelete() {
-    if (!canEdit) return;
-    setPageError(null);
-    const idsToDelete = Array.from(selectedIds).map((id) => Number(id));
-
-    const { error } = await supabase.rpc("crm_soft_delete_leads", {
-      lead_ids: idsToDelete,
-    });
-
-    if (error) {
-      console.error("Error soft deleting leads:", error);
-      setPageError("No se pudieron eliminar los leads seleccionados. Intentá nuevamente.");
-      return;
-    }
-
-    setLeads((prev) => prev.filter((lead) => !selectedIds.has(lead.id)));
-    setSearchResults((prev) =>
-      prev?.filter((lead) => !selectedIds.has(lead.id)) ?? null
-    );
-
-    if (selectedLead && selectedIds.has(selectedLead.id)) {
-      setSelectedLead(null);
-    }
-
-    setSelectedIds(new Set());
-    setConfirmOpen(false);
-  }
-
   return (
     <>
-      <Topbar title="Leads" />
+      <Topbar title="Oportunidades" />
 
       <main className="mt-14 flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="flex shrink-0 flex-col gap-3 border-b border-border bg-card px-4 py-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4 lg:px-6 lg:py-2.5">
           <div className="flex w-full flex-wrap items-center gap-2 sm:gap-3 lg:w-auto lg:flex-nowrap lg:gap-4">
+            <Button
+              size="sm"
+              variant={showFavoritesOnly ? "default" : "outline"}
+              className="-ml-[calc(0.5rem+3mm)] h-8 w-8 shrink-0 p-0"
+              onClick={() => setShowFavoritesOnly((prev) => !prev)}
+              title="Filtrar favoritos"
+              aria-label="Filtrar favoritos"
+            >
+              <Star
+                className={cn(
+                  "h-4 w-4",
+                  showFavoritesOnly && "fill-current"
+                )}
+              />
+            </Button>
+
             <div className="relative w-full sm:flex-1 lg:w-auto lg:flex-none">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -1760,42 +1707,47 @@ export default function LeadsPage() {
               )}
             </div>
 
-            {(searchTerm ||
-              domainFilter !== "all" ||
-              phaseFilter !== "all" ||
-              statusFilter !== "all" ||
-              dateQuickFilter !== "all") && (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-8 w-8 p-0"
-                onClick={clearLeadFilters}
-                title="Limpiar filtros"
-                aria-label="Limpiar filtros"
-              >
-                <Eraser className="h-3.5 w-3.5" />
-              </Button>
-            )}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className={cn(
+                "h-8 w-8 p-0",
+                !(searchTerm ||
+                  showFavoritesOnly ||
+                  domainFilter !== "all" ||
+                  phaseFilter !== "all" ||
+                  statusFilter !== "all" ||
+                  dateQuickFilter !== "all") &&
+                  "pointer-events-none invisible"
+              )}
+              onClick={clearLeadFilters}
+              title="Limpiar filtros"
+              aria-label="Limpiar filtros"
+              tabIndex={
+                searchTerm ||
+                showFavoritesOnly ||
+                domainFilter !== "all" ||
+                phaseFilter !== "all" ||
+                statusFilter !== "all" ||
+                dateQuickFilter !== "all"
+                  ? 0
+                  : -1
+              }
+              aria-hidden={
+                !(searchTerm ||
+                  showFavoritesOnly ||
+                  domainFilter !== "all" ||
+                  phaseFilter !== "all" ||
+                  statusFilter !== "all" ||
+                  dateQuickFilter !== "all")
+              }
+            >
+              <Eraser className="h-3.5 w-3.5" />
+            </Button>
           </div>
 
           <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:flex-nowrap">
-            <Button
-              size="sm"
-              variant={showFavoritesOnly ? "default" : "outline"}
-              className="h-8 w-8 p-0"
-              onClick={() => setShowFavoritesOnly((prev) => !prev)}
-              title="Filtrar favoritos"
-              aria-label="Filtrar favoritos"
-            >
-              <Star
-                className={cn(
-                  "h-3.5 w-3.5",
-                  showFavoritesOnly && "fill-current"
-                )}
-              />
-            </Button>
-
             <Button
               size="sm"
               variant="outline"
@@ -1851,8 +1803,6 @@ export default function LeadsPage() {
                 type="button"
                 onClick={() => {
                   setViewMode("kanban");
-                  setSelectionMode(false);
-                  setSelectedIds(new Set());
                 }}
                 className={cn(
                   "inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm font-semibold transition-colors",
@@ -1866,23 +1816,6 @@ export default function LeadsPage() {
               </button>
             </div>
 
-            {canEdit && viewMode === "table" && (
-              <Button
-                size="sm"
-                className="hidden h-8 gap-1.5 text-sm font-semibold sm:inline-flex"
-                onClick={() => {
-                  if (selectionMode) {
-                    setSelectionMode(false);
-                    setSelectedIds(new Set());
-                  } else {
-                    setSelectionMode(true);
-                  }
-                }}
-              >
-                {selectionMode ? "Cancelar selección" : "Seleccionar"}
-              </Button>
-            )}
-
             {canEdit && (
               <Button
                 size="sm"
@@ -1890,7 +1823,7 @@ export default function LeadsPage() {
                 onClick={() => setModalOpen(true)}
               >
                 <Plus className="h-3.5 w-3.5" />
-                Nuevo lead
+                Nuevo
               </Button>
             )}
           </div>
@@ -1899,25 +1832,6 @@ export default function LeadsPage() {
         {pageError && (
           <div className="mx-6 mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
             {pageError}
-          </div>
-        )}
-
-        {viewMode === "table" && selectionMode && selectedIds.size > 0 && (
-          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-muted/60 px-6 py-2 text-[11px]">
-            <span className="text-muted-foreground">
-              {selectedIds.size} lead{selectedIds.size !== 1 ? "s" : ""}{" "}
-              seleccionados
-            </span>
-
-            <Button
-              size="sm"
-              variant="destructive"
-              className="h-7 gap-1.5 text-xs"
-              onClick={() => setConfirmOpen(true)}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Eliminar seleccionados
-            </Button>
           </div>
         )}
 
@@ -1933,7 +1847,6 @@ export default function LeadsPage() {
           <div className="relative flex-1 overflow-auto">
             <table className="w-full table-fixed border-collapse text-sm md:w-[2700px] md:[table-layout:fixed]">
               <colgroup>
-                {selectionMode && <col style={{ width: 44 }} className="hidden md:table-column" />}
                 <col className="w-10 md:w-[48px]" />
                 <col className="w-[28%] md:w-[230px]" />
                 <col className="w-[42%] md:w-[310px]" />
@@ -1958,20 +1871,6 @@ export default function LeadsPage() {
 
               <thead className="sticky top-0 z-20 bg-card">
                 <tr className="border-b border-border bg-card/95 text-left backdrop-blur">
-                  {selectionMode && (
-                    <th className="w-8 px-3 py-2.5 hidden md:table-cell">
-                      <input
-                        type="checkbox"
-                        checked={allVisibleSelected}
-                        onChange={(e) =>
-                          toggleSelectAllVisible(e.target.checked)
-                        }
-                        className="h-3.5 w-3.5 rounded border-border text-primary"
-                        aria-label="Seleccionar todos"
-                      />
-                    </th>
-                  )}
-
                   <th className="w-10 px-2 py-2.5 md:w-9 md:px-3">
                     <span className="sr-only">Favorito</span>
                   </th>
@@ -2237,22 +2136,6 @@ export default function LeadsPage() {
                       i % 2 === 0 ? "bg-card" : "bg-background"
                     )}
                   >
-                    {selectionMode && (
-                      <td className="px-3 py-2.5 hidden md:table-cell">
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.has(lead.id)}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            toggleRowSelection(lead.id);
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          className="h-3.5 w-3.5 rounded border-border text-primary"
-                          aria-label="Seleccionar lead"
-                        />
-                      </td>
-                    )}
-
                     <td className="px-2 py-2.5 md:px-3">
                       <button
                         type="button"
@@ -2279,7 +2162,7 @@ export default function LeadsPage() {
                       >
                         <Star
                           className={cn(
-                            "h-3.5 w-3.5",
+                            "h-4 w-4",
                             favoriteIds.has(lead.id) &&
                               "fill-current text-amber-500"
                           )}
@@ -2433,7 +2316,7 @@ export default function LeadsPage() {
                 <tbody>
                   <tr>
                     <td
-                      colSpan={selectionMode ? 21 : 20}
+                      colSpan={20}
                       className="px-6 py-10 text-center text-sm text-muted-foreground"
                     >
                       No hay leads que coincidan con la búsqueda.
@@ -2500,26 +2383,6 @@ export default function LeadsPage() {
         plannerOptions={profileOptions}
       />
 
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Eliminar leads seleccionados</DialogTitle>
-            <DialogDescription>
-              Esta acción eliminará {selectedIds.size} lead
-              {selectedIds.size !== 1 ? "s" : ""} y no se puede deshacer.
-            </DialogDescription>
-          </DialogHeader>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
-              Cancelar
-            </Button>
-            <Button variant="destructive" onClick={handleConfirmDelete}>
-              Eliminar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
