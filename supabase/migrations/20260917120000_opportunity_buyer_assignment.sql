@@ -26,20 +26,27 @@ create index if not exists idx_opportunities_buyer_user_id
   where deleted_at is null;
 
 -- Conserva como asignación inicial el Buyer más reciente cargado en visitas.
-with latest_visit_buyer as (
-  select distinct on (v.opportunity_id)
-    v.opportunity_id,
-    btrim(v.buyer) as buyer_name
-  from public.visitas v
-  where v.opportunity_id is not null
-    and nullif(btrim(v.buyer), '') is not null
-  order by v.opportunity_id, v.fecha_visita desc nulls last, v.created_at desc, v.id desc
-)
-update public.opportunities o
-set buyer_user_desc = latest_visit_buyer.buyer_name
-from latest_visit_buyer
-where o.id = latest_visit_buyer.opportunity_id
-  and nullif(btrim(o.buyer_user_desc), '') is null;
+-- Algunas instalaciones antiguas no tienen todavía esa tabla.
+do $$
+begin
+  if to_regclass('public.visitas') is not null then
+    with latest_visit_buyer as (
+      select distinct on (v.opportunity_id)
+        v.opportunity_id,
+        btrim(v.buyer) as buyer_name
+      from public.visitas v
+      where v.opportunity_id is not null
+        and nullif(btrim(v.buyer), '') is not null
+      order by v.opportunity_id, v.fecha_visita desc nulls last, v.created_at desc, v.id desc
+    )
+    update public.opportunities o
+    set buyer_user_desc = latest_visit_buyer.buyer_name
+    from latest_visit_buyer
+    where o.id = latest_visit_buyer.opportunity_id
+      and nullif(btrim(o.buyer_user_desc), '') is null;
+  end if;
+end
+$$;
 
 with unique_profiles as (
   select lower(btrim(name)) as normalized_name, min(id) as profile_id
