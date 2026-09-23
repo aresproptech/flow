@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { PHASE_LABELS, type Lead } from "@/lib/crm-data";
 import { parseOpportunityContactMemo } from "@/lib/opportunity-contact-memo";
 import { canViewAllLeads, useUser } from "@/lib/hooks/useUser";
+import { LeadDetailPanel } from "@/components/crm/lead-detail-panel";
 import {
   Dialog,
   DialogContent,
@@ -78,6 +79,7 @@ type ValoracionEntry = {
   phase: Lead["phase"];
   planner: string;
   owner: string;
+  lead?: ValoracionLead;
 };
 
 function parseValuationMemo(row: OpportunityContactRow) {
@@ -455,6 +457,7 @@ export default function ValoracionesPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedItem, setSelectedItem] = useState<ValoracionEntry | null>(null);
+  const [selectedLead, setSelectedLead] = useState<ValoracionLead | null>(null);
 
   useEffect(() => {
     if (userLoading) return;
@@ -532,6 +535,7 @@ export default function ValoracionesPage() {
           phase: lead?.phase || "identificada",
           planner: lead?.planner || "—",
           owner: lead?.owner || "—",
+          lead,
         };
       });
 
@@ -690,11 +694,11 @@ export default function ValoracionesPage() {
                   role="button"
                   tabIndex={0}
                   aria-label={`Ver detalle de la valoración de ${item.ownerName}`}
-                  onClick={() => setSelectedItem(item)}
+                  onClick={() => setSelectedLead(item.lead ?? null)}
                   onKeyDown={(event) => {
                     if (event.key !== "Enter" && event.key !== " ") return;
                     event.preventDefault();
-                    setSelectedItem(item);
+                    setSelectedLead(item.lead ?? null);
                   }}
                   className={cn(
                     "cursor-pointer border-b border-border transition-colors hover:bg-accent/60 focus-visible:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
@@ -887,6 +891,13 @@ export default function ValoracionesPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <LeadDetailPanel
+        lead={selectedLead}
+        onClose={() => setSelectedLead(null)}
+        onSaveLead={async () => undefined}
+        readOnly
+      />
     </>
   );
 }

@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Topbar } from "@/components/crm/topbar";
 import { supabase } from "@/lib/supabase";
 import { canEditLeads, canViewAllLeads, useUser } from "@/lib/hooks/useUser";
+import type { Lead } from "@/lib/crm-data";
+import { LeadDetailPanel } from "@/components/crm/lead-detail-panel";
 import { Plus, RefreshCw, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -36,13 +38,24 @@ type OpportunityOrderRow = {
 
 type LeadRow = {
   id: number;
+  created_at?: string | null;
+  fecha?: string | null;
+  fecha_contacto?: string | null;
+  fecha_valoracion?: string | null;
+  hora?: string | null;
   propietario: string | null;
+  telefono?: string | null;
   domicilio: string | null;
+  tasacion?: string | null;
   estado: string | null;
   dominio_desc: string | null;
   contact_name: string | null;
   comercial_name: string | null;
   source_name: string | null;
+  provincia?: string | null;
+  distrito?: string | null;
+  cp?: number | null;
+  memo?: string | null;
 };
 
 type EncargoItem = {
@@ -438,6 +451,7 @@ export default function EncargosPage() {
   const [pageError, setPageError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selected, setSelected] = useState<EncargoItem | null>(null);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [createLeadId, setCreateLeadId] = useState("");
   const [editOpen, setEditOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -699,22 +713,42 @@ export default function EncargosPage() {
     setEditOpen(true);
   }
 
-  function handleRowClick(item: EncargoItem) {
-    if (!canEdit) return;
-    setFormError(null);
-    setCreateLeadId("");
-    setSelected(item);
-    setEditForm({
-      fecha_inicio: item.fecha_inicio || "",
-      fecha_fin: item.fecha_fin || "",
-      pvp_inicial: item.pvp_inicial !== null ? String(item.pvp_inicial) : "",
-      pvp_actual: item.pvp_actual !== null ? String(item.pvp_actual) : "",
-      pvp_estimado: item.pvp_estimado !== null ? String(item.pvp_estimado) : "",
-      com_vendedor: item.com_vendedor !== null ? String(item.com_vendedor) : "",
-      com_comprador: item.com_comprador !== null ? String(item.com_comprador) : "",
-      memo: item.memo || "",
+  async function handleOpenLead(item: EncargoItem) {
+    const { data, error } = await supabase
+      .from("crm_leads_view")
+      .select("*")
+      .eq("id", item.leadId)
+      .maybeSingle();
+
+    if (error || !data) return;
+    const row = data as LeadRow & Record<string, unknown>;
+    const address = row.domicilio?.trim() || "—";
+    const district = row.distrito?.trim() || "—";
+    setSelectedLead({
+      id: String(row.id),
+      ownerName: row.propietario?.trim() || "—",
+      address,
+      distrito: district,
+      municipio: district,
+      provincia: row.provincia?.trim() || "—",
+      cp: row.cp ? String(row.cp) : "—",
+      valor: row.tasacion?.trim() || "—",
+      phone: row.telefono?.trim() || "—",
+      source: row.source_name?.trim() || "Sin origen",
+      phase: "encargo",
+      status: "activa",
+      fechaNoticia: row.fecha || row.created_at || "",
+      fechaContacto: row.fecha_contacto || "",
+      fechaValoracion: row.fecha_valoracion || "",
+      hora: row.hora || "",
+      planner: row.contact_name?.trim() || "—",
+      owner: row.comercial_name?.trim() || "—",
+      createdAt: row.created_at || "",
+      assignedUser: row.comercial_name?.trim() || "—",
+      propertyAddress: address,
+      notes: row.memo?.trim() || "",
+      observaciones: [],
     });
-    setEditOpen(true);
   }
 
   async function handleSave() {
@@ -928,10 +962,10 @@ export default function EncargosPage() {
                   return (
                     <tr
                       key={item.id}
-                      onClick={canEdit ? () => handleRowClick(item) : undefined}
+                      onClick={() => void handleOpenLead(item)}
                       className={cn(
                         "border-b border-border transition-colors",
-                        canEdit && "cursor-pointer hover:bg-accent/60",
+                        "cursor-pointer hover:bg-accent/60",
                         i % 2 === 0 ? "bg-card" : "bg-background"
                       )}
                     >
@@ -984,6 +1018,13 @@ export default function EncargosPage() {
           </table>
         </div>
       </main>
+
+      <LeadDetailPanel
+        lead={selectedLead}
+        onClose={() => setSelectedLead(null)}
+        onSaveLead={async () => undefined}
+        readOnly
+      />
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-2xl gap-3 overflow-y-auto p-4 sm:max-h-[90vh] sm:w-full sm:gap-4 sm:p-6">

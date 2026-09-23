@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Topbar } from "@/components/crm/topbar";
 import { supabase } from "@/lib/supabase";
 import { canManageVisits, useUser } from "@/lib/hooks/useUser";
+import type { Lead } from "@/lib/crm-data";
+import { LeadDetailPanel } from "@/components/crm/lead-detail-panel";
 import { Check, Copy, Search, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -181,6 +183,7 @@ export default function VisitasPage() {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedVisita, setSelectedVisita] = useState<Visita | null>(null);
+    const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [inmuebles, setInmuebles] = useState<InmuebleOption[]>([]);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<VisitaForm>(EMPTY_FORM);
@@ -273,9 +276,50 @@ export default function VisitasPage() {
 
   function handleRowClick(v: Visita) {
     setFormError(null);
-    setSelectedVisita(v);
-    setEditForm(visitaToForm(v));
-    setEditModalOpen(true);
+    void openLeadDetail(v);
+  }
+
+  async function openLeadDetail(v: Visita) {
+    if (!v.opportunity_id) return;
+
+    const { data, error } = await supabase
+      .from("crm_leads_view")
+      .select("*")
+      .eq("id", v.opportunity_id)
+      .maybeSingle();
+
+    if (error || !data) return;
+    const row = data as Record<string, unknown>;
+    const text = (value: unknown, fallback = "—") =>
+      typeof value === "string" && value.trim() ? value.trim() : fallback;
+    const address = text(row.domicilio);
+    const district = text(row.distrito);
+
+    setSelectedLead({
+      id: String(row.id),
+      ownerName: text(row.propietario),
+      address,
+      distrito: district,
+      municipio: district,
+      provincia: text(row.provincia),
+      cp: row.cp ? String(row.cp) : "—",
+      valor: text(row.tasacion),
+      phone: text(row.telefono),
+      source: text(row.source_name, "Sin origen"),
+      phase: "identificada",
+      status: "activa",
+      fechaNoticia: text(row.fecha, ""),
+      fechaContacto: text(row.fecha_contacto, ""),
+      fechaValoracion: text(row.fecha_valoracion, ""),
+      hora: text(row.hora, ""),
+      planner: text(row.contact_name),
+      owner: text(row.comercial_name),
+      createdAt: text(row.created_at, ""),
+      assignedUser: text(row.comercial_name),
+      propertyAddress: address,
+      notes: text(row.memo, ""),
+      observaciones: [],
+    });
   }
 
   async function handleSaveVisita() {
@@ -558,6 +602,13 @@ export default function VisitasPage() {
           </table>
         </div>
       </main>
+
+      <LeadDetailPanel
+        lead={selectedLead}
+        onClose={() => setSelectedLead(null)}
+        onSaveLead={async () => undefined}
+        readOnly
+      />
 
       {/* Modal Agregar Visita */}
       <Dialog open={addModalOpen} onOpenChange={setAddModalOpen}>

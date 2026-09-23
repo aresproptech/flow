@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import type { Lead } from "@/lib/crm-data";
 import { parseOpportunityContactMemo } from "@/lib/opportunity-contact-memo";
 import { canViewAllLeads, useUser } from "@/lib/hooks/useUser";
+import { LeadDetailPanel } from "@/components/crm/lead-detail-panel";
 
 type CrmLeadRow = {
   id: number;
@@ -134,6 +135,7 @@ type RgEntry = {
   phone: string;
   planner: string;
   owner: string;
+  lead?: Lead;
 };
 
 function parseRgMemo(row: OpportunityContactRow) {
@@ -177,6 +179,7 @@ export default function RGPage() {
   const [items, setItems] = useState<RgEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
   useEffect(() => {
     if (userLoading) return;
@@ -245,6 +248,7 @@ export default function RGPage() {
           phone: lead?.phone || "—",
           planner: lead?.planner || "—",
           owner: lead?.owner || "—",
+          lead,
         };
       });
 
@@ -280,6 +284,7 @@ export default function RGPage() {
           phone: lead.phone,
           planner: lead.planner || "—",
           owner: lead.owner,
+          lead,
         });
       }
 
@@ -388,8 +393,9 @@ export default function RGPage() {
               {filteredItems.map((item, i) => (
                 <tr
                   key={item.id}
+                  onClick={() => setSelectedLead(item.lead ?? null)}
                   className={cn(
-                    "border-b border-border transition-colors hover:bg-accent/40",
+                    "cursor-pointer border-b border-border transition-colors hover:bg-accent/40",
                     i % 2 === 0 ? "bg-card" : "bg-background"
                   )}
                 >
@@ -432,6 +438,13 @@ export default function RGPage() {
           </table>
         </div>
       </main>
+
+      <LeadDetailPanel
+        lead={selectedLead}
+        onClose={() => setSelectedLead(null)}
+        onSaveLead={async () => undefined}
+        readOnly
+      />
     </>
   );
 }

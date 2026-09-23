@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import type { Lead } from "@/lib/crm-data";
 import { parseOpportunityContactMemo } from "@/lib/opportunity-contact-memo";
 import { canViewAllLeads, useUser } from "@/lib/hooks/useUser";
+import { LeadDetailPanel } from "@/components/crm/lead-detail-panel";
 
 type CrmLeadRow = {
   id: number;
@@ -41,6 +42,7 @@ type PlanningItem = {
   equipo: string;
   planner: string;
   owner: string;
+  lead?: PlanningLead;
 };
 
 type PlanningLead = Lead & {
@@ -155,6 +157,7 @@ export default function PlanningPage() {
   const [items, setItems] = useState<PlanningItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedLead, setSelectedLead] = useState<PlanningLead | null>(null);
 
   useEffect(() => {
     if (userLoading) return;
@@ -241,6 +244,7 @@ export default function PlanningPage() {
           equipo: lead.dominio,
           planner: lead.planner || "—",
           owner: lead.owner,
+          lead,
         });
       }
 
@@ -393,8 +397,9 @@ export default function PlanningPage() {
               {filteredItems.map((item, i) => (
                 <tr
                   key={item.id}
+                  onClick={() => setSelectedLead(item.lead ?? null)}
                   className={cn(
-                    "border-b border-border transition-colors hover:bg-accent/40",
+                    "cursor-pointer border-b border-border transition-colors hover:bg-accent/40",
                     i % 2 === 0 ? "bg-card" : "bg-background"
                   )}
                 >
@@ -434,6 +439,13 @@ export default function PlanningPage() {
           </table>
         </div>
       </main>
+
+      <LeadDetailPanel
+        lead={selectedLead}
+        onClose={() => setSelectedLead(null)}
+        onSaveLead={async () => undefined}
+        readOnly
+      />
     </>
   );
 }
