@@ -28,7 +28,8 @@ CREATE VIEW "public"."crm_leads_view" WITH (security_invoker=true) AS  SELECT o.
     o.fecha_valoracion,
     o.hora,
     o.buyer_user_id,
-    COALESCE(ub.name, o.buyer_user_desc, 'Sin buyer'::text) AS buyer_name
+    COALESCE(ub.name, o.buyer_user_desc, 'Sin buyer'::text) AS buyer_name,
+    o.is_favorite
    FROM ((((((public.opportunities o
      LEFT JOIN public.phases p ON ((p.id = o.fase_id)))
      LEFT JOIN public.sources s ON ((s.id = o.source_id)))

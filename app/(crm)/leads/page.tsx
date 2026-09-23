@@ -2420,51 +2420,12 @@ export default function LeadsPage() {
               )}
             </table>
 
-            {totalPages > 1 && (
-              <nav
-                className="flex flex-wrap items-center justify-center gap-1 border-t border-border bg-background px-6 py-4"
-                aria-label="Paginación de oportunidades"
-              >
-                {paginationPages.map((page, index) => {
-                  const previousPage = paginationPages[index - 1];
-                  const showEllipsis = previousPage && page - previousPage > 1;
-
-                  return (
-                    <span key={page} className="inline-flex items-center gap-1">
-                      {showEllipsis && (
-                        <span className="px-1 text-sm text-muted-foreground">
-                          ...
-                        </span>
-                      )}
-                      <Button
-                        type="button"
-                        variant={page === currentPage ? "default" : "outline"}
-                        size="sm"
-                        className="h-8 min-w-8 px-2 text-sm font-medium"
-                        onClick={() => {
-                          if (isSearchPagination) {
-                            setCurrentPage(page);
-                          } else {
-                            void loadLeadsFromSupabase({ page });
-                          }
-                        }}
-                        disabled={loadingLeads || page === currentPage}
-                        aria-current={page === currentPage ? "page" : undefined}
-                        aria-label={`Ir a la página ${page}`}
-                      >
-                        {page}
-                      </Button>
-                    </span>
-                  );
-                })}
-              </nav>
-            )}
           </div>
         ) : (
           <div className="flex-1 overflow-auto px-6 py-5">
             {!loadingSearchResults && (
               <KanbanBoard
-                leads={filteredLeads.filter((lead) =>
+                leads={visibleTableLeads.filter((lead) =>
                   VALID_PHASES.includes(lead.phase)
                 )}
                 hideEmptyColumns={Boolean(searchTerm.trim())}
@@ -2473,6 +2434,46 @@ export default function LeadsPage() {
               />
             )}
           </div>
+        )}
+
+        {totalPages > 1 && (
+          <nav
+            className="flex shrink-0 flex-wrap items-center justify-center gap-1 border-t border-border bg-background px-6 py-4"
+            aria-label="Paginación de oportunidades"
+          >
+            {paginationPages.map((page, index) => {
+              const previousPage = paginationPages[index - 1];
+              const showEllipsis = previousPage && page - previousPage > 1;
+
+              return (
+                <span key={page} className="inline-flex items-center gap-1">
+                  {showEllipsis && (
+                    <span className="px-1 text-sm text-muted-foreground">
+                      ...
+                    </span>
+                  )}
+                  <Button
+                    type="button"
+                    variant={page === currentPage ? "default" : "outline"}
+                    size="sm"
+                    className="h-8 min-w-8 px-2 text-sm font-medium"
+                    onClick={() => {
+                      if (isSearchPagination) {
+                        setCurrentPage(page);
+                      } else {
+                        void loadLeadsFromSupabase({ page });
+                      }
+                    }}
+                    disabled={loadingLeads || page === currentPage}
+                    aria-current={page === currentPage ? "page" : undefined}
+                    aria-label={`Ir a la página ${page}`}
+                  >
+                    {page}
+                  </Button>
+                </span>
+              );
+            })}
+          </nav>
         )}
       </main>
 
