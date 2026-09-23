@@ -399,38 +399,38 @@ export default function PlanningPage() {
                   key={item.id}
                   onClick={() => setSelectedLead(item.lead ?? null)}
                   className={cn(
-                    "cursor-pointer border-b border-border transition-colors hover:bg-accent/40",
+                    "cursor-pointer border-b border-border transition-colors hover:bg-accent/60",
                     i % 2 === 0 ? "bg-card" : "bg-background"
                   )}
                 >
-                  <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                  <td className="px-3 py-2.5 text-sm text-muted-foreground">
                     {item.planning}
                   </td>
-                  <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                  <td className="px-3 py-2.5 text-sm text-muted-foreground">
                     {fmt(item.fecha)}
                   </td>
-                  <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                  <td className="px-3 py-2.5 text-sm text-muted-foreground">
                     {item.hora || "—"}
                   </td>
-                  <td className="px-3 py-2.5 text-xs font-medium text-foreground">
+                  <td className="px-3 py-2.5 text-sm text-foreground">
                     {item.tipo}
                   </td>
-                  <td className="max-w-[260px] truncate px-3 py-2.5 text-xs text-muted-foreground">
+                  <td className="max-w-[260px] truncate px-3 py-2.5 text-sm text-muted-foreground">
                     {item.inmueble}
                   </td>
-                  <td className="px-3 py-2.5 font-medium text-foreground">
+                  <td className="px-3 py-2.5 font-bold text-foreground">
                     {item.propietario}
                   </td>
-                  <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                  <td className="px-3 py-2.5 text-sm text-muted-foreground">
                     {item.telefono}
                   </td>
-                  <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                  <td className="px-3 py-2.5 text-sm text-muted-foreground">
                     {item.equipo}
                   </td>
-                  <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                  <td className="px-3 py-2.5 text-sm text-muted-foreground">
                     {item.planner}
                   </td>
-                  <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                  <td className="px-3 py-2.5 text-sm text-muted-foreground">
                     {item.owner}
                   </td>
                 </tr>

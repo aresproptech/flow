@@ -1488,12 +1488,14 @@ export function LeadDetailPanel({
   }
 
   async function handleCallLead() {
-    if (!effectiveLead || readOnly) return;
+    if (!effectiveLead) return;
 
-    await persistActivity("Llamó al lead", "call", {
-      phone: effectiveLead.phone,
-    });
-    await loadObservations(effectiveLead.id);
+    if (!readOnly) {
+      await persistActivity("Llamó al lead", "call", {
+        phone: effectiveLead.phone,
+      });
+      await loadObservations(effectiveLead.id);
+    }
   }
 
   async function loadObservations(leadId: string) {
@@ -2274,37 +2276,22 @@ export function LeadDetailPanel({
           <div className="mx-auto mt-1 h-1 w-10 rounded-full bg-primary md:mx-0" />
 
           {effectiveLead.phone && effectiveLead.phone !== "—" && (
-            readOnly ? (
-              <MaskedPhone
-                value={effectiveLead.phone}
-                className="mt-1 text-xs font-medium text-muted-foreground"
-              />
-            ) : (
-              <>
+            <>
+              <div className="mt-2 flex items-center gap-3">
+                <MaskedPhone
+                  value={effectiveLead.phone}
+                  className="text-xs font-medium text-muted-foreground"
+                />
                 <a
                   href={`tel:${effectiveLead.phone.replace(/[^+\d]/g, "")}`}
                   onClick={() => void handleCallLead()}
-                  className="mx-auto mt-2 flex h-10 w-full items-center justify-center rounded-md bg-primary px-3 text-center text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 md:hidden"
+                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground shadow-sm transition hover:bg-primary/90"
                 >
+                  <Phone className="h-3.5 w-3.5" />
                   Llamar
                 </a>
-
-                <div className="mt-2 hidden items-center gap-3 md:flex">
-                  <MaskedPhone
-                    value={effectiveLead.phone}
-                    className="text-xs font-medium text-muted-foreground"
-                  />
-                  <a
-                    href={`tel:${effectiveLead.phone.replace(/[^+\d]/g, "")}`}
-                    onClick={() => void handleCallLead()}
-                    className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground shadow-sm transition hover:bg-primary/90"
-                  >
-                    <Phone className="h-3.5 w-3.5" />
-                    Llamar
-                  </a>
-                </div>
-              </>
-            )
+              </div>
+            </>
           )}
 
           <div className="mt-2 flex items-baseline justify-center gap-2 md:justify-start">

@@ -471,7 +471,7 @@ export default function VisitasPage() {
             <Button
               size="sm"
               variant="outline"
-              className="h-10 w-full gap-1.5 text-xs font-semibold sm:h-7 sm:w-auto"
+              className="h-8 w-full gap-1.5 text-sm font-semibold sm:w-auto"
               onClick={() => void handleCopySelectedPhones()}
               disabled={selectedPhoneNumbers.length === 0}
               title="Copiar teléfonos seleccionados"
@@ -487,7 +487,7 @@ export default function VisitasPage() {
             </Button>
             <Button
               size="sm"
-              className="h-10 w-full gap-1.5 text-xs font-semibold sm:h-7 sm:w-auto"
+              className="h-8 w-full gap-1.5 text-sm font-semibold sm:w-auto"
               onClick={() => {
                 setFormError(null);
                 setAddModalOpen(true);
@@ -542,19 +542,19 @@ export default function VisitasPage() {
                         i % 2 === 0 ? "bg-card" : "bg-background"
                       )}
                     >
-                      <td className="px-3 py-2.5 text-xs text-muted-foreground">{v.estado || "—"}</td>
-                      <td className="px-3 py-2.5 text-xs text-muted-foreground">{v.dominio || "—"}</td>
-                      <td className="px-3 py-2.5 text-xs text-muted-foreground">{v.planner || "—"}</td>
-                      <td className="px-3 py-2.5 text-xs text-muted-foreground">{v.owner || "—"}</td>
-                      <td className="max-w-[200px] truncate px-3 py-2.5 text-xs text-muted-foreground">
+                      <td className="px-3 py-2.5 text-sm text-muted-foreground">{v.estado || "—"}</td>
+                      <td className="px-3 py-2.5 text-sm text-muted-foreground">{v.dominio || "—"}</td>
+                      <td className="px-3 py-2.5 text-sm text-muted-foreground">{v.planner || "—"}</td>
+                      <td className="px-3 py-2.5 text-sm text-muted-foreground">{v.owner || "—"}</td>
+                      <td className="max-w-[200px] truncate px-3 py-2.5 text-sm text-muted-foreground">
                         {inmueble?.domicilio || "—"}
                       </td>
-                      <td className="px-3 py-2.5 text-xs text-muted-foreground">{fmt(v.fecha_visita)}</td>
-                      <td className="px-3 py-2.5 text-xs text-muted-foreground">{v.hora || "—"}</td>
-                      <td className="px-3 py-2.5 text-xs text-muted-foreground">{v.buyer || "—"}</td>
-                      <td className="px-3 py-2.5 text-xs font-medium text-foreground">{v.nombre_apellido || "—"}</td>
+                      <td className="px-3 py-2.5 text-sm text-muted-foreground">{fmt(v.fecha_visita)}</td>
+                      <td className="px-3 py-2.5 text-sm text-muted-foreground">{v.hora || "—"}</td>
+                      <td className="px-3 py-2.5 text-sm text-muted-foreground">{v.buyer || "—"}</td>
+                      <td className="px-3 py-2.5 text-sm font-bold text-foreground">{v.nombre_apellido || "—"}</td>
                       <td
-                        className="select-text px-3 py-2.5 font-mono text-xs text-muted-foreground"
+                        className="select-text px-3 py-2.5 font-mono text-sm text-muted-foreground"
                         onMouseDown={(event) => event.stopPropagation()}
                         onClick={(event) => event.stopPropagation()}
                         title="Seleccionar o copiar teléfono"
@@ -587,11 +587,11 @@ export default function VisitasPage() {
                           )}
                         </div>
                       </td>
-                      <td className="px-3 py-2.5 text-xs text-muted-foreground">{v.dni || "—"}</td>
-                      <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                      <td className="px-3 py-2.5 text-sm text-muted-foreground">{v.dni || "—"}</td>
+                      <td className="px-3 py-2.5 text-sm text-muted-foreground">
                         {v.vende === null ? "—" : v.vende ? "Sí" : "No"}
                       </td>
-                      <td className="max-w-[200px] truncate px-3 py-2.5 text-xs text-muted-foreground">
+                      <td className="max-w-[200px] truncate px-3 py-2.5 text-sm text-muted-foreground">
                         {v.observaciones_visita || "—"}
                       </td>
                     </tr>

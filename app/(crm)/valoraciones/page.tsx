@@ -713,7 +713,7 @@ export default function ValoracionesPage() {
                       return (
                         <span
                           className={cn(
-                            "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium whitespace-nowrap",
+                            "inline-flex items-center rounded-full border px-2 py-0.5 text-sm font-medium whitespace-nowrap",
                             config.className
                           )}
                         >
@@ -722,66 +722,66 @@ export default function ValoracionesPage() {
                       );
                     })()}
                   </td>
-                  <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                  <td className="px-3 py-2.5 text-sm text-muted-foreground">
                     {fmt(item.fecha)}
                   </td>
-                  <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                  <td className="px-3 py-2.5 text-sm text-muted-foreground">
                     {item.hora || "—"}
                   </td>
                   <td className="px-3 py-2.5">
                     {item.medio ? (
                       <span
-                        className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium whitespace-nowrap"
+                        className="inline-flex items-center rounded-full border px-2 py-0.5 text-sm font-medium whitespace-nowrap"
                         style={getMedioBadgeStyle(item.medio)}
                       >
                         {item.medio}
                       </span>
                     ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
+                      <span className="text-sm text-muted-foreground">—</span>
                     )}
                   </td>
                   <td className="px-3 py-2.5">
                     {item.dominio && item.dominio !== "—" ? (
                       <span
-                        className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium whitespace-nowrap"
+                        className="inline-flex items-center rounded-full border px-2 py-0.5 text-sm font-medium whitespace-nowrap"
                         style={getDominioBadgeStyle(item.dominio)}
                       >
                         {item.dominio}
                       </span>
                     ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
+                      <span className="text-sm text-muted-foreground">—</span>
                     )}
                   </td>
                   <td className="px-3 py-2.5">
                     <span
-                      className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium whitespace-nowrap"
+                      className="inline-flex items-center rounded-full border px-2 py-0.5 text-sm font-medium whitespace-nowrap"
                       style={getSourceBadgeStyle(item.source)}
                     >
                       {item.source}
                     </span>
                   </td>
-                  <td className="max-w-[260px] truncate px-3 py-2.5 text-xs text-muted-foreground">
+                  <td className="max-w-[260px] truncate px-3 py-2.5 text-sm text-muted-foreground">
                     {item.address}
                   </td>
-                  <td className="px-3 py-2.5 font-medium text-foreground">
+                  <td className="px-3 py-2.5 font-bold text-foreground">
                     {item.ownerName}
                   </td>
-                  <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                  <td className="px-3 py-2.5 text-sm text-muted-foreground">
                     {item.phone}
                   </td>
                   <td className="px-3 py-2.5">
                     <span
-                      className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap"
+                      className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-sm font-medium whitespace-nowrap"
                       style={getPhaseBadgeStyle(item.phase)}
                     >
                       <Circle className="h-1.5 w-1.5 fill-current" />
                       {PHASE_LABELS[item.phase] ?? item.phase}
                     </span>
                   </td>
-                  <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                  <td className="px-3 py-2.5 text-sm text-muted-foreground">
                     {item.planner || "—"}
                   </td>
-                  <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                  <td className="px-3 py-2.5 text-sm text-muted-foreground">
                     {item.owner}
                   </td>
                 </tr>
