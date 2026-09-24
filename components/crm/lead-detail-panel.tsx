@@ -36,7 +36,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { LeadDocumentationTab } from "@/components/crm/lead-documentation-tab";
-import { MaskedPhone } from "@/components/crm/masked-phone";
 import {
   Select,
   SelectContent,
@@ -2405,10 +2404,9 @@ export function LeadDetailPanel({
           {effectiveLead.phone && effectiveLead.phone !== "—" && (
             <>
               <div className="mt-2 flex items-center gap-3">
-                <MaskedPhone
-                  value={effectiveLead.phone}
-                  className="text-xs font-medium text-muted-foreground"
-                />
+                <span className="text-xs font-medium text-muted-foreground">
+                  {effectiveLead.phone}
+                </span>
                 <a
                   href={`tel:${effectiveLead.phone.replace(/[^+\d]/g, "")}`}
                   onClick={() => void handleCallLead()}
@@ -3403,9 +3401,7 @@ export function LeadDetailPanel({
                                 {displayValue(visit.nombre_apellido || visit.buyer)}
                               </span>
                               <span className="text-muted-foreground">
-                                <MaskedPhone
-                                  value={visit.telefono_comprador || visit.telefono}
-                                />
+                                {displayValue(visit.telefono_comprador || visit.telefono)}
                               </span>
                               <span>
                                 <Badge variant="outline" className="rounded-md text-[11px]">
@@ -3447,9 +3443,7 @@ export function LeadDetailPanel({
                                       {displayValue(visit.nombre_apellido)}
                                     </SmallDataCard>
                                     <SmallDataCard label="Teléfono">
-                                      <MaskedPhone
-                                        value={visit.telefono_comprador || visit.telefono}
-                                      />
+                                      {displayValue(visit.telefono_comprador || visit.telefono)}
                                     </SmallDataCard>
                                     <SmallDataCard label="DNI">
                                       {displayValue(visit.dni)}
