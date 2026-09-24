@@ -12,7 +12,6 @@ import {
   Circle,
   Pencil,
   MessageSquare,
-  Send,
   Clock,
   Euro,
   LocateFixed,
@@ -23,6 +22,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -367,6 +367,62 @@ type VisitRow = {
   created_by?: string | null;
   created_at?: string | null;
 };
+
+type LeadChecklist = {
+  ownerContact: string;
+  propertyConfirmed: string;
+  phoneConfirmed: string;
+  whyContacted: string;
+  saleReason: string;
+  homeSituation: string;
+  moreOwners: string;
+  decisionParticipants: string;
+  otherAgencies: string;
+  relevantConcern: string;
+  meetingParticipants: string;
+  guideSent: string;
+};
+
+const EMPTY_LEAD_CHECKLIST: LeadChecklist = {
+  ownerContact: "",
+  propertyConfirmed: "",
+  phoneConfirmed: "",
+  whyContacted: "",
+  saleReason: "",
+  homeSituation: "",
+  moreOwners: "",
+  decisionParticipants: "",
+  otherAgencies: "",
+  relevantConcern: "",
+  meetingParticipants: "",
+  guideSent: "",
+};
+
+const CHECKLIST_TEXT_FIELDS: Array<{
+  field: Exclude<keyof LeadChecklist, "propertyConfirmed" | "phoneConfirmed" | "otherAgencies" | "guideSent">;
+  label: string;
+  section: "identificacion" | "queSabemos";
+}> = [
+  { field: "ownerContact", label: "Propietario / interlocutor identificado", section: "identificacion" },
+  { field: "whyContacted", label: "¿Por qué ha contactado ahora?", section: "queSabemos" },
+  { field: "saleReason", label: "Motivo para plantearse la venta", section: "queSabemos" },
+  { field: "homeSituation", label: "Situación actual de la vivienda", section: "queSabemos" },
+  { field: "moreOwners", label: "¿Hay más propietarios?", section: "queSabemos" },
+  { field: "decisionParticipants", label: "¿Quiénes participan en la decisión?", section: "queSabemos" },
+  { field: "relevantConcern", label: "Preocupación, comentario o circunstancia relevante", section: "queSabemos" },
+  { field: "meetingParticipants", label: "Personas que participarán", section: "identificacion" },
+];
+
+const CHECKLIST_BOOLEAN_FIELDS: Array<{
+  field: "propertyConfirmed" | "phoneConfirmed" | "otherAgencies" | "guideSent";
+  label: string;
+  section: "identificacion" | "queSabemos";
+}> = [
+  { field: "propertyConfirmed", label: "Inmueble y dirección confirmados y actualizados", section: "identificacion" },
+  { field: "phoneConfirmed", label: "Teléfono confirmado y actualizado", section: "identificacion" },
+  { field: "otherAgencies", label: "¿Ha hablado ya con otras inmobiliarias?", section: "queSabemos" },
+  { field: "guideSent", label: "Guía ARES enviada una vez confirmada la reunión", section: "identificacion" },
+];
 
 type LeadDetailTab =
   | "resumen"
@@ -1308,6 +1364,9 @@ export function LeadDetailPanel({
   const [noteError, setNoteError] = useState<string | null>(null);
   const [noteEvents, setNoteEvents] = useState<LeadHistoryEvent[]>([]);
   const [activityEvents, setActivityEvents] = useState<LeadActivityEvent[]>([]);
+  const [checklist, setChecklist] = useState<LeadChecklist>(EMPTY_LEAD_CHECKLIST);
+  const [checklistSaving, setChecklistSaving] = useState(false);
+  const [checklistError, setChecklistError] = useState<string | null>(null);
   const [localLead, setLocalLead] = useState<LeadWithDominio | null>(lead as LeadWithDominio | null);
   const [orders, setOrders] = useState<OpportunityOrderRow[]>([]);
   const [visits, setVisits] = useState<VisitRow[]>([]);
@@ -1371,8 +1430,80 @@ export function LeadDetailPanel({
   useEffect(() => {
     setLocalLead(lead as LeadWithDominio | null);
     setNoteError(null);
-    if (!lead) setNote("");
+    if (!lead) {
+      setNote("");
+      setChecklist(EMPTY_LEAD_CHECKLIST);
+      setChecklistError(null);
+    } else {
+      void loadChecklist(lead.id);
+    }
   }, [lead]);
+
+  async function loadChecklist(leadId: string) {
+    setChecklistError(null);
+    const { data, error } = await supabase
+      .from("opportunity_documentation_cases")
+      .select("state")
+      .eq("opportunity_id", Number(leadId))
+      .maybeSingle();
+
+    if (error) {
+      setChecklistError(`No se pudo cargar el checklist: ${error.message}`);
+      return;
+    }
+
+    const state = data?.state;
+    const savedChecklist =
+      state && typeof state === "object" && "checklist" in state
+        ? (state as { checklist?: Partial<LeadChecklist> }).checklist
+        : undefined;
+
+    setChecklist({ ...EMPTY_LEAD_CHECKLIST, ...(savedChecklist ?? {}) });
+  }
+
+  async function updateChecklistField(
+    field: keyof LeadChecklist,
+    value: string
+  ) {
+    if (!effectiveLead || readOnly) return;
+
+    const nextChecklist = { ...checklist, [field]: value };
+    setChecklist(nextChecklist);
+    setChecklistSaving(true);
+    setChecklistError(null);
+
+    const { data: existingCase, error: readError } = await supabase
+      .from("opportunity_documentation_cases")
+      .select("state")
+      .eq("opportunity_id", Number(effectiveLead.id))
+      .maybeSingle();
+
+    if (readError) {
+      setChecklistError(`No se pudo guardar el checklist: ${readError.message}`);
+      setChecklistSaving(false);
+      return;
+    }
+
+    const existingState =
+      existingCase?.state && typeof existingCase.state === "object"
+        ? existingCase.state
+        : {};
+    const { error: saveError } = await supabase
+      .from("opportunity_documentation_cases")
+      .upsert(
+        {
+          opportunity_id: Number(effectiveLead.id),
+          state: { ...existingState, checklist: nextChecklist },
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "opportunity_id" }
+      );
+
+    if (saveError) {
+      setChecklistError(`No se pudo guardar el checklist: ${saveError.message}`);
+    }
+    setChecklistSaving(false);
+  }
 
   async function loadRelatedData(leadId: string) {
     setRelatedLoading(true);
@@ -2610,20 +2741,10 @@ export function LeadDetailPanel({
                       <Textarea
                         value={note}
                         onChange={(event) => setNote(event.target.value)}
+                        onBlur={() => void handleAddNote()}
                         placeholder=""
-                        className="min-h-[220px] max-h-[420px] resize-none overflow-y-auto text-sm"
+                        className="min-h-[180px] max-h-[360px] resize-none overflow-y-auto text-sm"
                       />
-                      <div className="flex justify-end">
-                        <Button
-                          size="sm"
-                          className="h-8 gap-1.5 text-xs"
-                          onClick={handleAddNote}
-                          disabled={savingNote}
-                        >
-                          <Send className="h-3.5 w-3.5" />
-                          Guardar
-                        </Button>
-                      </div>
                     </>
                   )}
 
@@ -2638,6 +2759,62 @@ export function LeadDetailPanel({
                       {noteError}
                     </div>
                   )}
+
+                  <section className="space-y-4 border-t border-border pt-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Checklist
+                      </h3>
+                      {checklistSaving && (
+                        <span className="text-[11px] text-muted-foreground">Guardando...</span>
+                      )}
+                    </div>
+
+                    <div className="grid gap-5 md:grid-cols-2">
+                      {([
+                        ["identificacion", "1. Identificación"],
+                        ["queSabemos", "2. Información"],
+                      ] as const).map(([section, title]) => (
+                        <div key={section} className="space-y-3">
+                          <h4 className="text-sm font-semibold text-foreground">{title}</h4>
+                          <div className="space-y-2">
+                            {[
+                              ...CHECKLIST_TEXT_FIELDS,
+                              ...CHECKLIST_BOOLEAN_FIELDS,
+                            ]
+                              .filter((item) => item.section === section)
+                              .map(({ field, label }) => (
+                                <div
+                                  key={field}
+                                  className="flex items-center gap-2"
+                                >
+                                  <Checkbox
+                                    id={`checklist-${field}`}
+                                    checked={checklist[field] === "Sí"}
+                                    onCheckedChange={(checked) =>
+                                      void updateChecklistField(field, checked ? "Sí" : "")
+                                    }
+                                    disabled={readOnly}
+                                  />
+                                  <Label
+                                    htmlFor={`checklist-${field}`}
+                                    className="whitespace-nowrap text-xs font-medium"
+                                  >
+                                    {label}
+                                  </Label>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {checklistError && (
+                      <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
+                        {checklistError}
+                      </div>
+                    )}
+                  </section>
                 </section>
               )}
 
