@@ -1923,40 +1923,28 @@ export default function LeadsPage() {
 
         {viewMode === "table" ? (
           <div className="relative flex-1 overflow-auto">
-            <table className="w-full table-fixed border-collapse text-sm md:w-[2700px] md:[table-layout:fixed]">
+            <table className="w-full table-fixed border-collapse text-sm md:w-[2200px] md:[table-layout:fixed]">
               <colgroup>
-                <col className="w-10 md:w-[48px]" />
                 <col className="w-[72px] md:w-[90px]" />
-                <col className="w-[28%] md:w-[230px]" />
-                <col className="w-[42%] md:w-[310px]" />
-                <col style={{ width: 95 }} className="hidden md:table-column" />
+                <col className="w-[200px] md:w-[230px]" />
+                <col className="w-[260px] md:w-[310px]" />
                 <col className="w-[30%] md:w-[175px]" />
-                <col style={{ width: 115 }} className="hidden md:table-column" />
-                <col style={{ width: 135 }} className="hidden md:table-column" />
-                <col style={{ width: 120 }} className="hidden md:table-column" />
-                <col style={{ width: 120 }} className="hidden md:table-column" />
-                <col style={{ width: 130 }} className="hidden md:table-column" />
-                <col style={{ width: 85 }} className="hidden md:table-column" />
-                <col style={{ width: 135 }} className="hidden md:table-column" />
-                <col style={{ width: 105 }} className="hidden md:table-column" />
-                <col style={{ width: 155 }} className="hidden md:table-column" />
-                <col style={{ width: 155 }} className="hidden md:table-column" />
-                <col style={{ width: 165 }} className="hidden md:table-column" />
-                <col style={{ width: 150 }} className="hidden md:table-column" />
-                <col style={{ width: 130 }} className="hidden md:table-column" />
-                <col style={{ width: 170 }} className="hidden md:table-column" />
-                <col style={{ width: 130 }} className="hidden md:table-column" />
+                <col style={{ width: 135 }} />
+                <col style={{ width: 105 }} />
+                <col style={{ width: 115 }} />
+                <col style={{ width: 135 }} />
+                <col style={{ width: 155 }} />
+                <col style={{ width: 155 }} />
+                <col style={{ width: 165 }} />
+                <col style={{ width: 130 }} />
+                <col style={{ width: 130 }} />
               </colgroup>
 
               <thead className="sticky top-0 z-20 bg-card">
                 <tr className="border-b border-border bg-card/95 text-left backdrop-blur">
-                  <th className="w-10 px-2 py-2.5 md:w-9 md:px-3">
-                    <span className="sr-only">Favorito</span>
-                  </th>
-
                   <th
                     onClick={() => handleSort("id")}
-                    className="group cursor-pointer select-none whitespace-nowrap px-2 py-2.5 md:px-3"
+                    className="sticky left-0 z-30 group cursor-pointer select-none whitespace-nowrap border-r border-border bg-card px-2 py-2.5 md:px-3"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
                       ID
@@ -1966,7 +1954,7 @@ export default function LeadsPage() {
 
                   <th
                     onClick={() => handleSort("ownerName")}
-                    className="group cursor-pointer select-none whitespace-nowrap px-2 py-2.5 md:px-3"
+                    className="sticky left-[72px] z-30 group cursor-pointer select-none whitespace-nowrap border-r border-border bg-card px-2 py-2.5 md:left-[90px] md:px-3"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
                       Propietario
@@ -1980,25 +1968,12 @@ export default function LeadsPage() {
 
                   <th
                     onClick={() => handleSort("address")}
-                    className="group cursor-pointer select-none whitespace-nowrap px-2 py-2.5 md:px-3"
+                    className="sticky left-[272px] z-30 group cursor-pointer select-none whitespace-nowrap border-r border-border bg-card px-2 py-2.5 md:left-[320px] md:px-3"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
                       Domicilio
                       <SortIcon
                         col={"address"}
-                        sortKey={sortKey}
-                        sortDir={sortDir}
-                      />
-                    </span>
-                  </th>
-                  <th
-                    onClick={() => handleSort("cp")}
-                    className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
-                  >
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
-                      CP
-                      <SortIcon
-                        col={"cp"}
                         sortKey={sortKey}
                         sortDir={sortDir}
                       />
@@ -2012,6 +1987,32 @@ export default function LeadsPage() {
                       Distrito
                       <SortIcon
                         col={"distrito"}
+                        sortKey={sortKey}
+                        sortDir={sortDir}
+                      />
+                    </span>
+                  </th>
+                  <th
+                    onClick={() => handleSort("fechaNoticia")}
+                    className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
+                  >
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
+                      F. Noticia
+                      <SortIcon
+                        col={"fechaNoticia"}
+                        sortKey={sortKey}
+                        sortDir={sortDir}
+                      />
+                    </span>
+                  </th>
+                  <th
+                    onClick={() => handleSort("month")}
+                    className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
+                  >
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
+                      Month
+                      <SortIcon
+                        col={"month"}
                         sortKey={sortKey}
                         sortDir={sortDir}
                       />
@@ -2044,84 +2045,6 @@ export default function LeadsPage() {
                     </span>
                   </th>
                   <th
-                    onClick={() => handleSort("fechaNoticia")}
-                    className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
-                  >
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
-                      F. Noticia
-                      <SortIcon
-                        col={"fechaNoticia"}
-                        sortKey={sortKey}
-                        sortDir={sortDir}
-                      />
-                    </span>
-                  </th>
-                  <th
-                    onClick={() => handleSort("fechaContacto")}
-                    className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
-                  >
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
-                      F. Contacto
-                      <SortIcon
-                        col={"fechaContacto"}
-                        sortKey={sortKey}
-                        sortDir={sortDir}
-                      />
-                    </span>
-                  </th>
-                  <th
-                    onClick={() => handleSort("fechaValoracion")}
-                    className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
-                  >
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
-                      F. Valoración
-                      <SortIcon
-                        col={"fechaValoracion"}
-                        sortKey={sortKey}
-                        sortDir={sortDir}
-                      />
-                    </span>
-                  </th>
-                  <th
-                    onClick={() => handleSort("hora")}
-                    className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
-                  >
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
-                      Hora
-                      <SortIcon
-                        col={"hora"}
-                        sortKey={sortKey}
-                        sortDir={sortDir}
-                      />
-                    </span>
-                  </th>
-                  <th
-                    onClick={() => handleSort("medio")}
-                    className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
-                  >
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
-                      Medio
-                      <SortIcon
-                        col={"medio"}
-                        sortKey={sortKey}
-                        sortDir={sortDir}
-                      />
-                    </span>
-                  </th>
-                  <th
-                    onClick={() => handleSort("month")}
-                    className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
-                  >
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
-                      Month
-                      <SortIcon
-                        col={"month"}
-                        sortKey={sortKey}
-                        sortDir={sortDir}
-                      />
-                    </span>
-                  </th>
-                  <th
                     onClick={() => handleSort("dominio")}
                     className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
                   >
@@ -2129,32 +2052,6 @@ export default function LeadsPage() {
                       Dominio
                       <SortIcon
                         col={"dominio"}
-                        sortKey={sortKey}
-                        sortDir={sortDir}
-                      />
-                    </span>
-                  </th>
-                  <th
-                    onClick={() => handleSort("planner")}
-                    className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
-                  >
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
-                      Planner
-                      <SortIcon
-                        col={"planner"}
-                        sortKey={sortKey}
-                        sortDir={sortDir}
-                      />
-                    </span>
-                  </th>
-                  <th
-                    onClick={() => handleSort("owner")}
-                    className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
-                  >
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
-                      Owner
-                      <SortIcon
-                        col={"owner"}
                         sortKey={sortKey}
                         sortDir={sortDir}
                       />
@@ -2174,6 +2071,19 @@ export default function LeadsPage() {
                     </span>
                   </th>
                   <th
+                    onClick={() => handleSort("planner")}
+                    className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
+                  >
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
+                      Planner
+                      <SortIcon
+                        col={"planner"}
+                        sortKey={sortKey}
+                        sortDir={sortDir}
+                      />
+                    </span>
+                  </th>
+                  <th
                     onClick={() => handleSort("valor")}
                     className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
                   >
@@ -2181,19 +2091,6 @@ export default function LeadsPage() {
                       Valor
                       <SortIcon
                         col={"valor"}
-                        sortKey={sortKey}
-                        sortDir={sortDir}
-                      />
-                    </span>
-                  </th>
-                  <th
-                    onClick={() => handleSort("phone")}
-                    className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
-                  >
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
-                      Teléfono
-                      <SortIcon
-                        col={"phone"}
                         sortKey={sortKey}
                         sortDir={sortDir}
                       />
@@ -2226,60 +2123,30 @@ export default function LeadsPage() {
                       i % 2 === 0 ? "bg-card" : "bg-background"
                     )}
                   >
-                    <td className="px-2 py-2.5 md:px-3">
-                      <button
-                        type="button"
-                        disabled={!canEdit}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void handleToggleFavorite(lead.id);
-                        }}
-                        className={cn(
-                          "inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition",
-                          canEdit && "hover:bg-muted hover:text-foreground",
-                          !canEdit && "cursor-default"
-                        )}
-                        aria-label={
-                          favoriteIds.has(lead.id)
-                            ? "Quitar de favoritos"
-                            : "Marcar como favorito"
-                        }
-                        title={
-                          favoriteIds.has(lead.id)
-                            ? "Quitar de favoritos"
-                            : "Marcar como favorito"
-                        }
-                      >
-                        <Star
-                          className={cn(
-                            "h-4 w-4",
-                            favoriteIds.has(lead.id) &&
-                              "fill-current text-amber-500"
-                          )}
-                        />
-                      </button>
-                    </td>
-
-                    <td className="whitespace-nowrap px-2 py-2.5 text-sm text-muted-foreground md:px-3">
+                    <td className="sticky left-0 z-10 whitespace-nowrap border-r border-border bg-card px-2 py-2.5 text-sm text-muted-foreground md:px-3">
                       {lead.id.padStart(6, "0")}
                     </td>
 
-                    <td className="truncate whitespace-nowrap px-2 py-2.5 md:px-3">
+                    <td className="sticky left-[72px] z-10 truncate whitespace-nowrap border-r border-border bg-card px-2 py-2.5 md:left-[90px] md:px-3">
                       <span className="font-bold text-foreground">
                         {lead.ownerName}
                       </span>
                     </td>
 
-                    <td className="truncate whitespace-nowrap px-2 py-2.5 text-sm text-muted-foreground md:px-3">
+                    <td className="sticky left-[272px] z-10 truncate whitespace-nowrap border-r border-border bg-card px-2 py-2.5 text-sm text-muted-foreground md:left-[320px] md:px-3">
                       {lead.address}
-                    </td>
-
-                    <td className="whitespace-nowrap px-3 py-2.5 text-sm text-muted-foreground hidden md:table-cell">
-                      {lead.cp}
                     </td>
 
                     <td className="truncate whitespace-nowrap px-2 py-2.5 text-sm text-muted-foreground md:px-3">
                       {lead.distrito}
+                    </td>
+
+                    <td className="whitespace-nowrap px-3 py-2.5 text-sm text-muted-foreground hidden md:table-cell">
+                      {fmt(lead.fechaNoticia)}
+                    </td>
+
+                    <td className="whitespace-nowrap px-3 py-2.5 text-sm text-muted-foreground hidden md:table-cell">
+                      {lead.month}
                     </td>
 
                     <td className="px-3 py-2.5 hidden md:table-cell">
@@ -2312,39 +2179,6 @@ export default function LeadsPage() {
                       })()}
                     </td>
 
-                    <td className="whitespace-nowrap px-3 py-2.5 text-sm text-muted-foreground hidden md:table-cell">
-                      {fmt(lead.fechaNoticia)}
-                    </td>
-
-                    <td className="whitespace-nowrap px-3 py-2.5 text-sm text-muted-foreground hidden md:table-cell">
-                      {fmt(lead.fechaContacto)}
-                    </td>
-
-                    <td className="whitespace-nowrap px-3 py-2.5 text-sm text-muted-foreground hidden md:table-cell">
-                      {fmt(lead.fechaValoracion)}
-                    </td>
-
-                    <td className="whitespace-nowrap px-3 py-2.5 text-sm text-muted-foreground hidden md:table-cell">
-                      {lead.hora || "—"}
-                    </td>
-
-                    <td className="px-3 py-2.5 hidden md:table-cell">
-                      {lead.medio && lead.medio !== "—" ? (
-                        <span
-                          className="inline-flex items-center rounded-full border px-2 py-0.5 text-sm font-medium whitespace-nowrap"
-                          style={getMedioBadgeStyle(lead.medio)}
-                        >
-                          {lead.medio}
-                        </span>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">—</span>
-                      )}
-                    </td>
-
-                    <td className="whitespace-nowrap px-3 py-2.5 text-sm text-muted-foreground hidden md:table-cell">
-                      {lead.month}
-                    </td>
-
                     <td className="px-3 py-2.5 hidden md:table-cell">
                       {lead.dominio && lead.dominio !== "—" ? (
                         <span
@@ -2358,25 +2192,6 @@ export default function LeadsPage() {
                       )}
                     </td>
 
-                    <td className="max-w-[110px] truncate whitespace-nowrap px-3 py-2.5 text-sm text-muted-foreground hidden md:table-cell">
-                      {lead.planner ?? "—"}
-                    </td>
-
-                    <td className="px-3 py-2.5 hidden md:table-cell">
-                      <div className="flex items-center gap-1.5 whitespace-nowrap">
-                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[9px] font-semibold uppercase text-primary">
-                          {lead.owner
-                            .split(" ")
-                            .slice(0, 2)
-                            .map((n) => n[0])
-                            .join("")}
-                        </span>
-                        <span className="max-w-[125px] truncate text-sm text-muted-foreground">
-                          {lead.owner}
-                        </span>
-                      </div>
-                    </td>
-
                     <td className="px-3 py-2.5 hidden md:table-cell">
                       <span
                         className="inline-flex items-center rounded-full border px-2 py-0.5 text-sm font-medium whitespace-nowrap"
@@ -2386,12 +2201,12 @@ export default function LeadsPage() {
                       </span>
                     </td>
 
-                    <td className="whitespace-nowrap px-3 py-2.5 text-sm text-foreground hidden md:table-cell">
-                      {lead.valor}
+                    <td className="max-w-[110px] truncate whitespace-nowrap px-3 py-2.5 text-sm text-muted-foreground hidden md:table-cell">
+                      {lead.planner ?? "—"}
                     </td>
 
-                    <td className="whitespace-nowrap px-3 py-2.5 text-sm text-muted-foreground hidden md:table-cell">
-                      <MaskedPhone value={lead.phone} />
+                    <td className="whitespace-nowrap px-3 py-2.5 text-sm text-foreground hidden md:table-cell">
+                      {lead.valor}
                     </td>
 
                     <td className="px-3 py-2.5 hidden md:table-cell">
@@ -2410,7 +2225,7 @@ export default function LeadsPage() {
                 <tbody>
                   <tr>
                     <td
-                      colSpan={21}
+                      colSpan={13}
                       className="px-6 py-10 text-center text-sm text-muted-foreground"
                     >
                       No hay leads que coincidan con la búsqueda.

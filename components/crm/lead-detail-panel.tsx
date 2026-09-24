@@ -841,7 +841,7 @@ function LeadDetailSection({
   children: React.ReactNode;
 }) {
   return (
-    <section className="mt-5 border-t border-border pt-4">
+          <section className="mt-5 border-t border-border pt-4">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {title}
@@ -1371,6 +1371,7 @@ export function LeadDetailPanel({
   useEffect(() => {
     setLocalLead(lead as LeadWithDominio | null);
     setNoteError(null);
+    setNote(lead?.notes?.trim() || "");
   }, [lead]);
 
   async function loadRelatedData(leadId: string) {
@@ -1517,6 +1518,18 @@ export function LeadDetailPanel({
   }
 
   async function loadObservations(leadId: string) {
+    const { data: opportunityMemo, error: memoError } = await supabase
+      .from("opportunities")
+      .select("memo")
+      .eq("id", Number(leadId))
+      .maybeSingle();
+
+    if (!memoError) {
+      const memo = opportunityMemo?.memo?.trim() || "";
+      setNote(memo);
+      setLocalLead((current) => (current ? { ...current, notes: memo } : current));
+    }
+
     const { data, error } = await supabase
       .from("opportunity_activities")
       .select(
@@ -1813,64 +1826,25 @@ export function LeadDetailPanel({
   }
 
   async function handleAddNote() {
-    if (!effectiveLead || readOnly || !note.trim()) return;
+    if (!effectiveLead || readOnly) return;
 
     const text = note.trim();
     setSavingNote(true);
     setNoteError(null);
 
-    const { data: insertedId, error: insertError } = await supabase.rpc(
-      "crm_add_contact_activity",
-      {
-        p_opportunity_id: Number(effectiveLead.id),
-        p_event_type: "note",
-        p_text: text,
-        p_metadata: {},
-      }
-    );
-
-    if (insertError) {
-      console.error("Error guardando observación:", insertError);
-      setSavingNote(false);
-      setNoteError(`No se pudo guardar la observación: ${insertError.message}`);
-      return;
-    }
-
-    if (!insertedId) {
-      setSavingNote(false);
+    try {
+      await handleSave({ ...effectiveLead, notes: text });
+    } catch (error) {
+      console.error("Error guardando observación:", error);
       setNoteError(
-        "La observación no devolvió ID al guardarse. Revisá permisos/RLS de opportunity_activities."
+        `No se pudo guardar la observación: ${
+          error instanceof Error ? error.message : "error desconocido"
+        }`
       );
-      return;
-    }
-
-    const { data: persistedRow, error: readBackError } = await supabase
-      .from("opportunity_activities")
-      .select(
-        "id, created_at, fecha, memo, resultado, event_type, actor_profile_id, effective_at, metadata, parent_event_id"
-      )
-      .eq("id", insertedId)
-      .maybeSingle();
-
-    if (readBackError) {
-      console.error("Error verificando observación guardada:", readBackError);
       setSavingNote(false);
-      setNoteError(
-        `La observación se insertó, pero no se pudo verificar: ${readBackError.message}`
-      );
       return;
     }
 
-    if (!persistedRow) {
-      setSavingNote(false);
-      setNoteError(
-        "La observación se insertó, pero no se puede leer después. Revisá políticas RLS de SELECT en opportunity_activities."
-      );
-      return;
-    }
-
-    setNote("");
-    await loadObservations(effectiveLead.id);
     setSavingNote(false);
   }
 
@@ -2384,41 +2358,26 @@ export function LeadDetailPanel({
   );
   const lastCallEvent = callEvents[0] || null;
   const lastCallDays = daysSince(lastCallEvent?.createdAt);
-  const buyerName =
-    effectiveLead.buyer?.trim() ||
-    visits.find((visit) => visit.buyer?.trim())?.buyer?.trim() ||
-    "—";
-
   return (
     <aside className="fixed right-0 top-0 z-40 flex h-screen w-[1080px] max-w-[calc(100vw-1rem)] flex-col border-l border-border bg-background shadow-2xl">
-      <div className="relative grid shrink-0 gap-4 border-b border-border px-5 py-4 md:grid-cols-[minmax(0,1fr)_minmax(280px,auto)] md:items-start">
-        <div className="min-w-0 text-center md:text-left">
-          <h2 className="truncate text-2xl font-bold tracking-tight text-foreground">
-            <span className="font-normal">
-              {effectiveLead.id.padStart(6, "0")} - {" "}
-            </span>
-            {effectiveLead.ownerName}
-          </h2>
-          <div className="mx-auto mt-1 h-1 w-10 rounded-full bg-primary md:mx-0" />
-
-          {effectiveLead.phone && effectiveLead.phone !== "—" && (
-            <>
-              <div className="mt-2 flex items-center gap-3">
-                <span className="text-xs font-medium text-muted-foreground">
-                  {effectiveLead.phone}
-                </span>
-                <a
-                  href={`tel:${effectiveLead.phone.replace(/[^+\d]/g, "")}`}
-                  onClick={() => void handleCallLead()}
-                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground shadow-sm transition hover:bg-primary/90"
-                >
-                  <Phone className="h-3.5 w-3.5" />
-                  Llamar
-                </a>
-              </div>
-            </>
+      <div className="relative grid shrink-0 gap-5 border-b border-border px-5 py-4 md:grid-cols-3 md:items-stretch md:gap-0 md:divide-x md:divide-border md:pr-16">
+        <section className="flex min-w-0 flex-col text-center md:pr-6 md:text-left">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            Oportunidad
+          </p>
+          {readOnly ? (
+            <p className="mt-1 text-xl font-bold leading-tight text-foreground">
+              #{effectiveLead.id.padStart(6, "0")}
+            </p>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setEditOpen(true)}
+              className="mt-1 text-left text-xl font-bold leading-tight text-primary underline-offset-2 hover:underline"
+            >
+              #{effectiveLead.id.padStart(6, "0")}
+            </button>
           )}
-
           <div className="mt-2 flex items-baseline justify-center gap-2 md:justify-start">
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               Valor
@@ -2427,28 +2386,47 @@ export function LeadDetailPanel({
               {formatEuroValue(effectiveLead.valor) || effectiveLead.valor || "—"}
             </span>
           </div>
-
-          <div className="mt-1 flex flex-wrap items-center justify-center gap-x-2 text-[11px] font-medium text-muted-foreground md:justify-start">
-            <span>Última llamada: {lastCallLabel(lastCallDays)}</span>
-            <span aria-hidden="true">·</span>
-            <span>
-              {callEvents.length} {callEvents.length === 1 ? "llamada realizada" : "llamadas realizadas"}
-            </span>
+          <div className="mt-1 flex flex-wrap items-center justify-center gap-x-2 text-sm font-semibold leading-normal text-muted-foreground md:justify-start">
+            <span>F. Noticia: {fmtDate(effectiveLead.fechaNoticia)}</span>
           </div>
-        </div>
+        </section>
 
-        <div className="min-w-0 text-center md:pr-8 md:text-right">
-          <div className="inline-flex w-full max-w-full flex-col items-start rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-left shadow-sm md:w-auto md:items-end md:px-4 md:py-3 md:text-right">
-            <p className="max-w-full truncate text-sm font-bold leading-tight text-foreground md:text-lg">
-              {effectiveLead.address || "—"}
+        <section className="min-w-0 text-center md:px-6 md:text-left">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            Inmueble
+          </p>
+          <p className="mt-1 truncate text-xl font-bold leading-tight text-foreground">
+            {effectiveLead.address || "—"}
+          </p>
+          <div className="mt-2 space-y-0.5 text-sm font-semibold leading-normal text-muted-foreground">
+            <p className="truncate">{effectiveLead.distrito || "—"}</p>
+            <p className="truncate">
+              {[effectiveLead.cp, effectiveLead.provincia].filter(Boolean).join(" · ") || "—"}
             </p>
-            <div className="mt-1 space-y-0.5 text-xs font-semibold leading-tight text-muted-foreground md:text-sm md:leading-normal">
-              <p className="truncate">{effectiveLead.distrito || "—"}</p>
-              <p className="truncate">{effectiveLead.cp || "—"}</p>
-              <p className="truncate">{effectiveLead.provincia || "—"}</p>
-            </div>
           </div>
-        </div>
+        </section>
+
+        <section className="flex min-w-0 flex-col text-center md:pl-6 md:text-left">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            Propietario
+          </p>
+          <h2 className="mt-1 truncate text-xl font-bold leading-tight text-foreground">
+            {effectiveLead.ownerName}
+          </h2>
+          <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-primary md:mx-0" />
+
+          {effectiveLead.phone && effectiveLead.phone !== "—" && (
+            <div className="mt-auto flex flex-wrap items-center justify-center gap-3 pt-3 md:justify-start">
+              <a
+                href={`tel:${effectiveLead.phone.replace(/[^+\d]/g, "")}`}
+                onClick={() => void handleCallLead()}
+                className="text-sm font-semibold leading-normal text-primary underline-offset-2 hover:underline"
+              >
+                {effectiveLead.phone}
+              </a>
+            </div>
+          )}
+        </section>
 
         <div className="absolute right-5 top-4 flex items-center gap-2">
           <button
@@ -2462,45 +2440,55 @@ export function LeadDetailPanel({
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-1 border-b border-border px-4 py-2.5 md:gap-1.5 md:px-5 md:py-3">
-        <Badge
-          variant="outline"
-          className="h-6 gap-1 rounded-md px-2 text-xs font-semibold md:h-7 md:gap-1.5 md:px-3 md:text-sm"
-          style={getStatusConfig(effectiveLead.status).badgeStyle}
-        >
-          <Circle className="h-1.5 w-1.5 fill-current md:h-2 md:w-2" />
-          {getStatusConfig(effectiveLead.status).label}
-        </Badge>
-
-        <Badge
-          variant="outline"
-          className="h-6 rounded-md px-2 text-xs font-semibold md:h-7 md:px-3 md:text-sm"
-          style={
-            PHASE_BADGE_STYLES[effectiveLead.phase] ?? {
-              backgroundColor: "#F1F5F9",
-              color: "#475569",
-              borderColor: "#CBD5E1",
+      <div className="grid shrink-0 gap-2 border-b border-border px-4 py-2.5 md:grid-cols-3 md:items-center md:px-5 md:py-3">
+        <div className="flex flex-wrap items-center justify-center gap-1.5 md:justify-start">
+          <Badge
+            variant="outline"
+            className="h-6 gap-1 rounded-md px-2 text-xs font-semibold"
+            style={getStatusConfig(effectiveLead.status).badgeStyle}
+          >
+            <Circle className="h-1.5 w-1.5 fill-current" />
+            {getStatusConfig(effectiveLead.status).label}
+          </Badge>
+          <Badge
+            variant="outline"
+            className="h-6 rounded-md px-2 text-xs font-semibold"
+            style={
+              PHASE_BADGE_STYLES[effectiveLead.phase] ?? {
+                backgroundColor: "#F1F5F9",
+                color: "#475569",
+                borderColor: "#CBD5E1",
+              }
             }
-          }
-        >
-          {PHASE_LABELS[effectiveLead.phase]}
-        </Badge>
-
-        <Badge
-          variant="outline"
-          className="h-6 rounded-md px-2 text-xs font-semibold md:h-7 md:px-3 md:text-sm"
-          style={getSourceBadgeStyle(effectiveLead.source)}
-        >
-          {effectiveLead.source || "—"}
-        </Badge>
-
-        <Badge
-          variant="outline"
-          className="h-6 rounded-md px-2 text-xs font-semibold md:h-7 md:px-3 md:text-sm"
-          style={getDominioBadgeStyle(getLeadDominio(effectiveLead))}
-        >
-          {getLeadDominio(effectiveLead) || "Sin dominio"}
-        </Badge>
+          >
+            {PHASE_LABELS[effectiveLead.phase]}
+          </Badge>
+          <Badge
+            variant="outline"
+            className="h-6 rounded-md px-2 text-xs font-semibold"
+            style={getSourceBadgeStyle(effectiveLead.source)}
+          >
+            {effectiveLead.source || "—"}
+          </Badge>
+          <Badge
+            variant="outline"
+            className="h-6 rounded-md px-2 text-xs font-semibold"
+            style={getDominioBadgeStyle(getLeadDominio(effectiveLead))}
+          >
+            {getLeadDominio(effectiveLead) || "Sin dominio"}
+          </Badge>
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm font-semibold leading-normal text-muted-foreground md:justify-start">
+          <span>Planner: {effectiveLead.planner || "—"}</span>
+          <span>Owner: {effectiveLead.owner || "—"}</span>
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-x-2 text-sm font-semibold leading-normal text-muted-foreground md:justify-start">
+          <span>Última llamada: {lastCallLabel(lastCallDays)}</span>
+          <span aria-hidden="true">·</span>
+          <span>
+            {callEvents.length} {callEvents.length === 1 ? "llamada realizada" : "llamadas realizadas"}
+          </span>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-3 md:px-5 md:py-4">
@@ -2595,92 +2583,11 @@ export function LeadDetailPanel({
             <div className="min-w-0 rounded-xl border border-border bg-background p-3 shadow-sm md:p-5">
               {activeTab === "resumen" && (
                 <div className="space-y-3">
-                  <div className="space-y-4 md:space-y-5">
-                    <section className="space-y-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <h4 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          Datos generales
-                        </h4>
-                        {!readOnly && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            className="h-8 gap-1.5 bg-primary px-3 text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
-                            onClick={() => setEditOpen(true)}
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                            Editar
-                          </Button>
-                        )}
-                      </div>
-                      <div className="grid gap-3 lg:grid-cols-[3fr_2fr]">
-                        <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-                          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                            <User className="h-3.5 w-3.5 text-primary" />
-                            Responsables
-                          </div>
-                          <dl className="mt-3 grid grid-cols-3 gap-2 md:mt-4 md:gap-4">
-                            <div className="min-w-0">
-                              <dt className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                Planner
-                              </dt>
-                              <dd className="mt-1 truncate text-[11px] font-semibold text-foreground md:text-sm">
-                                {effectiveLead.planner || "—"}
-                              </dd>
-                            </div>
-                            <div className="min-w-0 border-l border-border pl-2 md:pl-4">
-                              <dt className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                Owner
-                              </dt>
-                              <dd className="mt-1 truncate text-[11px] font-semibold text-foreground md:text-sm">
-                                {effectiveLead.owner || "—"}
-                              </dd>
-                            </div>
-                            <div className="min-w-0 border-l border-border pl-2 md:pl-4">
-                              <dt className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                Buyer
-                              </dt>
-                              <dd className="mt-1 truncate text-[11px] font-semibold text-foreground md:text-sm">
-                                {buyerName}
-                              </dd>
-                            </div>
-                          </dl>
-                        </div>
-
-                        <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-                          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                            <Clock className="h-3.5 w-3.5 text-primary" />
-                            Fechas clave
-                          </div>
-                          <dl className="mt-3 grid grid-cols-2 gap-2 md:mt-4 md:gap-4">
-                            <div className="min-w-0">
-                              <dt className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                F. Noticia
-                              </dt>
-                              <dd className="mt-1 truncate text-[11px] font-semibold text-foreground md:text-sm">
-                                {fmtDate(effectiveLead.fechaNoticia)}
-                              </dd>
-                            </div>
-                            <div className="min-w-0 border-l border-border pl-2 md:pl-4">
-                              <dt className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                F. Contacto
-                              </dt>
-                              <dd className="mt-1 truncate text-[11px] font-semibold text-foreground md:text-sm">
-                                {fmtDate(effectiveLead.fechaContacto)}
-                              </dd>
-                            </div>
-                          </dl>
-                        </div>
-                      </div>
-                    </section>
-
-                  </div>
-
                   <div className="mt-5 border-t border-border pt-4">
                     <div className="mb-3 flex items-center justify-between">
                       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         <MessageSquare className="h-3.5 w-3.5" />
-                        Observaciones
+                        Memo
                       </div>
                       <Badge variant="secondary" className="rounded-full text-[10px]">
                         {noteEvents.length}
@@ -2692,18 +2599,18 @@ export function LeadDetailPanel({
                         <Textarea
                           value={note}
                           onChange={(e) => setNote(e.target.value)}
-                          placeholder="Escribe una observación..."
-                          className="min-h-[76px] resize-none text-sm"
+                          placeholder="Escribe un memo..."
+                          className="min-h-[160px] max-h-[280px] resize-none overflow-y-auto text-sm"
                         />
                         <div className="mt-2 flex justify-end">
                           <Button
                             size="sm"
                             className="h-8 gap-1.5 text-xs"
                             onClick={handleAddNote}
-                            disabled={!note.trim() || savingNote}
+                            disabled={savingNote}
                           >
                             <Send className="h-3.5 w-3.5" />
-                            Añadir
+                            Guardar
                           </Button>
                         </div>
                       </>
