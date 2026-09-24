@@ -310,6 +310,16 @@ type ValuationHistoryEvent = {
   memo: string;
 };
 
+type ContactHistoryEvent = {
+  id: string;
+  numero: number;
+  fecha: string;
+  hora: string;
+  medio: string;
+  resultado: string;
+  memo: string;
+};
+
 type OpportunityContactRow = {
   id: number | string;
   created_at?: string | null;
@@ -361,6 +371,7 @@ type VisitRow = {
 
 type LeadDetailTab =
   | "resumen"
+  | "contactos"
   | "valoracion"
   | "encargo"
   | "rg"
@@ -371,7 +382,8 @@ type EditLeadTab = "oportunidad" | "propietario" | "inmueble";
 
 const LEAD_DETAIL_TABS: Array<{ value: LeadDetailTab; label: string }> = [
   { value: "resumen", label: "General" },
-  { value: "valoracion", label: "Valoración" },
+  { value: "contactos", label: "Contactos" },
+  { value: "valoracion", label: "Valoraciones" },
   { value: "encargo", label: "Encargo" },
   { value: "rg", label: "R.G." },
   { value: "visitas", label: "Visitas" },
@@ -1307,6 +1319,7 @@ export function LeadDetailPanel({
   const [canScrollTabsLeft, setCanScrollTabsLeft] = useState(false);
   const [canScrollTabsRight, setCanScrollTabsRight] = useState(false);
   const [openRgRowId, setOpenRgRowId] = useState<string | null>(null);
+  const [openContactRowId, setOpenContactRowId] = useState<string | null>(null);
   const [openValuationRowId, setOpenValuationRowId] = useState<string | null>(null);
   const [openOrderRowId, setOpenOrderRowId] = useState<string | null>(null);
   const [openVisitRowId, setOpenVisitRowId] = useState<string | null>(null);
@@ -1340,6 +1353,7 @@ export function LeadDetailPanel({
   const [rgSaving, setRgSaving] = useState(false);
   const [rgError, setRgError] = useState<string | null>(null);
   const [rgEntries, setRgEntries] = useState<OpportunityContactRow[]>([]);
+  const [contactEntries, setContactEntries] = useState<OpportunityContactRow[]>([]);
 
   const [valuationForm, setValuationForm] = useState({
     fecha: "",
@@ -1349,6 +1363,11 @@ export function LeadDetailPanel({
   const [valuationSaving, setValuationSaving] = useState(false);
   const [valuationError, setValuationError] = useState<string | null>(null);
   const [valuationEntries, setValuationEntries] = useState<OpportunityContactRow[]>([]);
+  const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [editingContactId, setEditingContactId] = useState<number | string | null>(null);
+  const [contactSaving, setContactSaving] = useState(false);
+  const [contactError, setContactError] = useState<string | null>(null);
+  const [contactForm, setContactForm] = useState({ fecha: "", hora: "", medio: "", resultado: "", memo: "" });
 
   useEffect(() => {
     setLocalLead(lead as LeadWithDominio | null);
@@ -1695,18 +1714,37 @@ export function LeadDetailPanel({
     setValuationEntries((data ?? []) as OpportunityContactRow[]);
   }
 
+  async function loadContactEntries(leadId: string) {
+    const { data, error } = await supabase
+      .from("opportunity_activities")
+      .select("id, created_at, fecha, memo, resultado, event_type, actor_profile_id, effective_at, metadata, parent_event_id")
+      .eq("opportunity_id", Number(leadId))
+      .eq("event_type", "contact")
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("Error cargando contactos:", error);
+      setContactEntries([]);
+      return;
+    }
+
+    setContactEntries((data ?? []) as OpportunityContactRow[]);
+  }
+
   useEffect(() => {
     if (!lead?.id) {
       setNoteEvents([]);
       setActivityEvents([]);
       setRgEntries([]);
       setValuationEntries([]);
+      setContactEntries([]);
       return;
     }
 
     void loadObservations(lead.id);
     void loadRgEntries(lead.id);
     void loadValuationEntries(lead.id);
+    void loadContactEntries(lead.id);
   }, [lead?.id, currentUserName]);
 
   function buildFieldChangeEvents(prev: LeadWithDominio, next: LeadWithDominio) {
@@ -1864,6 +1902,12 @@ export function LeadDetailPanel({
     setValuationForm({ fecha: "", hora: "", medio: "" });
   }
 
+  function resetContactForm() {
+    setEditingContactId(null);
+    setContactError(null);
+    setContactForm({ fecha: "", hora: "", medio: "", resultado: "", memo: "" });
+  }
+
   function openNewEncargoModal() {
     resetEncargoForm();
     setOrderModalOpen(true);
@@ -1926,6 +1970,26 @@ export function LeadDetailPanel({
       medio: event.medio === "—" ? "" : event.medio,
     });
     setValuationModalOpen(true);
+  }
+
+  function openNewContactModal() {
+    resetContactForm();
+    setContactModalOpen(true);
+  }
+
+  function openEditContactModal(event: ContactHistoryEvent) {
+    const contactId = persistedRowId(event.id);
+    if (!contactId) return;
+    setEditingContactId(contactId);
+    setContactError(null);
+    setContactForm({
+      fecha: dateOnlyValue(event.fecha),
+      hora: event.hora || "",
+      medio: event.medio === "—" ? "" : event.medio,
+      resultado: event.resultado === "—" ? "" : event.resultado,
+      memo: event.memo || "",
+    });
+    setContactModalOpen(true);
   }
 
   async function handleAddEncargo() {
@@ -2160,6 +2224,56 @@ export function LeadDetailPanel({
     await loadObservations(effectiveLead.id);
   }
 
+  async function handleAddContact() {
+    if (!effectiveLead || readOnly) return;
+    if (!contactForm.fecha) {
+      setContactError("La fecha es obligatoria.");
+      return;
+    }
+
+    setContactSaving(true);
+    setContactError(null);
+    const previous = editingContactId
+      ? contactHistoryEvents.find((event) => String(persistedRowId(event.id)) === String(editingContactId))
+      : null;
+    const changes = previous
+      ? buildHistoryChangeLines([
+          { label: "Fecha", before: previous.fecha, after: contactForm.fecha, format: (value) => historyDateValue(value as string) },
+          { label: "Hora", before: previous.hora, after: contactForm.hora },
+          { label: "Medio", before: previous.medio, after: contactForm.medio || "—" },
+          { label: "Resultado", before: previous.resultado, after: contactForm.resultado || "—" },
+          { label: "Memo", before: previous.memo, after: contactForm.memo.trim() },
+        ])
+      : [];
+
+    const { error } = await supabase.rpc("crm_save_contact_with_activity", {
+      p_contact_id: editingContactId ?? null,
+      p_opportunity_id: Number(effectiveLead.id),
+      p_data: {
+        fecha: contactForm.fecha,
+        hora: contactForm.hora || null,
+        medio: contactForm.medio || null,
+        resultado: contactForm.resultado || null,
+        notes: contactForm.memo.trim() || null,
+      },
+      p_change_details: previous
+        ? `${buildEventDateLabel(contactForm.fecha)}${changes.length ? `:\n${changes.join("\n")}` : " sin cambios visibles"}`
+        : null,
+    });
+
+    setContactSaving(false);
+    if (error) {
+      console.error("Error guardando contacto:", error);
+      setContactError(`No se pudo guardar el contacto: ${error.message}`);
+      return;
+    }
+
+    resetContactForm();
+    setContactModalOpen(false);
+    await loadContactEntries(effectiveLead.id);
+    await loadObservations(effectiveLead.id);
+  }
+
   if (!effectiveLead) return null;
 
   const domicilioParts = [
@@ -2252,6 +2366,19 @@ export function LeadDetailPanel({
     ...parsedValuationEntries,
     ...legacyValuationEvent,
   ];
+
+  const contactHistoryEvents: ContactHistoryEvent[] = contactEntries.map((row, index) => {
+    const memoText = row.memo?.trim() || "";
+    return {
+      id: String(row.id),
+      numero: index + 1,
+      fecha: row.fecha || row.created_at || "",
+      hora: opportunityContactMetadataText(row.metadata, "hora") || "",
+      medio: opportunityContactMetadataText(row.metadata, "medio") || "—",
+      resultado: opportunityContactMetadataText(row.metadata, "resultado") || "—",
+      memo: opportunityContactMetadataText(row.metadata, "notes") || memoText,
+    };
+  });
 
   const callEvents = activityEvents.filter(
     (event) => event.eventType === "call" || isCallActivityText(event.text)
@@ -2390,12 +2517,14 @@ export function LeadDetailPanel({
             <div className="relative">
               <nav
                 ref={tabsNavRef}
-                className="flex w-full touch-pan-x gap-1 overflow-x-auto rounded-xl border border-border bg-muted/20 p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:grid md:grid-cols-6 md:overflow-visible"
+                className="flex w-full touch-pan-x gap-1 overflow-x-auto rounded-xl border border-border bg-muted/20 p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:grid md:grid-cols-7 md:overflow-visible"
               >
                 {LEAD_DETAIL_TABS.map((tab) => {
                   const isActive = activeTab === tab.value;
                   const count =
-                    tab.value === "encargo"
+                    tab.value === "contactos"
+                      ? contactHistoryEvents.length
+                      : tab.value === "encargo"
                       ? orders.length
                       : tab.value === "visitas"
                         ? visits.length
@@ -2475,6 +2604,11 @@ export function LeadDetailPanel({
                       </h4>
                       <div className="grid grid-cols-2 gap-2 md:gap-3 xl:grid-cols-4">
                         {([
+                          {
+                            tab: "contactos",
+                            label: "Contactos",
+                            count: contactHistoryEvents.length,
+                          },
                           {
                             tab: "valoracion",
                             label: "Valoraciones",
@@ -2696,6 +2830,56 @@ export function LeadDetailPanel({
                       ))}
                     </div>
                   </div>
+                </div>
+              )}
+
+              {activeTab === "contactos" && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Historial de contactos
+                      </h3>
+                      <Badge variant="secondary" className="rounded-full text-[10px]">
+                        {contactHistoryEvents.length}
+                      </Badge>
+                    </div>
+                    {!readOnly && (
+                      <Button type="button" size="sm" className="h-8 text-xs" onClick={openNewContactModal}>
+                        Agregar contacto
+                      </Button>
+                    )}
+                  </div>
+
+                  {contactHistoryEvents.length === 0 ? (
+                    <div className="rounded-lg border border-border bg-card p-4">
+                      <p className="text-xs italic text-muted-foreground">
+                        No hay contactos registrados todavía.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {contactHistoryEvents.map((event) => {
+                        const isOpen = openContactRowId === event.id;
+                        return (
+                          <div key={event.id} className="border-b border-border last:border-b-0">
+                            <button type="button" onClick={() => setOpenContactRowId((current) => current === event.id ? null : event.id)} className="grid w-full grid-cols-[64px_1.3fr_90px_1fr_1fr_72px] items-center px-3 py-3 text-left text-sm transition hover:bg-muted/40">
+                              <span className="font-semibold text-foreground">#{event.numero}</span>
+                              <span className="text-foreground">{fmtDate(event.fecha)}</span>
+                              <span className="text-muted-foreground">{event.hora || "—"}</span>
+                              <span className="text-muted-foreground">{event.medio}</span>
+                              <span className="text-muted-foreground">{event.resultado}</span>
+                              <span className="flex justify-end gap-2">
+                                {!readOnly && <span role="button" tabIndex={0} title="Editar contacto" aria-label="Editar contacto" className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={(clickEvent) => { clickEvent.stopPropagation(); openEditContactModal(event); }}><Pencil className="h-3.5 w-3.5" /></span>}
+                                <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", isOpen && "rotate-180")} />
+                              </span>
+                            </button>
+                            {isOpen && <div className="border-t border-border bg-muted/20 px-4 py-4"><SmallDataCard label="Observación">{event.memo || "—"}</SmallDataCard></div>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -3724,6 +3908,36 @@ export function LeadDetailPanel({
                   ? "Actualizar R.G."
                   : "Guardar R.G."}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={contactModalOpen}
+        onOpenChange={(open) => {
+          setContactModalOpen(open);
+          if (!open) resetContactForm();
+        }}
+      >
+        <DialogContent className="sm:max-w-[720px]">
+          <DialogHeader>
+            <DialogTitle>{editingContactId ? "Editar contacto" : "Agregar contacto"}</DialogTitle>
+            <DialogDescription>
+              {editingContactId ? "Actualiza los datos del contacto." : "Carga los datos principales del contacto."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="flex flex-col gap-1.5"><Label className="text-xs font-medium">Fecha</Label><Input type="date" className="h-9 text-sm" value={contactForm.fecha} onChange={(e) => setContactForm((prev) => ({ ...prev, fecha: e.target.value }))} /></div>
+            <div className="flex flex-col gap-1.5"><Label className="text-xs font-medium">Hora</Label><Input type="time" className="h-9 text-sm" value={contactForm.hora} onChange={(e) => setContactForm((prev) => ({ ...prev, hora: e.target.value }))} /></div>
+            <div className="flex flex-col gap-1.5"><Label className="text-xs font-medium">Medio</Label><Select value={contactForm.medio} onValueChange={(value) => setContactForm((prev) => ({ ...prev, medio: value }))}><SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Seleccionar medio" /></SelectTrigger><SelectContent>{LEAD_DETAIL_MEDIO_OPTIONS.map((option) => <SelectItem key={option} value={option} className="text-sm">{option}</SelectItem>)}</SelectContent></Select></div>
+            <div className="flex flex-col gap-1.5"><Label className="text-xs font-medium">Resultado</Label><Input className="h-9 text-sm" placeholder="Resultado del contacto" value={contactForm.resultado} onChange={(e) => setContactForm((prev) => ({ ...prev, resultado: e.target.value }))} /></div>
+            <div className="flex flex-col gap-1.5 md:col-span-2"><Label className="text-xs font-medium">Observación</Label><Textarea className="min-h-[96px] resize-none text-sm" value={contactForm.memo} onChange={(e) => setContactForm((prev) => ({ ...prev, memo: e.target.value }))} /></div>
+          </div>
+          {contactError && <p className="text-sm text-destructive">{contactError}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setContactModalOpen(false)} disabled={contactSaving}>Cancelar</Button>
+            <Button type="button" onClick={handleAddContact} disabled={contactSaving}>{contactSaving ? "Guardando..." : editingContactId ? "Actualizar contacto" : "Guardar contacto"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
