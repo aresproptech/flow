@@ -1371,7 +1371,7 @@ export function LeadDetailPanel({
   useEffect(() => {
     setLocalLead(lead as LeadWithDominio | null);
     setNoteError(null);
-    setNote(lead?.notes?.trim() || "");
+    if (!lead) setNote("");
   }, [lead]);
 
   async function loadRelatedData(leadId: string) {
@@ -2586,103 +2586,46 @@ export function LeadDetailPanel({
 
             <div className="min-w-0 rounded-xl border border-border bg-background p-3 shadow-sm md:p-5">
               {activeTab === "resumen" && (
-                <div className="space-y-3">
-                  <div className="mt-5 border-t border-border pt-4">
-                    <div className="mb-3 flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        <MessageSquare className="h-3.5 w-3.5" />
-                        Memo
-                      </div>
-                      <Badge variant="secondary" className="rounded-full text-[10px]">
-                        {noteEvents.length}
-                      </Badge>
-                    </div>
-
-                    {!readOnly && (
-                      <>
-                        <Textarea
-                          value={note}
-                          onChange={(e) => setNote(e.target.value)}
-                          placeholder="Escribe un memo..."
-                          className="min-h-[160px] max-h-[280px] resize-none overflow-y-auto text-sm"
-                        />
-                        <div className="mt-2 flex justify-end">
-                          <Button
-                            size="sm"
-                            className="h-8 gap-1.5 text-xs"
-                            onClick={handleAddNote}
-                            disabled={savingNote}
-                          >
-                            <Send className="h-3.5 w-3.5" />
-                            Guardar
-                          </Button>
-                        </div>
-                      </>
-                    )}
-
-                    {noteError && (
-                      <div className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
-                        {noteError}
-                      </div>
-                    )}
-
-                    <div className="mt-4 space-y-3">
-                      {noteEvents.length === 0 && (
-                        <p className="text-xs italic text-muted-foreground">
-                          Sin observaciones todavía.
-                        </p>
-                      )}
-
-                      {noteEvents.map((event) => (
-                        <div key={event.id} className="relative border-l border-border pl-4">
-                          <span className="absolute -left-[5px] top-1 h-2.5 w-2.5 rounded-full border border-primary bg-background" />
-                          <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-                            <Clock className="h-3 w-3" />
-                            <span>{fmtDateTimeShort(event.createdAt)}</span>
-                            <span>por {event.createdBy}</span>
-                          </div>
-                          <div className="rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground">
-                            {event.noteText}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                <section className="space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    Memo
                   </div>
 
-                  <div className="mt-5 border-t border-border pt-4">
-                    <div className="mb-3 flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        <Clock className="h-3.5 w-3.5" />
-                        Historial
+                  {!readOnly && (
+                    <>
+                      <Textarea
+                        value={note}
+                        onChange={(event) => setNote(event.target.value)}
+                        placeholder=""
+                        className="min-h-[220px] max-h-[420px] resize-none overflow-y-auto text-sm"
+                      />
+                      <div className="flex justify-end">
+                        <Button
+                          size="sm"
+                          className="h-8 gap-1.5 text-xs"
+                          onClick={handleAddNote}
+                          disabled={savingNote}
+                        >
+                          <Send className="h-3.5 w-3.5" />
+                          Guardar
+                        </Button>
                       </div>
-                      <Badge variant="secondary" className="rounded-full text-[10px]">
-                        {activityEvents.length}
-                      </Badge>
-                    </div>
+                    </>
+                  )}
 
-                    <div className="space-y-3">
-                      {activityEvents.length === 0 && (
-                        <p className="text-xs italic text-muted-foreground">
-                          Sin actividad registrada todavía.
-                        </p>
-                      )}
-
-                      {activityEvents.map((event) => (
-                        <div key={event.id} className="relative border-l border-border pl-4">
-                          <span className="absolute -left-[5px] top-1 h-2.5 w-2.5 rounded-full border border-primary bg-background" />
-                          <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-                            <Clock className="h-3 w-3" />
-                            <span>{fmtDateTimeShort(event.createdAt)}</span>
-                            <span>por {event.createdBy}</span>
-                          </div>
-                          <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-foreground">
-                            {event.text}
-                          </div>
-                        </div>
-                      ))}
+                  {readOnly && (
+                    <div className="max-h-[420px] min-h-[220px] overflow-y-auto whitespace-pre-wrap rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground">
+                      {note}
                     </div>
-                  </div>
-                </div>
+                  )}
+
+                  {noteError && (
+                    <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
+                      {noteError}
+                    </div>
+                  )}
+                </section>
               )}
 
               {activeTab === "contactos" && (
