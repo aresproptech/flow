@@ -14,7 +14,7 @@ declare
   actor_id bigint := public.crm_current_profile_id();
   actor_name text := coalesce(nullif(public.crm_current_name(), ''), 'Usuario');
 begin
-  insert into public.opportunity_contacts (
+  insert into public.opportunity_activities (
     opportunity_id,
     fecha,
     memo,

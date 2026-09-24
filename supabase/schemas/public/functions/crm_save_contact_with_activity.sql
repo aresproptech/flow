@@ -1,22 +1,3 @@
-begin;
-
-do $$
-begin
-  if to_regclass('public.opportunity_contacts') is not null then
-    alter table public.opportunity_contacts
-      drop constraint if exists opportunity_contacts_event_type_check,
-      add constraint opportunity_contacts_event_type_check check (
-        event_type = any (array[
-          'legacy', 'activity', 'note', 'call', 'contact', 'valuation',
-          'valuation_updated', 'rg', 'rg_updated', 'lead_created',
-          'lead_imported', 'lead_updated', 'lead_deleted', 'phase_changed',
-          'visit_created', 'visit_updated', 'order_created', 'order_updated'
-        ]::text[])
-      );
-  end if;
-end
-$$;
-
 create or replace function public.crm_save_contact_with_activity(
   p_contact_id bigint,
   p_opportunity_id bigint,
@@ -78,7 +59,7 @@ begin
       raise exception 'No tienes permiso para crear este contacto' using errcode = '42501';
     end if;
 
-    insert into public.opportunity_contacts (
+    insert into public.opportunity_activities (
       opportunity_id, fecha, memo, resultado, event_type, actor_profile_id,
       effective_at, metadata
     ) values (
@@ -89,7 +70,7 @@ begin
     select opportunity_id, jsonb_build_object(
       'fecha', fecha, 'metadata', metadata, 'memo', memo
     ) into target_opportunity_id, previous_data
-    from public.opportunity_contacts
+    from public.opportunity_activities
     where id = p_contact_id and event_type = 'contact'
     for update;
     if not found then raise exception 'El contacto no existe' using errcode = 'P0002'; end if;
@@ -97,13 +78,13 @@ begin
       raise exception 'No tienes permiso para editar este contacto' using errcode = '42501';
     end if;
 
-    update public.opportunity_contacts set
+    update public.opportunity_activities set
       fecha = event_date, memo = summary_text, resultado = true,
       actor_profile_id = actor_id, effective_at = effective_value, metadata = event_metadata
     where id = p_contact_id
     returning id into saved_contact_id;
 
-    insert into public.opportunity_contacts (
+    insert into public.opportunity_activities (
       opportunity_id, fecha, memo, resultado, event_type, actor_profile_id,
       effective_at, metadata, parent_event_id
     ) values (
@@ -119,6 +100,7 @@ end;
 $$;
 
 grant execute on function public.crm_save_contact_with_activity(bigint, bigint, jsonb, text)
-to authenticated;
+to authenticated, postgres, service_role;
 
-commit;
+revoke all on function public.crm_save_contact_with_activity(bigint, bigint, jsonb, text)
+from public, anon;

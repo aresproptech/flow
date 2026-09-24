@@ -44,7 +44,7 @@ begin
         using errcode = '42501';
     end if;
 
-    insert into public.visitas (
+    insert into public.opportunity_buyers (
       opportunity_id,
       estado,
       dominio,
@@ -86,7 +86,7 @@ begin
   else
     select opportunity_id
     into target_opportunity_id
-    from public.visitas
+    from public.opportunity_buyers
     where id = p_visit_id
     for update;
 
@@ -101,7 +101,7 @@ begin
       raise exception 'No tienes permiso para editar esta visita' using errcode = '42501';
     end if;
 
-    update public.visitas
+    update public.opportunity_buyers
     set
       fecha_visita = nullif(p_data ->> 'fecha_visita', '')::date,
       hora = nullif(p_data ->> 'hora', '')::time,

@@ -52,7 +52,7 @@ begin
     raise exception 'El gestor de visitas conserva acceso general a leads';
   end if;
 
-  if (select count(*) from public.opportunity_contacts) <> 0
+  if (select count(*) from public.opportunity_activities) <> 0
     or (select count(*) from public.opportunity_orders) <> 0
     or (select count(*) from public.opportunity_documentation_files) <> 0 then
     raise exception 'El gestor de visitas puede leer datos de flujos comerciales';
@@ -124,7 +124,7 @@ begin
 
   blocked := false;
   begin
-    insert into public.visitas (opportunity_id, created_by)
+    insert into public.opportunity_buyers (opportunity_id, created_by)
     values (non_order_opportunity_id, visit_manager.name);
   exception
     when insufficient_privilege then
@@ -138,7 +138,7 @@ begin
   reset role;
   select count(*)
   into history_before
-  from public.opportunity_contacts
+  from public.opportunity_activities
   where opportunity_id = target_opportunity_id;
 
   set local role authenticated;
@@ -158,7 +158,7 @@ begin
 
   if not exists (
     select 1
-    from public.visitas
+    from public.opportunity_buyers
     where id = saved_visit_id
       and opportunity_id = target_opportunity_id
   ) then
@@ -182,7 +182,7 @@ begin
   reset role;
   if (
     select count(*)
-    from public.opportunity_contacts
+    from public.opportunity_activities
     where opportunity_id = target_opportunity_id
   ) <> history_before + 2 then
     raise exception 'Crear y editar la visita no generó exactamente dos eventos';
@@ -190,14 +190,14 @@ begin
 
   if not exists (
     select 1
-    from public.opportunity_contacts
+    from public.opportunity_activities
     where opportunity_id = target_opportunity_id
       and event_type = 'visit_created'
       and actor_profile_id = visit_manager.id
       and metadata ->> 'visit_id' = saved_visit_id::text
   ) or not exists (
     select 1
-    from public.opportunity_contacts
+    from public.opportunity_activities
     where opportunity_id = target_opportunity_id
       and event_type = 'visit_updated'
       and actor_profile_id = visit_manager.id

@@ -35,7 +35,7 @@ begin
         )
       );
     select count(*) into expected_visits
-    from public.visitas v
+    from public.opportunity_buyers v
     left join public.opportunities o on o.id = v.opportunity_id
     where p.can_manage_visits
       or (
@@ -71,7 +71,7 @@ begin
     if actual <> expected then raise exception 'Vista: esperado %, obtenido % para rol %', expected, actual, p.rol; end if;
     select count(*) into actual from public.crm_visit_property_options();
     if actual <> expected_visit_options then raise exception 'Inmuebles de visitas: esperado %, obtenido % para perfil %', expected_visit_options, actual, p.id; end if;
-    select count(*) into actual from public.visitas;
+    select count(*) into actual from public.opportunity_buyers;
     if actual <> expected_visits then raise exception 'Visitas: esperado %, obtenido % para perfil %', expected_visits, actual, p.id; end if;
     select count(*) into profile_options from public.crm_profile_assignment_options();
     if profile_options <> expected_profile_options then

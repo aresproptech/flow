@@ -75,7 +75,7 @@ begin
       raise exception 'No tienes permiso para crear esta R.G.' using errcode = '42501';
     end if;
 
-    insert into public.opportunity_contacts (
+    insert into public.opportunity_activities (
       opportunity_id,
       fecha,
       memo,
@@ -106,7 +106,7 @@ begin
         'memo', memo
       )
     into target_opportunity_id, previous_data
-    from public.opportunity_contacts
+    from public.opportunity_activities
     where id = p_contact_id
       and (
         event_type = 'rg'
@@ -122,7 +122,7 @@ begin
       raise exception 'No tienes permiso para editar esta R.G.' using errcode = '42501';
     end if;
 
-    update public.opportunity_contacts
+    update public.opportunity_activities
     set
       fecha = event_date,
       memo = summary_text,
@@ -134,7 +134,7 @@ begin
     where id = p_contact_id
     returning id into saved_contact_id;
 
-    insert into public.opportunity_contacts (
+    insert into public.opportunity_activities (
       opportunity_id,
       fecha,
       memo,

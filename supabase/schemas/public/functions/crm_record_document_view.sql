@@ -40,7 +40,7 @@ begin
 
   activity_text := 'Abrió el documento «' || target_file.file_name || '»';
 
-  insert into public.opportunity_contacts (
+  insert into public.opportunity_activities (
     opportunity_id, fecha, memo, resultado, event_type,
     actor_profile_id, effective_at, metadata
   )

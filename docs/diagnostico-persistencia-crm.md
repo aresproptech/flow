@@ -29,13 +29,13 @@ La hoja `Riesgos y mejoras` lista los puntos que conviene revisar antes de consi
 Las acciones principales del negocio si tienen respaldo en backend:
 
 - Los leads se leen desde `crm_leads_view` y se actualizan en `opportunities`.
-- Las observaciones se guardan en `opportunity_contacts`.
-- El historial visible del panel se apoya en registros guardados, principalmente dentro de `opportunity_contacts`.
-- Las valoraciones se guardan como contactos tipo valoracion en `opportunity_contacts`.
-- Las R.G. se guardan como contactos tipo R.G. en `opportunity_contacts`.
+- Las observaciones se guardan en `opportunity_activities`.
+- El historial visible del panel se apoya en registros guardados, principalmente dentro de `opportunity_activities`.
+- Las valoraciones se guardan como contactos tipo valoracion en `opportunity_activities`.
+- Las R.G. se guardan como contactos tipo R.G. en `opportunity_activities`.
 - Los encargos se guardan en `opportunity_orders`.
-- Las visitas se guardan en `visitas`.
-- El dashboard calcula metricas desde datos reales de `opportunities`, `opportunity_contacts` y `visitas`; las altas de encargos se cuentan mediante eventos `order_created`.
+- Las visitas se guardan en `opportunity_buyers`.
+- El dashboard calcula metricas desde datos reales de `opportunities`, `opportunity_activities` y `opportunity_buyers`; las altas de encargos se cuentan mediante eventos `order_created`.
 
 En resumen: las acciones operativas importantes no quedan solo en el front. La mayoria se escriben o se leen desde Supabase.
 
@@ -81,9 +81,9 @@ Situación histórica detectada en la auditoría de solo lectura del 14 de julio
 
 - `crm_leads_view`: 3316 registros accesibles.
 - `opportunities`: 4785 registros accesibles.
-- `opportunity_contacts`: 38 registros accesibles.
+- `opportunity_activities`: 38 registros accesibles.
 - `opportunity_orders`: consulta accesible.
-- `visitas`: 11 registros accesibles.
+- `opportunity_buyers`: 11 registros accesibles.
 - `profiles`: 14 registros accesibles.
 
 Conclusión histórica: un cliente anónimo podía consultar datos del CRM. Ese riesgo crítico quedó corregido en la Fase 0.
@@ -98,9 +98,9 @@ Controles aplicados y comprobados en Supabase mediante pruebas SQL:
 - Que no haya escrituras abiertas por error.
 - Que las tablas criticas tengan Row Level Security bien configurado.
 
-### 2. Uso mixto de `opportunity_contacts`
+### 2. Uso mixto de `opportunity_activities`
 
-La tabla `opportunity_contacts` guarda varias cosas distintas:
+La tabla `opportunity_activities` guarda varias cosas distintas:
 
 - Observaciones.
 - Historial.
@@ -139,7 +139,7 @@ Correcciones realizadas:
 - Se mantiene un parser compartido sólo para compatibilidad histórica.
 - Las políticas de escritura ya no buscan palabras dentro del `memo`.
 
-Conclusion: `opportunity_contacts` continúa siendo la tabla única, pero la
+Conclusion: `opportunity_activities` continúa siendo la tabla única, pero la
 clasificación y las métricas ya no dependen de prefijos.
 
 ### 3. Historial de acciones
@@ -147,7 +147,7 @@ clasificación y las métricas ya no dependen de prefijos.
 Estado: estructurado y transaccional; quedan pendientes los recorridos completos
 de navegador por rol.
 
-El historial ya muestra acciones y persiste en `opportunity_contacts`, pero no todas se registran con el mismo nivel de detalle.
+El historial ya muestra acciones y persiste en `opportunity_activities`, pero no todas se registran con el mismo nivel de detalle.
 
 Revision del comportamiento actual:
 
@@ -225,7 +225,7 @@ Sin snapshots, el dashboard puede recalcular datos historicos con informacion ac
 2. Mantener las operaciones compuestas dentro de RPC transaccionales; altas,
    importaciones y ediciones de leads ya guardan su historial atómicamente.
 3. Mantener `event_type` y `metadata` como clasificación estructurada de
-   `opportunity_contacts`; los prefijos quedan sólo para lectura humana y legado.
+   `opportunity_activities`; los prefijos quedan sólo para lectura humana y legado.
 4. Evaluar snapshots diarios para metricas historicas del dashboard.
 5. Resolver manualmente los valores ambiguos restantes de comerciales, planners y orígenes; las coincidencias únicas y las nuevas escrituras ya usan IDs.
 

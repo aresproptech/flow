@@ -53,7 +53,7 @@ begin
     raise exception 'No tienes permiso para registrar esta actividad' using errcode = '42501';
   end if;
 
-  insert into public.opportunity_contacts (
+  insert into public.opportunity_activities (
     opportunity_id,
     fecha,
     memo,

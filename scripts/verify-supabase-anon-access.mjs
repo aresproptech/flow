@@ -20,9 +20,9 @@ const supabase = createClient(url, anonKey, {
 const protectedRelations = [
   "crm_leads_view",
   "opportunities",
-  "opportunity_contacts",
+  "opportunity_activities",
   "opportunity_orders",
-  "visitas",
+  "opportunity_buyers",
   "profiles",
   "opportunity_documentation_cases",
   "opportunity_documentation_files",

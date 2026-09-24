@@ -33,7 +33,7 @@ begin
       reset role;
       select count(*)
       into history_count
-      from public.opportunity_contacts
+      from public.opportunity_activities
       where opportunity_id = readable_opportunity_id;
 
       set local role authenticated;
@@ -50,7 +50,7 @@ begin
       ) into saved_visit_id;
 
       if not exists (
-        select 1 from public.visitas where id = saved_visit_id
+        select 1 from public.opportunity_buyers where id = saved_visit_id
       ) then
         raise exception 'La RPC no creó la visita para el rol %', profile_row.role_name;
       end if;
@@ -58,7 +58,7 @@ begin
       reset role;
       if (
         select count(*)
-        from public.opportunity_contacts
+        from public.opportunity_activities
         where opportunity_id = readable_opportunity_id
       ) <> history_count + 1 then
         raise exception 'La visita no creó exactamente una línea de historial';
@@ -80,7 +80,7 @@ begin
       reset role;
       if (
         select count(*)
-        from public.opportunity_contacts
+        from public.opportunity_activities
         where opportunity_id = readable_opportunity_id
       ) <> history_count + 2 then
         raise exception 'La edición de visita no creó exactamente una línea de historial';
@@ -114,7 +114,7 @@ begin
       if target_phase_id is not null then
         select count(*)
         into history_count
-        from public.opportunity_contacts
+        from public.opportunity_activities
         where opportunity_id = writable_opportunity_id;
 
         perform public.crm_change_lead_phase_with_activity(
@@ -133,7 +133,7 @@ begin
 
         if (
           select count(*)
-          from public.opportunity_contacts
+          from public.opportunity_activities
           where opportunity_id = writable_opportunity_id
         ) <> history_count + 1 then
           raise exception 'El cambio de fase no creó exactamente una línea de historial';
@@ -142,7 +142,7 @@ begin
 
       select count(*)
       into history_count
-      from public.opportunity_contacts
+      from public.opportunity_activities
       where opportunity_id = writable_opportunity_id;
 
       select public.crm_save_order_with_activity(
@@ -165,7 +165,7 @@ begin
 
       if (
         select count(*)
-        from public.opportunity_contacts
+        from public.opportunity_activities
         where opportunity_id = writable_opportunity_id
       ) <> history_count + 1 then
         raise exception 'El encargo no creó exactamente una línea de historial';
@@ -185,7 +185,7 @@ begin
 
       if (
         select count(*)
-        from public.opportunity_contacts
+        from public.opportunity_activities
         where opportunity_id = writable_opportunity_id
       ) <> history_count + 2 then
         raise exception 'La edición de encargo no creó exactamente una línea de historial';

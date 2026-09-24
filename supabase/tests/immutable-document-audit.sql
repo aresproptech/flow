@@ -77,7 +77,7 @@ begin
 
   if not exists (
     select 1
-    from public.opportunity_contacts c
+    from public.opportunity_activities c
     where c.opportunity_id = target_opportunity_id
       and c.event_type = 'document_uploaded'
       and c.actor_profile_id = writer_profile.id
@@ -91,7 +91,7 @@ begin
 
   if returned_path is distinct from test_object_name or not exists (
     select 1
-    from public.opportunity_contacts c
+    from public.opportunity_activities c
     where c.opportunity_id = target_opportunity_id
       and c.event_type = 'document_viewed'
       and c.actor_profile_id = writer_profile.id

@@ -7,9 +7,9 @@ from pg_catalog.pg_class
 where oid = any (array[
   'public.profiles'::regclass,
   'public.opportunities'::regclass,
-  'public.opportunity_contacts'::regclass,
+  'public.opportunity_activities'::regclass,
   'public.opportunity_orders'::regclass,
-  'public.visitas'::regclass
+  'public.opportunity_buyers'::regclass
 ]);
 
 select ok(
@@ -19,9 +19,9 @@ select ok(
 from unnest(array[
   'public.profiles',
   'public.opportunities',
-  'public.opportunity_contacts',
+  'public.opportunity_activities',
   'public.opportunity_orders',
-  'public.visitas'
+  'public.opportunity_buyers'
 ]) relation_name
 cross join unnest(array['SELECT', 'INSERT', 'UPDATE', 'DELETE']) privilege_name;
 
@@ -37,9 +37,9 @@ select ok(
 from unnest(array[
   'public.profiles',
   'public.opportunities',
-  'public.opportunity_contacts',
+  'public.opportunity_activities',
   'public.opportunity_orders',
-  'public.visitas'
+  'public.opportunity_buyers'
 ]) relation_name
 cross join unnest(array['SELECT', 'INSERT', 'UPDATE', 'DELETE']) privilege_name;
 
@@ -56,9 +56,9 @@ select is(
       and tablename = any (array[
         'profiles',
         'opportunities',
-        'opportunity_contacts',
+        'opportunity_activities',
         'opportunity_orders',
-        'visitas'
+        'opportunity_buyers'
       ])
   ),
   20,
@@ -73,9 +73,9 @@ select is(
       and tablename = any (array[
         'profiles',
         'opportunities',
-        'opportunity_contacts',
+        'opportunity_activities',
         'opportunity_orders',
-        'visitas'
+        'opportunity_buyers'
       ])
       and ('anon' = any (roles) or 'public' = any (roles))
   ),

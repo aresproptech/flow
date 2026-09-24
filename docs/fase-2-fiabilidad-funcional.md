@@ -86,7 +86,7 @@ datos del formulario ante un fallo y hacer visibles los errores operativos.
 
 ### Actividades estructuradas
 
-- `opportunity_contacts` continúa siendo la fuente única, pero ahora incluye
+- `opportunity_activities` continúa siendo la fuente única, pero ahora incluye
   `event_type`, `actor_profile_id`, `effective_at`, `metadata`,
   `parent_event_id` y `updated_at`.
 - Los registros existentes se clasificaron sin modificar ni eliminar su `memo`.

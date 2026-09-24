@@ -62,7 +62,7 @@ begin
       and propietario = 'Lead atómico de prueba'
   ) or not exists (
     select 1
-    from public.opportunity_contacts
+    from public.opportunity_activities
     where opportunity_id = created_id
       and event_type = 'lead_created'
       and actor_profile_id = profile_row.id
@@ -75,7 +75,7 @@ begin
   where id = created_id;
 
   select count(*) into contact_count
-  from public.opportunity_contacts
+  from public.opportunity_activities
   where opportunity_id = created_id;
 
   perform public.crm_update_lead_with_activity(
@@ -100,7 +100,7 @@ begin
       and propietario = 'Lead atómico editado'
   ) or not exists (
     select 1
-    from public.opportunity_contacts
+    from public.opportunity_activities
     where opportunity_id = created_id
       and event_type = 'lead_updated'
       and metadata -> 'before' ->> 'propietario' = before_owner
@@ -111,7 +111,7 @@ begin
 
   if (
     select count(*)
-    from public.opportunity_contacts
+    from public.opportunity_activities
     where opportunity_id = created_id
   ) <> contact_count + 1 then
     raise exception 'La edición no creó exactamente un evento de historial';
@@ -140,7 +140,7 @@ begin
     where id = any(imported_ids)
   ) <> 2 or (
     select count(*)
-    from public.opportunity_contacts
+    from public.opportunity_activities
     where opportunity_id = any(imported_ids)
       and event_type = 'lead_imported'
   ) <> 2 then
@@ -237,7 +237,7 @@ begin
 
     if created_id is not null and not exists (
       select 1
-      from public.opportunity_contacts
+      from public.opportunity_activities
       where opportunity_id = created_id
         and event_type = 'lead_created'
         and actor_profile_id = profile_row.id

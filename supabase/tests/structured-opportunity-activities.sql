@@ -1,4 +1,4 @@
--- Prueba la estructura tipada de opportunity_contacts. No conserva escrituras.
+-- Prueba la estructura tipada de opportunity_activities. No conserva escrituras.
 begin;
 
 do $$
@@ -68,7 +68,7 @@ begin
 
   if not exists (
     select 1
-    from public.opportunity_contacts
+    from public.opportunity_activities
     where id = note_id
       and event_type = 'note'
       and actor_profile_id = profile_row.id
@@ -91,7 +91,7 @@ begin
 
   if not exists (
     select 1
-    from public.opportunity_contacts
+    from public.opportunity_activities
     where id = valuation_id
       and event_type = 'valuation'
       and metadata ->> 'medio' = 'Presencial'
@@ -114,13 +114,13 @@ begin
 
   if not exists (
     select 1
-    from public.opportunity_contacts
+    from public.opportunity_activities
     where id = valuation_id
       and event_type = 'valuation'
       and metadata ->> 'medio' = 'Videollamada'
   ) or not exists (
     select 1
-    from public.opportunity_contacts
+    from public.opportunity_activities
     where parent_event_id = valuation_id
       and event_type = 'valuation_updated'
       and metadata ? 'before'
@@ -157,13 +157,13 @@ begin
 
   if not exists (
     select 1
-    from public.opportunity_contacts
+    from public.opportunity_activities
     where id = rg_id
       and event_type = 'rg'
       and metadata ->> 'resultado' = 'Positiva'
   ) or not exists (
     select 1
-    from public.opportunity_contacts
+    from public.opportunity_activities
     where parent_event_id = rg_id
       and event_type = 'rg_updated'
       and metadata ? 'before'
@@ -172,7 +172,7 @@ begin
     raise exception 'La edición de R.G. no conservó su auditoría';
   end if;
 
-  insert into public.opportunity_contacts (
+  insert into public.opportunity_activities (
     opportunity_id,
     fecha,
     memo,
@@ -188,7 +188,7 @@ begin
 
   if not exists (
     select 1
-    from public.opportunity_contacts
+    from public.opportunity_activities
     where id = legacy_id
       and event_type = 'valuation'
       and actor_profile_id = profile_row.id
@@ -197,7 +197,7 @@ begin
   end if;
 
   begin
-    update public.opportunity_contacts
+    update public.opportunity_activities
     set memo = memo || ' alterada'
     where id = note_id;
   exception
@@ -211,7 +211,7 @@ begin
 
   if exists (
     select 1
-    from public.opportunity_contacts
+    from public.opportunity_activities
     where event_type is null
       or metadata is null
       or updated_at is null
@@ -225,7 +225,7 @@ begin
     select 1
     from pg_catalog.pg_policies
     where schemaname = 'public'
-      and tablename = 'opportunity_contacts'
+      and tablename = 'opportunity_activities'
       and policyname = 'contacts_insert_by_opportunity'
       and coalesce(with_check, '') ilike '%memo%'
   ) then
@@ -234,6 +234,6 @@ begin
 end
 $$;
 
-select 'PASS: opportunity_contacts usa tipos, metadatos, actor, auditoría y compatibilidad; todo revertido' as result;
+select 'PASS: opportunity_activities usa tipos, metadatos, actor, auditoría y compatibilidad; todo revertido' as result;
 
 rollback;

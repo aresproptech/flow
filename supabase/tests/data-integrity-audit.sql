@@ -111,9 +111,9 @@ with active_opportunities as (
   ) duplicates
 
   union all
-  select 'relaciones', 'contactos_sin_lead', count(*) from public.opportunity_contacts where opportunity_id is null
+  select 'relaciones', 'contactos_sin_lead', count(*) from public.opportunity_activities where opportunity_id is null
   union all
-  select 'relaciones', 'visitas_sin_lead', count(*) from public.visitas where opportunity_id is null
+  select 'relaciones', 'visitas_sin_lead', count(*) from public.opportunity_buyers where opportunity_id is null
   union all
   select 'relaciones', 'documentos_sin_lead', count(*) from public.opportunity_documentation_files where opportunity_id is null
 ), unmatched(relation, raw_value, occurrences) as (
