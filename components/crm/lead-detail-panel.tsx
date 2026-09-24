@@ -2598,63 +2598,6 @@ export function LeadDetailPanel({
               {activeTab === "resumen" && (
                 <div className="space-y-3">
                   <div className="space-y-4 md:space-y-5">
-                    <section className="space-y-2 md:space-y-3">
-                      <h4 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground md:text-[11px]">
-                        Resumen de actividad
-                      </h4>
-                      <div className="grid grid-cols-2 gap-2 md:gap-3 xl:grid-cols-4">
-                        {([
-                          {
-                            tab: "contactos",
-                            label: "Contactos",
-                            count: contactHistoryEvents.length,
-                          },
-                          {
-                            tab: "valoracion",
-                            label: "Valoraciones",
-                            count: valuationHistoryEvents.length,
-                          },
-                          {
-                            tab: "encargo",
-                            label: "Encargos",
-                            count: orders.length,
-                          },
-                          {
-                            tab: "rg",
-                            label: "R.G.",
-                            count: rgHistoryEvents.length,
-                          },
-                          {
-                            tab: "visitas",
-                            label: "Visitas",
-                            count: visits.length,
-                          },
-                        ] as Array<{
-                          tab: Exclude<LeadDetailTab, "resumen" | "documentacion">;
-                          label: string;
-                          count: number;
-                        }>).map((item) => (
-                          <button
-                            key={item.tab}
-                            type="button"
-                            onClick={() => setActiveTab(item.tab)}
-                            className="rounded-lg border border-border bg-muted/20 p-3 text-left transition hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 md:p-4"
-                            aria-label={`Abrir ${item.label}: ${item.count}`}
-                          >
-                            <span className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground md:text-[11px]">
-                              {item.label}
-                            </span>
-                            <span className="mt-0.5 block text-xl font-semibold text-foreground md:mt-1 md:text-2xl">
-                              {item.count}
-                            </span>
-                            <span className="mt-0.5 block text-[10px] font-medium text-primary md:mt-1 md:text-[11px]">
-                              Ver detalle
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    </section>
-
                     <section className="space-y-3">
                       <div className="flex items-center justify-between gap-3">
                         <h4 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
