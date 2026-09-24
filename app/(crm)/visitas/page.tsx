@@ -269,7 +269,7 @@ export default function VisitasPage() {
       nombre_apellido: "",
       telefono: "",
       buyer: userWithRole?.crmUser && canManageVisits(userWithRole.crmUser)
-        ? userWithRole.crmUser.name
+        ? userWithRole.crmUser.name ?? ""
         : DEFAULT_VISIT_BUYER,
     }));
   }

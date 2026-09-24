@@ -1,21 +1,11 @@
 import { createBrowserClient } from "@supabase/ssr";
 
-// Tipos de base de datos
-export type LeadObservation = {
-  id: number;
-  opportunity_id: number;
-  text: string;
-  created_by: string;
-  created_at: string;
-};
-
 export type CrmUser = {
   id: number;
-  auth_id: string;
-  name: string;
-  rol: "Admin" | "Coordinador" | "Comercial";
-  user: string | null;
-  enabled: boolean;
+  auth_id: string | null;
+  name: string | null;
+  rol: "Admin" | "Coordinador" | "Comercial" | "Partner" | null;
+  enabled: boolean | null;
   can_manage_visits: boolean;
 };
 

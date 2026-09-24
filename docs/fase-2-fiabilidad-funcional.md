@@ -117,14 +117,14 @@ datos del formulario ante un fallo y hacer visibles los errores operativos.
 
 ## Riesgos todavía abiertos
 
-### 1. Usuarios no conectados
+### 1. Alta en Supabase Auth todavía separada
 
-La pestaña Usuarios es todavía una maqueta local. Muestra un usuario fijo y el
-botón `Invitar usuario` sólo agrega una fila al estado de React; al recargar se
-pierde y no crea una cuenta en Supabase Auth ni un perfil real. Es un bloqueo de
-producción y deberá resolverse desde un endpoint de servidor protegido para
-administradores, nunca exponiendo una `service_role` en el navegador. El usuario
-decidió dejar este bloque para la última fase.
+La pestaña Usuarios ya consulta y crea perfiles reales en `public.profiles`,
+respetando las políticas RLS para Admin y Coordinador. También muestra si cada
+perfil está vinculado mediante `auth_id`. La creación de una cuenta o invitación
+en Supabase Auth sigue siendo una operación administrativa separada: deberá
+implementarse desde un endpoint de servidor protegido y nunca exponiendo una
+`service_role` en el navegador.
 
 ### 2. Pruebas funcionales pendientes
 

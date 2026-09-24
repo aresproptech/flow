@@ -133,6 +133,8 @@ Formato actual de memo: `[R.G.] Nombre: Medio: X | Resultado: Y | Hora: HH:mm`.
 | Accion / regla | Tabla | Operacion | Columnas usadas | Persistencia |
 |---|---|---|---|---|
 | Obtener usuario CRM | `profiles` | `select` | `*` filtrando `auth_id` | Solo lectura |
+| Listar perfiles en Usuarios | `profiles` | `select` | `id`, `name`, `rol`, `enabled`, `auth_id`, `created_at`, `can_manage_visits` | Solo lectura |
+| Crear perfil CRM | `profiles` | `insert` | `name`, `rol`, `enabled`, `auth_id`, `can_manage_visits` | Guarda; limitado por RLS a Admin/Coordinador |
 | Login | Supabase Auth | `signInWithPassword` | email/password | Sesion Auth |
 | Logout | Supabase Auth | `signOut` | N/A | Cierra sesion |
 | Gestionar visitas globales | `profiles` + RPC/RLS | permiso `can_manage_visits` | booleano explícito | Guarda | No depende del nombre del usuario |

@@ -2592,7 +2592,7 @@ export function LeadDetailPanel({
         <div className="flex flex-wrap items-center justify-center gap-1.5 md:justify-start">
           <Badge
             variant="outline"
-            className="h-6 gap-1 rounded-md px-2 text-xs font-semibold"
+            className="order-4 h-6 gap-1 rounded-md px-2 text-xs font-semibold"
             style={getStatusConfig(effectiveLead.status).badgeStyle}
           >
             <Circle className="h-1.5 w-1.5 fill-current" />
@@ -2600,7 +2600,7 @@ export function LeadDetailPanel({
           </Badge>
           <Badge
             variant="outline"
-            className="h-6 rounded-md px-2 text-xs font-semibold"
+            className="order-3 h-6 rounded-md px-2 text-xs font-semibold"
             style={
               PHASE_BADGE_STYLES[effectiveLead.phase] ?? {
                 backgroundColor: "#F1F5F9",
@@ -2613,14 +2613,14 @@ export function LeadDetailPanel({
           </Badge>
           <Badge
             variant="outline"
-            className="h-6 rounded-md px-2 text-xs font-semibold"
+            className="order-2 h-6 rounded-md px-2 text-xs font-semibold"
             style={getSourceBadgeStyle(effectiveLead.source)}
           >
             {effectiveLead.source || "—"}
           </Badge>
           <Badge
             variant="outline"
-            className="h-6 rounded-md px-2 text-xs font-semibold"
+            className="order-1 h-6 rounded-md px-2 text-xs font-semibold"
             style={getDominioBadgeStyle(getLeadDominio(effectiveLead))}
           >
             {getLeadDominio(effectiveLead) || "Sin dominio"}

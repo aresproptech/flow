@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
 
 export interface PostalCodeResult {
   cp: string;
@@ -21,18 +21,34 @@ export async function GET(
     );
   }
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return NextResponse.json(
+      { error: "Sesión no válida." },
+      { status: 401 }
+    );
+  }
 
   const { data, error } = await supabase
     .from("postal")
     .select("id, provincia, distrito")
     .eq("id", Number(cp))
-    .single();
+    .maybeSingle();
 
-  if (error || !data) {
+  if (error) {
+    console.error("Error consultando el código postal:", error.code);
+    return NextResponse.json(
+      { error: "No se pudo consultar el código postal." },
+      { status: 500 }
+    );
+  }
+
+  if (!data) {
     return NextResponse.json(
       { error: "CP no encontrado." },
       { status: 404 }

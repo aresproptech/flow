@@ -26,7 +26,7 @@ const protectedRelations = [
   "profiles",
   "opportunity_documentation_cases",
   "opportunity_documentation_files",
-  "phases", "sources", "postal", "domain", "lookups", "opportunity_history",
+  "phases", "sources", "postal", "domain", "lookups", "opportunity_tracking",
 ];
 
 let exposed = false;
