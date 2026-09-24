@@ -387,7 +387,7 @@ const LEAD_DETAIL_TABS: Array<{ value: LeadDetailTab; label: string }> = [
   { value: "encargo", label: "Encargo" },
   { value: "rg", label: "R.G." },
   { value: "visitas", label: "Visitas" },
-  { value: "documentacion", label: "Documentación" },
+  { value: "documentacion", label: "Docs" },
 ];
 
 const EDIT_LEAD_TABS: Array<{ value: EditLeadTab; label: string }> = [
