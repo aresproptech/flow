@@ -2465,28 +2465,7 @@ export function LeadDetailPanel({
     }
   );
 
-  const legacyValuationEvent: ValuationHistoryEvent[] =
-    parsedValuationEntries.length === 0 && effectiveLead.fechaValoracion
-      ? [
-          {
-            id: `valuation-${effectiveLead.id}-${effectiveLead.fechaValoracion}`,
-            numero: 1,
-            fecha: effectiveLead.fechaValoracion,
-            hora: effectiveLead.hora || "",
-            medio: effectiveLead.medio || "—",
-            planner: effectiveLead.planner || "—",
-            owner: effectiveLead.owner || "—",
-            dominio: getLeadDominio(effectiveLead) || "—",
-            resultado: statusLabel(effectiveLead.status),
-            memo: "Valoración derivada de la información actual del lead.",
-          },
-        ]
-      : [];
-
-  const valuationHistoryEvents: ValuationHistoryEvent[] = [
-    ...parsedValuationEntries,
-    ...legacyValuationEvent,
-  ];
+  const valuationHistoryEvents: ValuationHistoryEvent[] = parsedValuationEntries;
 
   const contactHistoryEvents: ContactHistoryEvent[] = contactEntries.map((row, index) => {
     const memoText = row.memo?.trim() || "";

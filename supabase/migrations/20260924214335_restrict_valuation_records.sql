@@ -1,14 +1,15 @@
-CREATE OR REPLACE FUNCTION public.crm_save_valuation_with_activity (
+-- Valoraciones se leen y editan exclusivamente como actividades tipadas.
+create or replace function public.crm_save_valuation_with_activity(
   p_contact_id     bigint,
   p_opportunity_id bigint,
   p_data           jsonb,
   p_change_details text
 )
-  RETURNS bigint
-  LANGUAGE plpgsql
-  SECURITY DEFINER
-  SET search_path TO ''
-  AS $function$
+returns bigint
+language plpgsql
+security definer
+set search_path = ''
+as $function$
 declare
   target_opportunity_id bigint;
   saved_contact_id bigint;
@@ -168,6 +169,8 @@ begin
 end
 $function$;
 
-GRANT EXECUTE ON FUNCTION "public"."crm_save_valuation_with_activity"(bigint, bigint, jsonb, text) TO "authenticated", "postgres", "service_role";
+grant execute on function public.crm_save_valuation_with_activity(bigint, bigint, jsonb, text)
+to authenticated;
 
-REVOKE ALL ON FUNCTION "public"."crm_save_valuation_with_activity"(bigint, bigint, jsonb, text) FROM PUBLIC;
+revoke all on function public.crm_save_valuation_with_activity(bigint, bigint, jsonb, text)
+from public, anon;
