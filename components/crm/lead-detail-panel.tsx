@@ -1837,11 +1837,24 @@ export function LeadDetailPanel({
     setNoteError(null);
 
     try {
-      await handleSave({ ...effectiveLead, notes: text });
+      const { data, error } = await supabase
+        .from("opportunities")
+        .update({ memo: text || null })
+        .eq("id", Number(effectiveLead.id))
+        .select("memo")
+        .single();
+
+      if (error) throw error;
+
+      const savedMemo = data?.memo?.trim() || "";
+      setNote(savedMemo);
+      setLocalLead((current) =>
+        current ? { ...current, notes: savedMemo } : current
+      );
     } catch (error) {
-      console.error("Error guardando observación:", error);
+      console.error("Error guardando memo:", error);
       setNoteError(
-        `No se pudo guardar la observación: ${
+        `No se pudo guardar el memo: ${
           error instanceof Error ? error.message : "error desconocido"
         }`
       );
