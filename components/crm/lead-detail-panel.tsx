@@ -1518,14 +1518,18 @@ export function LeadDetailPanel({
   }
 
   async function loadObservations(leadId: string) {
+    setNote("");
     const { data: opportunityMemo, error: memoError } = await supabase
       .from("opportunities")
       .select("memo")
       .eq("id", Number(leadId))
-      .maybeSingle();
+      .single();
 
-    if (!memoError) {
-      const memo = opportunityMemo?.memo?.trim() || "";
+    if (memoError) {
+      console.error("Error cargando memo de la oportunidad:", memoError);
+      setNoteError(`No se pudo cargar el memo de la oportunidad: ${memoError.message}`);
+    } else {
+      const memo = opportunityMemo.memo?.trim() || "";
       setNote(memo);
       setLocalLead((current) => (current ? { ...current, notes: memo } : current));
     }
