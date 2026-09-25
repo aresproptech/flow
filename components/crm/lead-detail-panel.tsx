@@ -323,6 +323,9 @@ type OpportunityContactRow = {
   id: number | string;
   created_at?: string | null;
   fecha?: string | null;
+  hora?: string | null;
+  medio?: string | null;
+  resultado_text?: string | null;
   memo?: string | null;
   resultado?: boolean | null;
   event_type?: string | null;
@@ -1671,7 +1674,7 @@ export function LeadDetailPanel({
     const { data, error } = await supabase
       .from("opportunity_activities")
       .select(
-        "id, created_at, fecha, memo, resultado, event_type, actor_profile_id, effective_at, metadata, parent_event_id"
+        "id, created_at, fecha, hora, medio, resultado_text, memo, resultado, event_type, actor_profile_id, effective_at, parent_event_id"
       )
       .eq("opportunity_id", Number(leadId))
       .order("created_at", { ascending: false });
@@ -1780,10 +1783,9 @@ export function LeadDetailPanel({
             "[R.G.]"
           )
         ) {
-          const detail = parseSystemMemoFields(memo, "[R.G.]", row.metadata);
-          const medio = detail.fields.medio || "";
-          const resultado = detail.fields.resultado || "";
-          const hora = detail.fields.hora || "";
+          const medio = row.medio || "";
+          const resultado = row.resultado_text || "";
+          const hora = row.hora || "";
           const details = [
             medio,
             resultado ? `Resultado: ${resultado}` : "",
@@ -1796,7 +1798,7 @@ export function LeadDetailPanel({
               id: String(row.id),
               leadId,
               createdAt,
-              createdBy: detail.createdBy || parsed.createdBy,
+              createdBy: parsed.createdBy,
               eventType: "rg",
               text: `Agregó una R.G.${buildEventDateLabel(row.fecha)}${
                 details ? `: ${details}` : ""
@@ -1830,7 +1832,7 @@ export function LeadDetailPanel({
     const { data, error } = await supabase
       .from("opportunity_activities")
       .select(
-        "id, created_at, fecha, memo, resultado, event_type, actor_profile_id, effective_at, metadata, parent_event_id"
+        "id, created_at, fecha, hora, medio, resultado_text, memo, resultado, event_type, actor_profile_id, effective_at, parent_event_id"
       )
       .eq("opportunity_id", Number(leadId))
       .eq("event_type", "rg")
@@ -2268,20 +2270,15 @@ export function LeadDetailPanel({
         ])
       : [];
 
-    const rgMetadata = {
-      actor_name: currentUserName,
-      medio: rgForm.medio || null,
-      resultado: resultadoLabel,
-      hora: rgForm.hora || null,
-      notes: rgForm.memo.trim() || null,
-    };
     const rgPayload = {
       fecha: rgForm.fecha,
+      hora: rgForm.hora || null,
+      medio: rgForm.medio || null,
+      resultado_text: resultadoLabel,
       memo: rgForm.memo.trim() || null,
       resultado: true,
       event_type: "rg",
       effective_at: `${rgForm.fecha}T${rgForm.hora || "00:00"}:00`,
-      metadata: rgMetadata,
     };
     const { error } = wasEditing
       ? await supabase
@@ -2490,20 +2487,17 @@ export function LeadDetailPanel({
   ].filter((part) => part && part !== "—");
 
   const parsedRgEntries: RgHistoryEvent[] = rgEntries.map((row, index) => {
-    const memoText = row.memo?.trim() || "";
-    const detail = parseSystemMemoFields(memoText, "[R.G.]", row.metadata);
-
     return {
       id: String(row.id),
       numero: index + 1,
       fecha: row.fecha || row.created_at || "",
-      hora: detail.fields.hora || "",
-      medio: detail.fields.medio || "—",
-      resultado: detail.fields.resultado || "—",
+      hora: row.hora || "",
+      medio: row.medio || "—",
+      resultado: row.resultado_text || "—",
       dominio: getLeadDominio(effectiveLead) || "—",
       planner: effectiveLead.planner || "—",
       owner: effectiveLead.owner || "—",
-      memo: detail.memo,
+      memo: row.memo?.trim() || "",
     };
   });
 

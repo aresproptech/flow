@@ -3,6 +3,9 @@ CREATE TABLE "public"."opportunity_activities" (
   "created_at"       timestamp with time zone NOT NULL DEFAULT now(),
   "opportunity_id"   bigint,
   "fecha"            date,
+  "hora"             time without time zone,
+  "medio"            text,
+  "resultado_text"   text,
   "contact_id"       bigint,
   "memo"             character varying,
   "resultado"        boolean,
@@ -16,11 +19,7 @@ CREATE TABLE "public"."opportunity_activities" (
   CONSTRAINT "oportunity_contacts_oportunity_id_fkey" FOREIGN KEY (opportunity_id) REFERENCES public.opportunities(id),
   CONSTRAINT "opportunity_contacts_event_type_check"
     CHECK
-    ((event_type = ANY (ARRAY['legacy'::text, 'activity'::text, 'note'::text, 'call'::text, 'contact'::text, 'valuation'::text, 'valuation_updated'::text, 'rg'::text, 'rg_updated'::text,
-    'lead_created'::text,
-    'lead_imported'::text,
-    'lead_updated'::text, 'lead_deleted'::text, 'phase_changed'::text, 'visit_created'::text, 'visit_updated'::text, 'order_created'::text, 'order_updated'::text,
-    'document_uploaded'::text, 'document_viewed'::text]))),
+    ((event_type = ANY (ARRAY['contact'::text, 'valuation'::text, 'rg'::text,'visit'::text, 'order'::text ]))),
   CONSTRAINT "order_contacts_pkey" PRIMARY KEY (id),
   CONSTRAINT "opportunity_contacts_parent_event_id_fkey" FOREIGN KEY (parent_event_id) REFERENCES public.opportunity_activities(id) ON DELETE SET NULL,
   CONSTRAINT "opportunity_contacts_actor_profile_id_fkey" FOREIGN KEY (actor_profile_id) REFERENCES public.profiles(id) ON DELETE SET NULL
