@@ -47,7 +47,7 @@ begin
   values (
     target_file.opportunity_id,
     current_date,
-    '[HISTORIAL] ' || actor_name || ': ' || activity_text,
+    null,
     true,
     'document_viewed',
     actor_id,

@@ -90,7 +90,7 @@ begin
   values (
     p_opportunity_id,
     current_date,
-    '[HISTORIAL] ' || actor_name || ': ' || activity_text,
+    null,
     true,
     'document_uploaded',
     actor_id,
