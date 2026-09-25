@@ -1,11 +1,9 @@
-CREATE OR REPLACE FUNCTION public.crm_soft_delete_leads (
-  lead_ids bigint[]
-)
-  RETURNS void
-  LANGUAGE plpgsql
-  SECURITY DEFINER
-  SET search_path TO ''
-  AS $function$
+create or replace function public.crm_soft_delete_leads(lead_ids bigint[])
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
 declare
   target_id bigint;
   actor_name text := coalesce(nullif(public.crm_current_name(), ''), 'Usuario');
@@ -49,8 +47,4 @@ begin
     );
   end loop;
 end
-$function$;
-
-GRANT EXECUTE ON FUNCTION "public"."crm_soft_delete_leads"(bigint[]) TO "authenticated", "postgres", "service_role";
-
-REVOKE ALL ON FUNCTION "public"."crm_soft_delete_leads"(bigint[]) FROM PUBLIC;
+$$;

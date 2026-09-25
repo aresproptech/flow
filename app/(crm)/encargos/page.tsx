@@ -794,16 +794,13 @@ export default function EncargosPage() {
     const isEditing = Boolean(selected && selected.orderId !== null);
     const changes = isEditing ? buildEncargoChangeLines(activeItem, payload) : [];
 
-    const { error } = await supabase.rpc("crm_save_order_with_activity", {
-      p_order_id: selected?.orderId ?? null,
-      p_opportunity_id: activeItem.leadId,
-      p_data: payload,
-      p_change_details: isEditing
-        ? changes.length
-          ? `:\n${changes.join("\n")}`
-          : " sin cambios visibles"
-        : null,
-    });
+    const { error } = isEditing
+      ? await supabase
+          .from("opportunity_orders")
+          .update(payload)
+          .eq("id", selected!.orderId!)
+          .eq("opportunity_id", activeItem.leadId)
+      : await supabase.from("opportunity_orders").insert(payload);
 
     setSaving(false);
 
@@ -811,6 +808,26 @@ export default function EncargosPage() {
       console.error("Error guardando encargo:", error);
       setFormError("No se pudo guardar el encargo. Revisá los datos e intentá nuevamente.");
       return;
+    }
+
+    const actorName = userWithRole?.crmUser.name?.trim() || "Usuario";
+    const activityText = isEditing
+      ? `Editó un encargo${changes.length ? `:\n${changes.join("\n")}` : " sin cambios visibles"}`
+      : "Agregó un encargo";
+    const { error: activityError } = await supabase
+      .from("opportunity_activities")
+      .insert({
+        opportunity_id: activeItem.leadId,
+        fecha: new Date().toISOString().slice(0, 10),
+        memo: null,
+        resultado: true,
+        event_type: isEditing ? "order_updated" : "order_created",
+        effective_at: new Date().toISOString(),
+        metadata: { actor_name: actorName, text: activityText },
+      });
+
+    if (activityError) {
+      console.error("Error registrando historial del encargo:", activityError);
     }
 
     setEditOpen(false);

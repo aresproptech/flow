@@ -36,11 +36,6 @@ CREATE INDEX idx_opportunity_contacts_event_type_fecha ON public.opportunity_act
 
 CREATE INDEX idx_opportunity_contacts_opportunity_event_created ON public.opportunity_activities USING btree (opportunity_id, event_type, created_at DESC);
 
-CREATE TRIGGER crm_prepare_opportunity_contact_trigger
-  BEFORE INSERT OR UPDATE ON public.opportunity_activities
-  FOR EACH ROW
-  EXECUTE FUNCTION public.crm_prepare_opportunity_contact();
-
 CREATE POLICY "contacts_insert_by_opportunity" ON "public"."opportunity_activities"
   FOR INSERT
   TO "authenticated"
@@ -51,11 +46,11 @@ CREATE POLICY "contacts_select_by_opportunity" ON "public"."opportunity_activiti
   TO "authenticated"
   USING (public.crm_can_read_opportunity(opportunity_id));
 
-CREATE POLICY "contacts_update_by_opportunity" ON "public"."opportunity_activities"
+CREATE POLICY "activities_update_functional_records" ON "public"."opportunity_activities"
   FOR UPDATE
   TO "authenticated"
-  USING (public.crm_can_write_opportunity(opportunity_id))
-  WITH CHECK (public.crm_can_write_opportunity(opportunity_id));
+  USING ((public.crm_can_write_opportunity(opportunity_id) AND (event_type = ANY (ARRAY['contact'::text, 'rg'::text, 'valuation'::text]))))
+  WITH CHECK ((public.crm_can_write_opportunity(opportunity_id) AND (event_type = ANY (ARRAY['contact'::text, 'rg'::text, 'valuation'::text]))));
 
 GRANT INSERT, SELECT, UPDATE ON TABLE "public"."opportunity_activities" TO "appsheet_user";
 

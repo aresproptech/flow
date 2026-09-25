@@ -25,19 +25,16 @@ datos del formulario ante un fallo y hacer visibles los errores operativos.
   proceso y permanece abierto con el CSV intacto si Supabase devuelve un error.
 - El resultado de la persistencia se devuelve explícitamente al diálogo en lugar
   de depender de un error que sólo aparecía en la consola.
-- La importación completa se ejecuta ahora con
-  `crm_import_leads_with_activity`: si falla una sola fila, PostgreSQL revierte
-  todo el archivo, incluidos los eventos de historial ya creados.
+- La importación inserta los leads y sus eventos de historial directamente bajo
+  las políticas RLS del usuario autenticado.
 - Las fechas de contacto, valoración y hora del CSV se conservan en la nueva
   operación; antes se validaban en el frontend pero no se enviaban a la tabla.
 
 ### Leads e historial atómicos
 
-- El alta manual usa `crm_create_lead_with_activity` y confirma el lead junto
-  con el evento `lead_created` en una sola transacción.
-- La edición general usa `crm_update_lead_with_activity`; guarda el cambio y un
-  único evento `lead_updated` con el detalle legible y los estados completos
-  `before` y `after` en `metadata`.
+- El alta manual inserta el lead y su evento `lead_created` directamente.
+- La edición general actualiza el lead y registra un evento `lead_updated` con
+  el detalle legible en `metadata`.
 - Una edición sin diferencias no genera ruido en el historial.
 - Las tres RPC usan los permisos RLS del usuario autenticado. Comerciales sólo
   pueden crear o editar sus oportunidades; visitadores y perfiles sin permiso
@@ -71,18 +68,12 @@ datos del formulario ante un fallo y hacer visibles los errores operativos.
 - El formulario se conserva y el diálogo permanece abierto cuando la escritura
   falla.
 
-### Operaciones transaccionales
+### Operaciones directas bajo RLS
 
-- Crear y editar una visita guarda ahora la visita y su historial mediante una
-  única RPC de PostgreSQL: `crm_save_visit_with_activity`.
-- Crear y editar un encargo, tanto desde la pestaña Encargos como desde el panel
-  del lead, usa `crm_save_order_with_activity`.
-- Mover un lead de fase usa `crm_change_lead_phase_with_activity`.
-- Las tres funciones validan la sesión y los permisos dentro de la base, obtienen
-  el nombre del autor desde el perfil autenticado y bloquean la fila afectada
-  durante la operación.
-- Si falla la escritura principal o el historial, PostgreSQL revierte todo. Ya no
-  puede quedar guardada una visita, un encargo o una fase sin su auditoría.
+- Visitas, encargos, cambios de fase y actividades usan `insert` y `update`
+  directos sobre las tablas funcionales.
+- RLS limita las escrituras a oportunidades autorizadas y permite editar sólo
+  actividades funcionales de tipo `contact`, `rg` o `valuation`.
 
 ### Actividades estructuradas
 
@@ -94,12 +85,10 @@ datos del formulario ante un fallo y hacer visibles los errores operativos.
   observaciones.
 - Valoraciones, R.G., Planning, Dashboard y la salud de Encargos consultan ahora
   `event_type`; ya no clasifican registros leyendo prefijos de texto.
-- Las nuevas notas, llamadas y actividades se crean con
-  `crm_add_contact_activity`. El autor se obtiene de la sesión dentro de la base.
+- Las nuevas llamadas y actividades se escriben directamente en
+  `opportunity_activities`, con el autor incluido en `metadata` por el cliente.
 - Crear o editar Valoraciones y R.G. usa RPC transaccionales. Las ediciones
   conservan `before`, `after` y la referencia al registro original.
-- Los eventos de auditoría son inmutables. Un trigger mantiene compatibilidad con
-  clientes antiguos que todavía escriban los prefijos conocidos.
 - Los prefijos se conservan únicamente como representación legible y mecanismo
   temporal de compatibilidad.
 

@@ -330,24 +330,22 @@ export default function VisitasPage() {
     setSaving(true);
     setFormError(null);
 
-    const { error } = await supabase.rpc("crm_save_visit_with_activity", {
-      p_visit_id: null,
-      p_opportunity_id: Number(form.opportunity_id),
-      p_data: {
-        estado: form.estado || null,
-        dominio: form.dominio || null,
-        planner: form.planner || null,
-        owner: form.owner || null,
-        fecha_visita: form.fecha_visita || null,
-        hora: form.hora || null,
-        buyer: form.buyer || null,
-        nombre_apellido: form.nombre_apellido || null,
-        telefono: form.telefono || null,
-        dni: form.dni || null,
-        vende: form.vende === "si" ? true : form.vende === "no" ? false : null,
-        observaciones_visita: form.observaciones_visita || null,
-      },
-      p_change_details: null,
+    const opportunityId = Number(form.opportunity_id);
+    const { error } = await supabase.from("opportunity_buyers").insert({
+      opportunity_id: opportunityId,
+      estado: form.estado || null,
+      dominio: form.dominio || null,
+      planner: form.planner || null,
+      owner: form.owner || null,
+      fecha_visita: form.fecha_visita || null,
+      hora: form.hora || null,
+      buyer: form.buyer || null,
+      nombre_apellido: form.nombre_apellido || null,
+      telefono: form.telefono || null,
+      dni: form.dni || null,
+      vende: form.vende === "si" ? true : form.vende === "no" ? false : null,
+      observaciones_visita: form.observaciones_visita || null,
+      created_by: userWithRole?.crmUser?.name?.trim() || "Usuario",
     });
 
     setSaving(false);
@@ -355,6 +353,21 @@ export default function VisitasPage() {
       console.error("Error guardando visita:", error);
       setFormError("No se pudo guardar la visita. Revisá los datos e intentá nuevamente.");
       return;
+    }
+
+    const actorName = userWithRole?.crmUser?.name?.trim() || "Usuario";
+    const { error: activityError } = await supabase.from("opportunity_activities").insert({
+      opportunity_id: opportunityId,
+      fecha: form.fecha_visita || new Date().toISOString().slice(0, 10),
+      memo: null,
+      resultado: true,
+      event_type: "visit_created",
+      effective_at: new Date().toISOString(),
+      metadata: { actor_name: actorName, text: "Agregó una visita" },
+    });
+
+    if (activityError) {
+      console.error("Error registrando historial de visita:", activityError);
     }
 
     setAddModalOpen(false);
@@ -368,10 +381,9 @@ export default function VisitasPage() {
     setFormError(null);
     const changes = buildVisitChangeLines(visitaToForm(selectedVisita), editForm);
 
-    const { error } = await supabase.rpc("crm_save_visit_with_activity", {
-      p_visit_id: selectedVisita.id,
-      p_opportunity_id: selectedVisita.opportunity_id,
-      p_data: {
+    const { error } = await supabase
+      .from("opportunity_buyers")
+      .update({
         fecha_visita: editForm.fecha_visita || null,
         hora: editForm.hora || null,
         nombre_apellido: editForm.nombre_apellido || null,
@@ -380,17 +392,33 @@ export default function VisitasPage() {
         dni: editForm.dni || null,
         vende: editForm.vende === "si" ? true : editForm.vende === "no" ? false : null,
         observaciones_visita: editForm.observaciones_visita || null,
-      },
-      p_change_details: changes.length
-        ? `:\n${changes.join("\n")}`
-        : " sin cambios visibles",
-    });
+      })
+      .eq("id", selectedVisita.id)
+      .eq("opportunity_id", selectedVisita.opportunity_id);
 
     setSaving(false);
     if (error) {
       console.error("Error actualizando visita:", error);
       setFormError("No se pudieron guardar los cambios. Intentá nuevamente.");
       return;
+    }
+
+    const actorName = userWithRole?.crmUser?.name?.trim() || "Usuario";
+    const activityText = `Editó una visita${
+      changes.length ? `:\n${changes.join("\n")}` : " sin cambios visibles"
+    }`;
+    const { error: activityError } = await supabase.from("opportunity_activities").insert({
+      opportunity_id: selectedVisita.opportunity_id,
+      fecha: editForm.fecha_visita || new Date().toISOString().slice(0, 10),
+      memo: null,
+      resultado: true,
+      event_type: "visit_updated",
+      effective_at: new Date().toISOString(),
+      metadata: { actor_name: actorName, text: activityText, change_details: changes },
+    });
+
+    if (activityError) {
+      console.error("Error registrando historial de visita:", activityError);
     }
 
     setEditModalOpen(false);

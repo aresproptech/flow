@@ -39,12 +39,12 @@ Documento auditado desde el front actual. Indica que acciones leen o escriben da
 
 | Accion en front | Tabla | Operacion | Columnas usadas | Persistencia | Observacion |
 |---|---|---|---|---|---|
-| Registrar actividad general | `opportunity_activities` | RPC `crm_add_contact_activity` | `event_type`, actor, fecha efectiva, `metadata`, `memo` | Guarda | El prefijo queda sólo como texto legible |
-| Agregar observacion manual | `opportunity_activities` | RPC + `select` verificacion | tipo `note`, actor, texto estructurado | Guarda | El autor se deriva de la sesión |
+| Registrar actividad general | `opportunity_activities` | `insert` directo | `event_type`, fecha efectiva, `metadata`, `memo` | Guarda | El prefijo queda sólo como texto legible |
+| Agregar observacion manual | `opportunities` | `update` directo | `memo` | Guarda | El memo pertenece a la oportunidad |
 | Cargar observaciones e historial | `opportunity_activities` | `select` | campos base + `event_type`, actor y `metadata` | Solo lectura | Filtra por `opportunity_id` y tipo |
-| Click en llamar | `opportunity_activities` | RPC | evento `call` con teléfono en `metadata` | Guarda | No depende de buscar “Llamó” en el memo |
+| Click en llamar | `opportunity_activities` | `insert` directo | evento `call` con teléfono en `metadata` | Guarda | No depende de buscar “Llamó” en el memo |
 | Contador ultima llamada | `opportunity_activities` | lectura/calculo | `created_at`, `event_type` | No guarda contador | Se calcula desde eventos `call` |
-| Cambios en campos del panel | `opportunities` + `opportunity_activities` | RPC `crm_update_lead_with_activity` | Campos del lead + evento estructurado con detalle, `before` y `after` | Guarda atómicamente | Una edición sin diferencias no crea historial |
+| Cambios en campos del panel | `opportunities` + `opportunity_activities` | `update` + `insert` directos | Campos del lead + detalle legible | Guarda | Una edición sin diferencias no crea historial |
 
 ## Documentación
 
@@ -60,27 +60,29 @@ Documento auditado desde el front actual. Indica que acciones leen o escriben da
 
 | Accion en front | Tabla / vista | Operacion | Columnas usadas | Persistencia | Archivo |
 |---|---|---|---|---|---|
-| Agregar valoracion desde panel | `opportunity_activities` | RPC transaccional | tipo `valuation`, fecha efectiva, actor y `metadata` | Guarda | `components/crm/lead-detail-panel.tsx` |
-| Editar valoracion desde panel | `opportunity_activities` | RPC transaccional | actualiza `valuation` y agrega `valuation_updated` | Guarda | Conserva `before` y `after` |
+| Agregar valoracion desde panel | `opportunity_activities` | `insert` directo | tipo `valuation`, fecha efectiva, actor y `metadata` | Guarda | `components/crm/lead-detail-panel.tsx` |
+| Editar valoracion desde panel | `opportunity_activities` | `update` + `insert` directos | actualiza `valuation` y agrega `valuation_updated` | Guarda | Conserva el detalle del cambio |
 | Listar historial de valoraciones en panel | `opportunity_activities` | `select` | campos estructurados con tipo `valuation` | Solo lectura | `components/crm/lead-detail-panel.tsx` |
 | Listar pagina Valoraciones | `opportunity_activities` | `select` | `event_type = valuation` | Solo lectura | `app/(crm)/valoraciones/page.tsx` |
 | Enriquecer pagina Valoraciones | `crm_leads_view` | `select` | `*` | Solo lectura | `app/(crm)/valoraciones/page.tsx` |
 | Impacto en dashboard comercial | `opportunity_activities` | lectura/calculo | `event_type`, `fecha`, `created_at`, `opportunity_id` | No guarda metrica | Cuenta tipos `valuation` |
 
-Formato actual de memo: `[VALORACION] Nombre: Medio: X | Hora: HH:mm`.
+El campo `memo` conserva solo el texto introducido por el usuario; los datos
+estructurados de la valoración se guardan en `metadata`.
 
 ## R.G.
 
 | Accion en front | Tabla / vista | Operacion | Columnas usadas | Persistencia | Archivo |
 |---|---|---|---|---|---|
-| Agregar R.G. desde panel | `opportunity_activities` | RPC transaccional | tipo `rg`, fecha efectiva, actor y `metadata` | Guarda | `components/crm/lead-detail-panel.tsx` |
-| Editar R.G. desde panel | `opportunity_activities` | RPC transaccional | actualiza `rg` y agrega `rg_updated` | Guarda | Conserva `before` y `after` |
+| Agregar R.G. desde panel | `opportunity_activities` | `insert` directo | tipo `rg`, fecha efectiva, actor y `metadata` | Guarda | `components/crm/lead-detail-panel.tsx` |
+| Editar R.G. desde panel | `opportunity_activities` | `update` + `insert` directos | actualiza `rg` y agrega `rg_updated` | Guarda | Conserva el detalle del cambio |
 | Listar historial R.G. en panel | `opportunity_activities` | `select` | campos estructurados con tipo `rg` | Solo lectura | `components/crm/lead-detail-panel.tsx` |
 | Listar pagina R.G. | `opportunity_activities` | `select` | `event_type = rg` | Solo lectura | `app/(crm)/rg/page.tsx` |
 | Enriquecer pagina R.G. | `crm_leads_view` | `select` | `*` | Solo lectura | `app/(crm)/rg/page.tsx` |
 | Impacto en dashboard comercial | `opportunity_activities` | lectura/calculo | `event_type`, `fecha`, `created_at`, `opportunity_id` | No guarda metrica | Cuenta tipos `rg` |
 
-Formato actual de memo: `[R.G.] Nombre: Medio: X | Resultado: Y | Hora: HH:mm`.
+El campo `memo` conserva solo el texto introducido por el usuario; Medio,
+Resultado y Hora se guardan en `metadata`.
 
 ## Encargos
 
@@ -102,9 +104,9 @@ Formato actual de memo: `[R.G.] Nombre: Medio: X | Resultado: Y | Hora: HH:mm`.
 | Listar visitas | `opportunity_buyers` | `select` | `*` | Solo lectura | `app/(crm)/visitas/page.tsx` |
 | Filtrar visitas para Comercial | `opportunity_buyers` | `select` con filtro | `owner`, `planner` | Solo lectura | `app/(crm)/visitas/page.tsx` |
 | Cargar inmuebles para visita | RPC `crm_visit_property_options` | DTO seguro | `id`, `propietario`, `domicilio`, `owner`, `planner`, `estado`, `dominio` | Solo lectura | El gestor de visitas no obtiene acceso a `crm_leads_view` |
-| Agregar visita | RPC `crm_save_visit_with_activity` | `insert` transaccional | `opportunity_id`, datos de visita y autor real | Guarda | RPC/RLS exigen oportunidad activa en Encargo |
-| Editar visita | RPC `crm_save_visit_with_activity` | `update` transaccional | datos editables por `id`; no reasigna el inmueble | Guarda | `app/(crm)/visitas/page.tsx` |
-| Registrar historial de visita | RPC → `opportunity_activities` | `insert` en la misma transacción | evento tipado, `visit_id`, detalle y actor | Guarda | Si falla el historial, se revierte la visita |
+| Agregar visita | `opportunity_buyers` | `insert` directo | `opportunity_id`, datos de visita y autor | Guarda | RLS exige oportunidad activa en Encargo |
+| Editar visita | `opportunity_buyers` | `update` directo | datos editables por `id`; no reasigna el inmueble | Guarda | `app/(crm)/visitas/page.tsx` |
+| Registrar historial de visita | `opportunity_activities` | `insert` directo | evento tipado, detalle y actor | Guarda | Se registra después de guardar la visita |
 | Copiar telefonos seleccionados | Clipboard navegador | N/A | `telefono` | No guarda | Solo portapapeles |
 | Click telefono / WhatsApp | Navegacion externa | N/A | `telefono` | No guarda | Abre WhatsApp/telefono segun implementacion |
 | Impacto dashboard comercial | `opportunity_buyers` | lectura/calculo | `opportunity_id`, `fecha_visita`, `created_at` | No guarda metrica | Cuenta visitas por fecha |

@@ -1625,11 +1625,14 @@ export function LeadDetailPanel({
   ) {
     if (!effectiveLead || readOnly) return;
 
-    const { error } = await supabase.rpc("crm_add_contact_activity", {
-      p_opportunity_id: Number(effectiveLead.id),
-      p_event_type: eventType,
-      p_text: text,
-      p_metadata: metadata,
+    const { error } = await supabase.from("opportunity_activities").insert({
+      opportunity_id: Number(effectiveLead.id),
+      fecha: new Date().toISOString().slice(0, 10),
+      memo: null,
+      resultado: true,
+      event_type: eventType,
+      effective_at: new Date().toISOString(),
+      metadata: { ...metadata, actor_name: currentUserName, text },
     });
 
     if (error) {
@@ -2188,16 +2191,13 @@ export function LeadDetailPanel({
         ])
       : [];
 
-    const { error } = await supabase.rpc("crm_save_order_with_activity", {
-      p_order_id: editingOrderId ?? null,
-      p_opportunity_id: Number(effectiveLead.id),
-      p_data: payload,
-      p_change_details: wasEditing
-        ? encargoChanges.length
-          ? `:\n${encargoChanges.join("\n")}`
-          : " sin cambios visibles"
-        : null,
-    });
+    const { error } = wasEditing
+      ? await supabase
+          .from("opportunity_orders")
+          .update(payload)
+          .eq("id", editingOrderId!)
+          .eq("opportunity_id", Number(effectiveLead.id))
+      : await supabase.from("opportunity_orders").insert(payload);
 
     setEncargoSaving(false);
 
@@ -2205,6 +2205,27 @@ export function LeadDetailPanel({
       console.error("Error guardando encargo:", error);
       setEncargoError(`No se pudo guardar el encargo: ${error.message}`);
       return;
+    }
+
+    const orderActivityText = wasEditing
+      ? `Editó un encargo${
+          encargoChanges.length ? `:\n${encargoChanges.join("\n")}` : " sin cambios visibles"
+        }`
+      : "Agregó un encargo";
+    const { error: orderActivityError } = await supabase
+      .from("opportunity_activities")
+      .insert({
+        opportunity_id: Number(effectiveLead.id),
+        fecha: new Date().toISOString().slice(0, 10),
+        memo: null,
+        resultado: true,
+        event_type: wasEditing ? "order_updated" : "order_created",
+        effective_at: new Date().toISOString(),
+        metadata: { actor_name: currentUserName, text: orderActivityText },
+      });
+
+    if (orderActivityError) {
+      console.error("Error registrando historial del encargo:", orderActivityError);
     }
 
     resetEncargoForm();
@@ -2247,24 +2268,32 @@ export function LeadDetailPanel({
         ])
       : [];
 
-    const { error } = await supabase.rpc("crm_save_rg_with_activity", {
-      p_contact_id: editingRgId ?? null,
-      p_opportunity_id: Number(effectiveLead.id),
-      p_data: {
-        fecha: rgForm.fecha,
-        hora: rgForm.hora || null,
-        medio: rgForm.medio || null,
-        resultado: resultadoLabel,
-        notes: rgForm.memo.trim() || null,
-      },
-      p_change_details: wasEditing
-        ? `${buildEventDateLabel(rgForm.fecha)}${
-            rgChanges.length
-              ? `:\n${rgChanges.join("\n")}`
-              : " sin cambios visibles"
-          }`
-        : null,
-    });
+    const rgMetadata = {
+      actor_name: currentUserName,
+      medio: rgForm.medio || null,
+      resultado: resultadoLabel,
+      hora: rgForm.hora || null,
+      notes: rgForm.memo.trim() || null,
+    };
+    const rgPayload = {
+      fecha: rgForm.fecha,
+      memo: rgForm.memo.trim() || null,
+      resultado: true,
+      event_type: "rg",
+      effective_at: `${rgForm.fecha}T${rgForm.hora || "00:00"}:00`,
+      metadata: rgMetadata,
+    };
+    const { error } = wasEditing
+      ? await supabase
+          .from("opportunity_activities")
+          .update(rgPayload)
+          .eq("id", editingRgId!)
+          .eq("opportunity_id", Number(effectiveLead.id))
+          .eq("event_type", "rg")
+      : await supabase.from("opportunity_activities").insert({
+          opportunity_id: Number(effectiveLead.id),
+          ...rgPayload,
+        });
 
     setRgSaving(false);
 
@@ -2272,6 +2301,28 @@ export function LeadDetailPanel({
       console.error("Error guardando R.G.:", error);
       setRgError(`No se pudo guardar la R.G.: ${error.message}`);
       return;
+    }
+
+    if (wasEditing) {
+      const activityText = `Editó una R.G.${buildEventDateLabel(rgForm.fecha)}${
+        rgChanges.length ? `:\n${rgChanges.join("\n")}` : " sin cambios visibles"
+      }`;
+      const { error: activityError } = await supabase
+        .from("opportunity_activities")
+        .insert({
+          opportunity_id: Number(effectiveLead.id),
+          fecha: new Date().toISOString().slice(0, 10),
+          memo: null,
+          resultado: true,
+          event_type: "rg_updated",
+          effective_at: new Date().toISOString(),
+          metadata: { actor_name: currentUserName, text: activityText, change_details: rgChanges },
+          parent_event_id: editingRgId,
+        });
+
+      if (activityError) {
+        console.error("Error registrando historial de R.G.:", activityError);
+      }
     }
 
     resetRgForm();
@@ -2314,22 +2365,30 @@ export function LeadDetailPanel({
         ])
       : [];
 
-    const { error } = await supabase.rpc("crm_save_valuation_with_activity", {
-      p_contact_id: editingValuationId ?? null,
-      p_opportunity_id: Number(effectiveLead.id),
-      p_data: {
-        fecha: valuationForm.fecha,
-        hora: valuationForm.hora || null,
-        medio: valuationForm.medio || null,
-      },
-      p_change_details: wasEditing
-        ? `${buildEventDateLabel(valuationForm.fecha)}${
-            valuationChanges.length
-              ? `:\n${valuationChanges.join("\n")}`
-              : " sin cambios visibles"
-          }`
-        : null,
-    });
+    const valuationMetadata = {
+      actor_name: currentUserName,
+      medio: valuationForm.medio || null,
+      hora: valuationForm.hora || null,
+    };
+    const valuationPayload = {
+      fecha: valuationForm.fecha,
+      memo: null,
+      resultado: true,
+      event_type: "valuation",
+      effective_at: `${valuationForm.fecha}T${valuationForm.hora || "00:00"}:00`,
+      metadata: valuationMetadata,
+    };
+    const { error } = wasEditing
+      ? await supabase
+          .from("opportunity_activities")
+          .update(valuationPayload)
+          .eq("id", editingValuationId!)
+          .eq("opportunity_id", Number(effectiveLead.id))
+          .eq("event_type", "valuation")
+      : await supabase.from("opportunity_activities").insert({
+          opportunity_id: Number(effectiveLead.id),
+          ...valuationPayload,
+        });
 
     setValuationSaving(false);
 
@@ -2337,6 +2396,32 @@ export function LeadDetailPanel({
       console.error("Error guardando valoración:", error);
       setValuationError(`No se pudo guardar la valoración: ${error.message}`);
       return;
+    }
+
+    if (wasEditing) {
+      const activityText = `Editó una valoración${buildEventDateLabel(valuationForm.fecha)}${
+        valuationChanges.length ? `:\n${valuationChanges.join("\n")}` : " sin cambios visibles"
+      }`;
+      const { error: activityError } = await supabase
+        .from("opportunity_activities")
+        .insert({
+          opportunity_id: Number(effectiveLead.id),
+          fecha: new Date().toISOString().slice(0, 10),
+          memo: null,
+          resultado: true,
+          event_type: "valuation_updated",
+          effective_at: new Date().toISOString(),
+          metadata: {
+            actor_name: currentUserName,
+            text: activityText,
+            change_details: valuationChanges,
+          },
+          parent_event_id: editingValuationId,
+        });
+
+      if (activityError) {
+        console.error("Error registrando historial de valoración:", activityError);
+      }
     }
 
     resetValuationForm();
@@ -2354,33 +2439,34 @@ export function LeadDetailPanel({
 
     setContactSaving(true);
     setContactError(null);
-    const previous = editingContactId
-      ? contactHistoryEvents.find((event) => String(persistedRowId(event.id)) === String(editingContactId))
-      : null;
-    const changes = previous
-      ? buildHistoryChangeLines([
-          { label: "Fecha", before: previous.fecha, after: contactForm.fecha, format: (value) => historyDateValue(value as string) },
-          { label: "Hora", before: previous.hora, after: contactForm.hora },
-          { label: "Medio", before: previous.medio, after: contactForm.medio || "—" },
-          { label: "Resultado", before: previous.resultado, after: contactForm.resultado || "—" },
-          { label: "Memo", before: previous.memo, after: contactForm.memo.trim() },
-        ])
-      : [];
 
-    const { error } = await supabase.rpc("crm_save_contact_with_activity", {
-      p_contact_id: editingContactId ?? null,
-      p_opportunity_id: Number(effectiveLead.id),
-      p_data: {
-        fecha: contactForm.fecha,
-        hora: contactForm.hora || null,
-        medio: contactForm.medio || null,
-        resultado: contactForm.resultado || null,
-        notes: contactForm.memo.trim() || null,
-      },
-      p_change_details: previous
-        ? `${buildEventDateLabel(contactForm.fecha)}${changes.length ? `:\n${changes.join("\n")}` : " sin cambios visibles"}`
-        : null,
-    });
+    const eventMetadata = {
+      actor_name: currentUserName,
+      medio: contactForm.medio || null,
+      resultado: contactForm.resultado || null,
+      hora: contactForm.hora || null,
+      notes: contactForm.memo.trim() || null,
+    };
+    const effectiveAt = `${contactForm.fecha}T${contactForm.hora || "00:00"}:00`;
+    const contactPayload = {
+      fecha: contactForm.fecha,
+      memo: contactForm.memo.trim() || null,
+      resultado: true,
+      event_type: "contact",
+      effective_at: effectiveAt,
+      metadata: eventMetadata,
+    };
+    const { error } = editingContactId
+      ? await supabase
+          .from("opportunity_activities")
+          .update(contactPayload)
+          .eq("id", editingContactId)
+          .eq("opportunity_id", Number(effectiveLead.id))
+          .eq("event_type", "contact")
+      : await supabase.from("opportunity_activities").insert({
+          opportunity_id: Number(effectiveLead.id),
+          ...contactPayload,
+        });
 
     setContactSaving(false);
     if (error) {

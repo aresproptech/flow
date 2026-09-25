@@ -1011,10 +1011,10 @@ export default function LeadsPage() {
       team_id: null,
     }));
 
-    const { data: insertedIds, error } = await supabase.rpc(
-      "crm_import_leads_with_activity",
-      { p_rows: rowsToInsert }
-    );
+    const { data: insertedRows, error } = await supabase
+      .from("opportunities")
+      .insert(rowsToInsert)
+      .select("id");
 
     if (error) {
       console.error("Error importing CSV to Supabase:", error);
@@ -1023,12 +1023,31 @@ export default function LeadsPage() {
       return message;
     }
 
-    if (!Array.isArray(insertedIds) || insertedIds.length !== rowsToInsert.length) {
+    if (!insertedRows || insertedRows.length !== rowsToInsert.length) {
       const message =
         "La importación no confirmó todos los leads. No se cerrará el archivo para evitar perder datos.";
-      console.error(message, { insertedIds, expected: rowsToInsert.length });
+      console.error(message, { insertedRows, expected: rowsToInsert.length });
       setPageError(message);
       return message;
+    }
+
+    const actorName = userWithRole?.crmUser.name?.trim() || "Usuario";
+    const { error: activityError } = await supabase
+      .from("opportunity_activities")
+      .insert(
+        insertedRows.map(({ id }) => ({
+          opportunity_id: id,
+          fecha: new Date().toISOString().slice(0, 10),
+          memo: null,
+          resultado: true,
+          event_type: "lead_imported",
+          effective_at: new Date().toISOString(),
+          metadata: { actor_name: actorName, text: "Importó el lead por CSV", lead_id: id },
+        }))
+      );
+
+    if (activityError) {
+      console.error("Error registrando historial de importación:", activityError);
     }
 
     await loadLeadsFromSupabase({ page: 1 });
@@ -1069,13 +1088,11 @@ export default function LeadsPage() {
       team_id: null,
     };
 
-    const { data: insertedId, error } = await supabase.rpc(
-      "crm_create_lead_with_activity",
-      {
-        p_data: rowToInsert,
-        p_event_type: "lead_created",
-      }
-    );
+    const { data: insertedLead, error } = await supabase
+      .from("opportunities")
+      .insert(rowToInsert)
+      .select("id")
+      .single();
 
     if (error) {
       console.error("Error creating lead in Supabase:", error);
@@ -1084,12 +1101,29 @@ export default function LeadsPage() {
       return message;
     }
 
-    if (!insertedId) {
+    if (!insertedLead) {
       const message =
         "Supabase no confirmó el lead creado. El formulario permanecerá abierto.";
       console.error(message, { insertedId });
       setPageError(message);
       return message;
+    }
+
+    const actorName = userWithRole?.crmUser.name?.trim() || "Usuario";
+    const { error: activityError } = await supabase
+      .from("opportunity_activities")
+      .insert({
+        opportunity_id: insertedLead.id,
+        fecha: new Date().toISOString().slice(0, 10),
+        memo: null,
+        resultado: true,
+        event_type: "lead_created",
+        effective_at: new Date().toISOString(),
+        metadata: { actor_name: actorName, text: "Creó el lead", lead_id: insertedLead.id },
+      });
+
+    if (activityError) {
+      console.error("Error registrando historial de alta:", activityError);
     }
 
     await loadLeadsFromSupabase({ page: 1 });
@@ -1132,14 +1166,12 @@ export default function LeadsPage() {
       buyer_user_id: profileIdFor(next.buyer),
     };
 
-    const { data: updatedId, error } = await supabase.rpc(
-      "crm_update_lead_with_activity",
-      {
-        p_opportunity_id: Number(next.id),
-        p_data: updatePayload,
-        p_change_details: changeDetails.join(" · ") || null,
-      }
-    );
+    const { data: updatedLead, error } = await supabase
+      .from("opportunities")
+      .update(updatePayload)
+      .eq("id", Number(next.id))
+      .select("id")
+      .single();
 
     if (error) {
       console.error("Error actualizando lead:", error);
@@ -1148,12 +1180,32 @@ export default function LeadsPage() {
       throw new Error(message);
     }
 
-    if (!updatedId) {
+    if (!updatedLead) {
       const message =
         "Supabase no confirmó la actualización. Puede haber un problema de permisos/RLS o el ID no coincide.";
-      console.error(message, { leadId: next.id, updatePayload, updatedId });
+      console.error(message, { leadId: next.id, updatePayload, updatedLead });
       setPageError(message);
       throw new Error(message);
+    }
+
+    if (changeDetails.length > 0) {
+      const actorName = userWithRole?.crmUser.name?.trim() || "Usuario";
+      const text = `Editó el lead: ${changeDetails.join(" · ")}`;
+      const { error: activityError } = await supabase
+        .from("opportunity_activities")
+        .insert({
+          opportunity_id: Number(next.id),
+          fecha: new Date().toISOString().slice(0, 10),
+          memo: null,
+          resultado: true,
+          event_type: "lead_updated",
+          effective_at: new Date().toISOString(),
+          metadata: { actor_name: actorName, text, change_details: changeDetails },
+        });
+
+      if (activityError) {
+        console.error("Error registrando historial de edición:", activityError);
+      }
     }
 
     const { data: savedRows, error: readBackError } = await supabase
@@ -1214,10 +1266,10 @@ export default function LeadsPage() {
           : lead
       ) ?? null
     );
-    const { error } = await supabase.rpc("crm_change_lead_phase_with_activity", {
-      p_opportunity_id: Number(leadId),
-      p_phase_id: resolvedPhaseId,
-    });
+    const { error } = await supabase
+      .from("opportunities")
+      .update({ fase_id: resolvedPhaseId })
+      .eq("id", Number(leadId));
 
     if (error) {
       console.error("Error actualizando fase del lead:", error);
@@ -1225,6 +1277,31 @@ export default function LeadsPage() {
       setLeads(previousLeads);
       setSearchResults(previousSearchResults);
       return;
+    }
+
+    const actorName = userWithRole?.crmUser.name?.trim() || "Usuario";
+    const text = `Cambió fase de ${PHASE_LABELS[currentLead.phase]} a ${PHASE_LABELS[nextPhase]}`;
+    const { error: activityError } = await supabase
+      .from("opportunity_activities")
+      .insert({
+        opportunity_id: Number(leadId),
+        fecha: new Date().toISOString().slice(0, 10),
+        memo: null,
+        resultado: true,
+        event_type: "phase_changed",
+        effective_at: new Date().toISOString(),
+        metadata: {
+          actor_name: actorName,
+          text,
+          previous_phase_id: PHASE_ID_MAP[currentLead.phase],
+          next_phase_id: resolvedPhaseId,
+          previous_phase_name: PHASE_LABELS[currentLead.phase],
+          next_phase_name: PHASE_LABELS[nextPhase],
+        },
+      });
+
+    if (activityError) {
+      console.error("Error registrando cambio de fase:", activityError);
     }
 
   }
