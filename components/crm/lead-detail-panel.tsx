@@ -290,6 +290,9 @@ type RgHistoryEvent = {
   hora: string;
   medio: string;
   resultado: string;
+  dominio: string;
+  planner: string;
+  owner: string;
   memo: string;
 };
 
@@ -1823,7 +1826,9 @@ export function LeadDetailPanel({
   async function loadRgEntries(leadId: string) {
     const { data, error } = await supabase
       .from("opportunity_activities")
-      .select("id, created_at, fecha, memo, event_type")
+      .select(
+        "id, created_at, fecha, memo, resultado, event_type, actor_profile_id, effective_at, metadata, parent_event_id"
+      )
       .eq("opportunity_id", Number(leadId))
       .eq("event_type", "rg")
       .order("created_at", { ascending: true });
@@ -2400,7 +2405,7 @@ export function LeadDetailPanel({
 
   const parsedRgEntries: RgHistoryEvent[] = rgEntries.map((row, index) => {
     const memoText = row.memo?.trim() || "";
-    const detail = parseSystemMemoFields(memoText, "[R.G.]");
+    const detail = parseSystemMemoFields(memoText, "[R.G.]", row.metadata);
 
     return {
       id: String(row.id),
@@ -2409,11 +2414,32 @@ export function LeadDetailPanel({
       hora: detail.fields.hora || "",
       medio: detail.fields.medio || "—",
       resultado: detail.fields.resultado || "—",
+      dominio: getLeadDominio(effectiveLead) || "—",
+      planner: effectiveLead.planner || "—",
+      owner: effectiveLead.owner || "—",
       memo: detail.memo,
     };
   });
 
-  const rgHistoryEvents: RgHistoryEvent[] = parsedRgEntries;
+  const legacyRgEvent: RgHistoryEvent[] =
+    parsedRgEntries.length === 0 && effectiveLead.fechaNoticia
+      ? [
+          {
+            id: `rg-${effectiveLead.id}-${effectiveLead.fechaNoticia}`,
+            numero: 1,
+            fecha: effectiveLead.fechaNoticia,
+            hora: effectiveLead.hora || "",
+            medio: effectiveLead.medio || "—",
+            resultado: statusLabel(effectiveLead.status),
+            dominio: getLeadDominio(effectiveLead) || "—",
+            planner: effectiveLead.planner || "—",
+            owner: effectiveLead.owner || "—",
+            memo: "R.G. derivada de la información actual del lead.",
+          },
+        ]
+      : [];
+
+  const rgHistoryEvents: RgHistoryEvent[] = [...parsedRgEntries, ...legacyRgEvent];
 
   const parsedValuationEntries: ValuationHistoryEvent[] = valuationEntries.map(
     (row, index) => {
@@ -3221,12 +3247,13 @@ export function LeadDetailPanel({
                     </p>
                   ) : (
                     <div className="overflow-x-auto rounded-lg border border-border bg-card">
-                      <div className="grid min-w-[620px] grid-cols-[64px_1.3fr_90px_1fr_1fr_72px] border-b border-border bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      <div className="grid min-w-[720px] grid-cols-[64px_1.3fr_90px_1fr_1fr_1fr_72px] border-b border-border bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                         <span>R.G.</span>
                         <span>Fecha</span>
                         <span>Hora</span>
                         <span>Medio</span>
                         <span>Resultado</span>
+                        <span>Dominio</span>
                         <span />
                       </div>
 
@@ -3242,7 +3269,7 @@ export function LeadDetailPanel({
                                   current === event.id ? null : event.id
                                 )
                               }
-                              className="grid w-full min-w-[620px] grid-cols-[64px_1.3fr_90px_1fr_1fr_72px] items-center px-3 py-3 text-left text-sm transition hover:bg-muted/40"
+                              className="grid w-full min-w-[720px] grid-cols-[64px_1.3fr_90px_1fr_1fr_1fr_72px] items-center px-3 py-3 text-left text-sm transition hover:bg-muted/40"
                             >
                               <span className="font-semibold text-foreground">
                                 #{event.numero}
@@ -3257,6 +3284,7 @@ export function LeadDetailPanel({
                                   {event.resultado}
                                 </Badge>
                               </span>
+                              <span className="text-muted-foreground">{event.dominio}</span>
                               <span className="flex items-center justify-end gap-2">
                                 {!readOnly && (persistedRowId(event.id) ? (
                                   <span
@@ -3292,7 +3320,7 @@ export function LeadDetailPanel({
 
                             {isOpen && (
                               <div className="border-t border-border bg-muted/20 px-4 py-4">
-                                <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
+                                <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
                                   <SmallDataCard label="Número R.G.">
                                     #{event.numero}
                                   </SmallDataCard>
@@ -3307,6 +3335,15 @@ export function LeadDetailPanel({
                                   </SmallDataCard>
                                   <SmallDataCard label="Resultado">
                                     {event.resultado}
+                                  </SmallDataCard>
+                                  <SmallDataCard label="Dominio">
+                                    {event.dominio}
+                                  </SmallDataCard>
+                                  <SmallDataCard label="Planner">
+                                    {event.planner}
+                                  </SmallDataCard>
+                                  <SmallDataCard label="Owner">
+                                    {event.owner}
                                   </SmallDataCard>
                                 </div>
 
