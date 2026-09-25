@@ -2501,25 +2501,7 @@ export function LeadDetailPanel({
     };
   });
 
-  const legacyRgEvent: RgHistoryEvent[] =
-    parsedRgEntries.length === 0 && effectiveLead.fechaNoticia
-      ? [
-          {
-            id: `rg-${effectiveLead.id}-${effectiveLead.fechaNoticia}`,
-            numero: 1,
-            fecha: effectiveLead.fechaNoticia,
-            hora: effectiveLead.hora || "",
-            medio: effectiveLead.medio || "—",
-            resultado: statusLabel(effectiveLead.status),
-            dominio: getLeadDominio(effectiveLead) || "—",
-            planner: effectiveLead.planner || "—",
-            owner: effectiveLead.owner || "—",
-            memo: "R.G. derivada de la información actual del lead.",
-          },
-        ]
-      : [];
-
-  const rgHistoryEvents: RgHistoryEvent[] = [...parsedRgEntries, ...legacyRgEvent];
+  const rgHistoryEvents: RgHistoryEvent[] = parsedRgEntries;
 
   const parsedValuationEntries: ValuationHistoryEvent[] = valuationEntries.map(
     (row, index) => {
