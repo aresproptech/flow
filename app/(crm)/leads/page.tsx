@@ -2119,21 +2119,39 @@ export default function LeadsPage() {
                     onClick={() => setSelectedLead(lead)}
                     className={cn(
                       "cursor-pointer border-b border-border transition-colors hover:bg-accent/60",
-                      selectedLead?.id === lead.id && "bg-accent",
-                      i % 2 === 0 ? "bg-card" : "bg-background"
+                      selectedLead?.id === lead.id
+                        ? "bg-primary/15 hover:bg-primary/20"
+                        : i % 2 === 0
+                          ? "bg-card"
+                          : "bg-background"
                     )}
                   >
-                    <td className="sticky left-0 z-10 whitespace-nowrap border-r border-border bg-card px-2 py-2.5 text-sm text-muted-foreground md:px-3">
+                    <td
+                      className={cn(
+                        "sticky left-0 z-20 whitespace-nowrap overflow-hidden border-r border-border px-2 py-2.5 text-sm text-muted-foreground md:px-3",
+                        selectedLead?.id === lead.id ? "bg-accent" : "bg-card"
+                      )}
+                    >
                       {lead.id.padStart(6, "0")}
                     </td>
 
-                    <td className="sticky left-[72px] z-10 truncate whitespace-nowrap border-r border-border bg-card px-2 py-2.5 md:left-[90px] md:px-3">
+                    <td
+                      className={cn(
+                        "sticky left-[72px] z-20 truncate whitespace-nowrap overflow-hidden border-r border-border px-2 py-2.5 md:left-[90px] md:px-3",
+                        selectedLead?.id === lead.id ? "bg-accent" : "bg-card"
+                      )}
+                    >
                       <span className="font-bold text-foreground">
                         {lead.ownerName}
                       </span>
                     </td>
 
-                    <td className="sticky left-[272px] z-10 truncate whitespace-nowrap border-r border-border bg-card px-2 py-2.5 text-sm text-muted-foreground md:left-[320px] md:px-3">
+                    <td
+                      className={cn(
+                        "sticky left-[272px] z-20 truncate whitespace-nowrap overflow-hidden border-r border-border px-2 py-2.5 text-sm text-muted-foreground md:left-[320px] md:px-3",
+                        selectedLead?.id === lead.id ? "bg-accent" : "bg-card"
+                      )}
+                    >
                       {lead.address}
                     </td>
 
