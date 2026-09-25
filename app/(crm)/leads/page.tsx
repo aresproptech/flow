@@ -1923,8 +1923,9 @@ export default function LeadsPage() {
 
         {viewMode === "table" ? (
           <div className="relative flex-1 overflow-auto">
-            <table className="w-full table-fixed border-collapse text-sm md:w-[2200px] md:[table-layout:fixed]">
+            <table className="w-full table-fixed border-collapse text-sm md:w-[2240px] md:[table-layout:fixed]">
               <colgroup>
+                <col className="w-[40px] md:w-[48px]" />
                 <col className="w-[72px] md:w-[90px]" />
                 <col className="w-[200px] md:w-[230px]" />
                 <col className="w-[260px] md:w-[310px]" />
@@ -1942,9 +1943,12 @@ export default function LeadsPage() {
 
               <thead className="sticky top-0 z-20 bg-card">
                 <tr className="border-b border-border bg-card/95 text-left backdrop-blur">
+                  <th className="sticky left-0 z-30 w-[40px] border-r border-border bg-card px-2 py-2.5 md:w-[48px] md:px-3">
+                    <span className="sr-only">Favorito</span>
+                  </th>
                   <th
                     onClick={() => handleSort("id")}
-                    className="sticky left-0 z-30 group cursor-pointer select-none whitespace-nowrap border-r border-border bg-card px-2 py-2.5 md:px-3"
+                    className="sticky left-[40px] z-30 group cursor-pointer select-none whitespace-nowrap border-r border-border bg-card px-2 py-2.5 md:left-[48px] md:px-3"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
                       ID
@@ -1954,7 +1958,7 @@ export default function LeadsPage() {
 
                   <th
                     onClick={() => handleSort("ownerName")}
-                    className="sticky left-[72px] z-30 group cursor-pointer select-none whitespace-nowrap border-r border-border bg-card px-2 py-2.5 md:left-[90px] md:px-3"
+                    className="sticky left-[112px] z-30 group cursor-pointer select-none whitespace-nowrap border-r border-border bg-card px-2 py-2.5 md:left-[138px] md:px-3"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
                       Propietario
@@ -1968,7 +1972,7 @@ export default function LeadsPage() {
 
                   <th
                     onClick={() => handleSort("address")}
-                    className="sticky left-[272px] z-30 group cursor-pointer select-none whitespace-nowrap border-r border-border bg-card px-2 py-2.5 md:left-[320px] md:px-3"
+                    className="sticky left-[312px] z-30 group cursor-pointer select-none whitespace-nowrap border-r border-border bg-card px-2 py-2.5 md:left-[368px] md:px-3"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
                       Domicilio
@@ -2128,7 +2132,44 @@ export default function LeadsPage() {
                   >
                     <td
                       className={cn(
-                        "sticky left-0 z-20 whitespace-nowrap overflow-hidden border-r border-border px-2 py-2.5 text-sm text-muted-foreground md:px-3",
+                        "sticky left-0 z-20 border-r border-border px-2 py-2.5 md:px-3",
+                        selectedLead?.id === lead.id ? "bg-accent" : "bg-card"
+                      )}
+                    >
+                      <button
+                        type="button"
+                        disabled={!canEdit}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void handleToggleFavorite(lead.id);
+                        }}
+                        className={cn(
+                          "inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition",
+                          canEdit && "hover:bg-muted hover:text-foreground",
+                          !canEdit && "cursor-default"
+                        )}
+                        aria-label={
+                          favoriteIds.has(lead.id)
+                            ? "Quitar de favoritos"
+                            : "Marcar como favorito"
+                        }
+                        title={
+                          favoriteIds.has(lead.id)
+                            ? "Quitar de favoritos"
+                            : "Marcar como favorito"
+                        }
+                      >
+                        <Star
+                          className={cn(
+                            "h-4 w-4",
+                            favoriteIds.has(lead.id) && "fill-current text-amber-500"
+                          )}
+                        />
+                      </button>
+                    </td>
+                    <td
+                      className={cn(
+                        "sticky left-[40px] z-20 whitespace-nowrap overflow-hidden border-r border-border px-2 py-2.5 text-sm text-muted-foreground md:left-[48px] md:px-3",
                         selectedLead?.id === lead.id ? "bg-accent" : "bg-card"
                       )}
                     >
@@ -2137,7 +2178,7 @@ export default function LeadsPage() {
 
                     <td
                       className={cn(
-                        "sticky left-[72px] z-20 truncate whitespace-nowrap overflow-hidden border-r border-border px-2 py-2.5 md:left-[90px] md:px-3",
+                        "sticky left-[112px] z-20 truncate whitespace-nowrap overflow-hidden border-r border-border px-2 py-2.5 md:left-[138px] md:px-3",
                         selectedLead?.id === lead.id ? "bg-accent" : "bg-card"
                       )}
                     >
@@ -2148,7 +2189,7 @@ export default function LeadsPage() {
 
                     <td
                       className={cn(
-                        "sticky left-[272px] z-20 truncate whitespace-nowrap overflow-hidden border-r border-border px-2 py-2.5 text-sm text-muted-foreground md:left-[320px] md:px-3",
+                        "sticky left-[312px] z-20 truncate whitespace-nowrap overflow-hidden border-r border-border px-2 py-2.5 text-sm text-muted-foreground md:left-[368px] md:px-3",
                         selectedLead?.id === lead.id ? "bg-accent" : "bg-card"
                       )}
                     >
@@ -2243,7 +2284,7 @@ export default function LeadsPage() {
                 <tbody>
                   <tr>
                     <td
-                      colSpan={13}
+                      colSpan={14}
                       className="px-6 py-10 text-center text-sm text-muted-foreground"
                     >
                       No hay leads que coincidan con la búsqueda.
