@@ -1104,7 +1104,7 @@ export default function LeadsPage() {
     if (!insertedLead) {
       const message =
         "Supabase no confirmó el lead creado. El formulario permanecerá abierto.";
-      console.error(message, { insertedId });
+      console.error(message, { insertedLead });
       setPageError(message);
       return message;
     }

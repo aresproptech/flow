@@ -1628,7 +1628,7 @@ export function LeadDetailPanel({
     const { error } = await supabase.from("opportunity_activities").insert({
       opportunity_id: Number(effectiveLead.id),
       fecha: new Date().toISOString().slice(0, 10),
-      memo: null,
+      memo: `[HISTORIAL] ${currentUserName}: ${text}`,
       resultado: true,
       event_type: eventType,
       effective_at: new Date().toISOString(),
@@ -2217,7 +2217,7 @@ export function LeadDetailPanel({
       .insert({
         opportunity_id: Number(effectiveLead.id),
         fecha: new Date().toISOString().slice(0, 10),
-        memo: null,
+        memo: `[HISTORIAL] ${currentUserName}: ${orderActivityText}`,
         resultado: true,
         event_type: wasEditing ? "order_updated" : "order_created",
         effective_at: new Date().toISOString(),
@@ -2275,9 +2275,14 @@ export function LeadDetailPanel({
       hora: rgForm.hora || null,
       notes: rgForm.memo.trim() || null,
     };
+    const rgMemo = `[R.G.] ${currentUserName}: Medio: ${rgForm.medio || "—"} | Resultado: ${
+      resultadoLabel
+    }${rgForm.hora ? ` | Hora: ${rgForm.hora}` : ""}${
+      rgForm.memo.trim() ? `\n${rgForm.memo.trim()}` : ""
+    }`;
     const rgPayload = {
       fecha: rgForm.fecha,
-      memo: rgForm.memo.trim() || null,
+      memo: rgMemo,
       resultado: true,
       event_type: "rg",
       effective_at: `${rgForm.fecha}T${rgForm.hora || "00:00"}:00`,
@@ -2312,7 +2317,7 @@ export function LeadDetailPanel({
         .insert({
           opportunity_id: Number(effectiveLead.id),
           fecha: new Date().toISOString().slice(0, 10),
-          memo: null,
+          memo: `[HISTORIAL] ${currentUserName}: ${activityText}`,
           resultado: true,
           event_type: "rg_updated",
           effective_at: new Date().toISOString(),
@@ -2370,9 +2375,12 @@ export function LeadDetailPanel({
       medio: valuationForm.medio || null,
       hora: valuationForm.hora || null,
     };
+    const valuationMemo = `[VALORACION] ${currentUserName}: Medio: ${
+      valuationForm.medio || "—"
+    }${valuationForm.hora ? ` | Hora: ${valuationForm.hora}` : ""}`;
     const valuationPayload = {
       fecha: valuationForm.fecha,
-      memo: null,
+      memo: valuationMemo,
       resultado: true,
       event_type: "valuation",
       effective_at: `${valuationForm.fecha}T${valuationForm.hora || "00:00"}:00`,
@@ -2407,7 +2415,7 @@ export function LeadDetailPanel({
         .insert({
           opportunity_id: Number(effectiveLead.id),
           fecha: new Date().toISOString().slice(0, 10),
-          memo: null,
+          memo: `[HISTORIAL] ${currentUserName}: ${activityText}`,
           resultado: true,
           event_type: "valuation_updated",
           effective_at: new Date().toISOString(),
@@ -2447,10 +2455,15 @@ export function LeadDetailPanel({
       hora: contactForm.hora || null,
       notes: contactForm.memo.trim() || null,
     };
+    const summaryText = `[CONTACTO] ${currentUserName}: Medio: ${
+      contactForm.medio || "—"
+    } | Resultado: ${contactForm.resultado || "—"}${
+      contactForm.hora ? ` | Hora: ${contactForm.hora}` : ""
+    }${contactForm.memo.trim() ? `\n${contactForm.memo.trim()}` : ""}`;
     const effectiveAt = `${contactForm.fecha}T${contactForm.hora || "00:00"}:00`;
     const contactPayload = {
       fecha: contactForm.fecha,
-      memo: contactForm.memo.trim() || null,
+      memo: summaryText,
       resultado: true,
       event_type: "contact",
       effective_at: effectiveAt,
