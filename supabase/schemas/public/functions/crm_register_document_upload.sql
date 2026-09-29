@@ -85,7 +85,7 @@ begin
 
   insert into public.opportunity_activities (
     opportunity_id, fecha, memo, resultado, event_type,
-    actor_profile_id, effective_at, metadata
+    assigned_profile_id, metadata
   )
   values (
     p_opportunity_id,
@@ -94,7 +94,6 @@ begin
     true,
     'document_uploaded',
     actor_id,
-    now(),
     jsonb_build_object(
       'actor_name', actor_name,
       'text', activity_text,

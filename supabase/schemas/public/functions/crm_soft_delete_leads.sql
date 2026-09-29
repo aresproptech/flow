@@ -8,6 +8,7 @@ CREATE OR REPLACE FUNCTION public.crm_soft_delete_leads (
   AS $function$
 declare
   target_id bigint;
+  actor_id bigint := public.crm_current_profile_id();
   actor_name text := coalesce(nullif(public.crm_current_name(), ''), 'Usuario');
 begin
   if auth.uid() is null or public.crm_current_role() is null then
@@ -37,14 +38,14 @@ begin
 
   foreach target_id in array lead_ids loop
     insert into public.opportunity_activities (
-      opportunity_id, fecha, memo, resultado, event_type, effective_at, metadata
+      opportunity_id, fecha, memo, resultado, event_type, assigned_profile_id, metadata
     ) values (
       target_id,
       current_date,
       null,
       true,
       'lead_deleted',
-      now(),
+      actor_id,
       jsonb_build_object('actor_name', actor_name, 'text', 'Eliminó el lead', 'lead_id', target_id)
     );
   end loop;

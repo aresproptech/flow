@@ -1037,11 +1037,11 @@ export default function LeadsPage() {
       .insert(
         insertedRows.map(({ id }) => ({
           opportunity_id: id,
+          assigned_profile_id: userWithRole?.crmUser.id ?? null,
           fecha: new Date().toISOString().slice(0, 10),
           memo: null,
           resultado: true,
           event_type: "lead_imported",
-          effective_at: new Date().toISOString(),
           metadata: { actor_name: actorName, text: "Importó el lead por CSV", lead_id: id },
         }))
       );
@@ -1114,11 +1114,11 @@ export default function LeadsPage() {
       .from("opportunity_activities")
       .insert({
         opportunity_id: insertedLead.id,
+        assigned_profile_id: userWithRole?.crmUser.id ?? null,
         fecha: new Date().toISOString().slice(0, 10),
         memo: null,
         resultado: true,
         event_type: "lead_created",
-        effective_at: new Date().toISOString(),
         metadata: { actor_name: actorName, text: "Creó el lead", lead_id: insertedLead.id },
       });
 
@@ -1195,11 +1195,11 @@ export default function LeadsPage() {
         .from("opportunity_activities")
         .insert({
           opportunity_id: Number(next.id),
+          assigned_profile_id: userWithRole?.crmUser.id ?? null,
           fecha: new Date().toISOString().slice(0, 10),
           memo: null,
           resultado: true,
           event_type: "lead_updated",
-          effective_at: new Date().toISOString(),
           metadata: { actor_name: actorName, text, change_details: changeDetails },
         });
 
@@ -1285,11 +1285,11 @@ export default function LeadsPage() {
       .from("opportunity_activities")
       .insert({
         opportunity_id: Number(leadId),
+        assigned_profile_id: userWithRole?.crmUser.id ?? null,
         fecha: new Date().toISOString().slice(0, 10),
         memo: null,
         resultado: true,
         event_type: "phase_changed",
-        effective_at: new Date().toISOString(),
         metadata: {
           actor_name: actorName,
           text,

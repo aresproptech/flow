@@ -29,9 +29,9 @@ begin
   limit 1;
 
   insert into public.opportunity_activities (
-    opportunity_id, fecha, memo, resultado, event_type, effective_at, metadata
+    opportunity_id, fecha, memo, resultado, event_type, metadata
   ) values (
-    target_opportunity_id, current_date, 'Nota de contacto', true, 'contact', now(), '{}'::jsonb
+    target_opportunity_id, current_date, 'Nota de contacto', true, 'contact', '{}'::jsonb
   ) returning id into activity_id;
 
   update public.opportunity_activities

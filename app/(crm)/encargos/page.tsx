@@ -818,11 +818,11 @@ export default function EncargosPage() {
       .from("opportunity_activities")
       .insert({
         opportunity_id: activeItem.leadId,
+        assigned_profile_id: userWithRole?.crmUser.id ?? null,
         fecha: new Date().toISOString().slice(0, 10),
         memo: null,
         resultado: true,
         event_type: isEditing ? "order_updated" : "order_created",
-        effective_at: new Date().toISOString(),
         metadata: { actor_name: actorName, text: activityText },
       });
 

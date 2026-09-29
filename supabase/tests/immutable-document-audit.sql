@@ -80,7 +80,7 @@ begin
     from public.opportunity_activities c
     where c.opportunity_id = target_opportunity_id
       and c.event_type = 'document_uploaded'
-      and c.actor_profile_id = writer_profile.id
+      and c.assigned_profile_id = writer_profile.id
       and c.metadata ->> 'document_id' = test_file_id::text
   ) then
     raise exception 'La carga no creó su evento de auditoría';
@@ -94,7 +94,7 @@ begin
     from public.opportunity_activities c
     where c.opportunity_id = target_opportunity_id
       and c.event_type = 'document_viewed'
-      and c.actor_profile_id = writer_profile.id
+      and c.assigned_profile_id = writer_profile.id
       and c.metadata ->> 'document_id' = test_file_id::text
   ) then
     raise exception 'La apertura no quedó auditada correctamente';

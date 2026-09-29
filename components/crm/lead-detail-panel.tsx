@@ -134,9 +134,9 @@ function fmtDate(d: string) {
   const dt = new Date(d);
   if (isNaN(dt.getTime())) return "—";
   return dt.toLocaleDateString("es-ES", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
   });
 }
 
@@ -146,9 +146,58 @@ function fmtShort(d: string) {
   if (isNaN(dt.getTime())) return "—";
   return dt.toLocaleDateString("es-ES", {
     day: "2-digit",
-    month: "short",
-    year: "numeric",
+    month: "2-digit",
+    year: "2-digit",
   });
+}
+
+function fmtDateDdMmYy(d: string) {
+  if (!d) return "—";
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return "—";
+  return dt.toLocaleDateString("es-ES", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+  });
+}
+
+function formatContactDateInput(value: string) {
+  if (!value) return "";
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return match ? `${match[3]}/${match[2]}/${match[1].slice(-2)}` : value;
+}
+
+function normalizeContactDateInput(value: string) {
+  const shortDate = value.trim().match(/^(\d{2})\/(\d{2})\/(\d{2})$/);
+  if (shortDate) return `20${shortDate[3]}-${shortDate[2]}-${shortDate[1]}`;
+  return value.trim();
+}
+
+function todayDateInput() {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+    date.getDate()
+  ).padStart(2, "0")}`;
+}
+
+function currentTimeInput() {
+  const date = new Date();
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function roundTimeToQuarter(value: string) {
+  const match = value.match(/^(\d{2}):(\d{2})/);
+  if (!match) return "";
+
+  const roundedMinutes = (Number(match[1]) * 60 + Math.round(Number(match[2]) / 15) * 15) % 1440;
+  const hour = Math.floor(roundedMinutes / 60);
+  const minute = roundedMinutes % 60;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function currentQuarterTimeInput() {
+  return roundTimeToQuarter(currentTimeInput());
 }
 
 function fmtDateTimeShort(d: string) {
@@ -157,8 +206,8 @@ function fmtDateTimeShort(d: string) {
   if (isNaN(dt.getTime())) return "—";
   return dt.toLocaleString("es-ES", {
     day: "2-digit",
-    month: "short",
-    year: "numeric",
+    month: "2-digit",
+    year: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -298,13 +347,12 @@ type RgHistoryEvent = {
 
 type ValuationHistoryEvent = {
   id: string;
-  numero: number;
   fecha: string;
   hora: string;
   medio: string;
   planner: string;
   owner: string;
-  dominio: string;
+  ownerProfileId: number | null;
   resultado: string;
   memo: string;
 };
@@ -316,6 +364,7 @@ type ContactHistoryEvent = {
   hora: string;
   medio: string;
   resultado: string;
+  usuario: string;
   memo: string;
 };
 
@@ -329,10 +378,17 @@ type OpportunityContactRow = {
   memo?: string | null;
   resultado?: boolean | null;
   event_type?: string | null;
-  actor_profile_id?: number | null;
-  effective_at?: string | null;
+  created_by?: number | null;
+  assigned_profile_id?: number | null;
+  profile?: { name: string | null } | { name: string | null }[] | null;
+  assigned_profile?: { name: string | null } | { name: string | null }[] | null;
   metadata?: unknown;
   parent_event_id?: number | string | null;
+};
+
+type ValuationOwnerOption = {
+  id: number;
+  name: string;
 };
 
 type OpportunityOrderRow = {
@@ -465,6 +521,8 @@ const LEAD_DETAIL_STATUS_OPTIONS = [
 ];
 
 const LEAD_DETAIL_MEDIO_OPTIONS = ["Presencial", "Videollamada", "Teléfono"];
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, hour) => String(hour).padStart(2, "0"));
+const MINUTE_OPTIONS = ["00", "15", "30", "45"];
 const PHASE_BADGE_STYLES: Record<
   string,
   { backgroundColor: string; color: string; borderColor: string }
@@ -1417,18 +1475,23 @@ export function LeadDetailPanel({
   const [contactEntries, setContactEntries] = useState<OpportunityContactRow[]>([]);
 
   const [valuationForm, setValuationForm] = useState({
-    fecha: "",
-    hora: "",
-    medio: "",
+    fecha: todayDateInput(),
+    hora: currentQuarterTimeInput(),
+    medio: "Teléfono",
+    resultado: "",
+    memo: "",
+    owner: "",
   });
   const [valuationSaving, setValuationSaving] = useState(false);
   const [valuationError, setValuationError] = useState<string | null>(null);
+  const [valuationOwnerOptions, setValuationOwnerOptions] = useState<ValuationOwnerOption[]>([]);
+  const [valuationOwnersLoading, setValuationOwnersLoading] = useState(false);
   const [valuationEntries, setValuationEntries] = useState<OpportunityContactRow[]>([]);
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [editingContactId, setEditingContactId] = useState<number | string | null>(null);
   const [contactSaving, setContactSaving] = useState(false);
   const [contactError, setContactError] = useState<string | null>(null);
-  const [contactForm, setContactForm] = useState({ fecha: "", hora: "", medio: "", resultado: "", memo: "" });
+  const [contactForm, setContactForm] = useState({ fecha: todayDateInput(), hora: currentTimeInput(), medio: "Teléfono", resultado: "", memo: "" });
 
   useEffect(() => {
     setLocalLead(lead as LeadWithDominio | null);
@@ -1630,11 +1693,11 @@ export function LeadDetailPanel({
 
     const { error } = await supabase.from("opportunity_activities").insert({
       opportunity_id: Number(effectiveLead.id),
+      assigned_profile_id: userWithRole?.crmUser.id ?? null,
       fecha: new Date().toISOString().slice(0, 10),
       memo: null,
       resultado: true,
       event_type: eventType,
-      effective_at: new Date().toISOString(),
       metadata: { ...metadata, actor_name: currentUserName, text },
     });
 
@@ -1674,7 +1737,7 @@ export function LeadDetailPanel({
     const { data, error } = await supabase
       .from("opportunity_activities")
       .select(
-        "id, created_at, fecha, hora, medio, resultado_text, memo, resultado, event_type, actor_profile_id, effective_at, parent_event_id"
+        "id, created_at, fecha, hora, medio, resultado_text, memo, resultado, event_type, assigned_profile_id, parent_event_id"
       )
       .eq("opportunity_id", Number(leadId))
       .order("created_at", { ascending: false });
@@ -1832,7 +1895,7 @@ export function LeadDetailPanel({
     const { data, error } = await supabase
       .from("opportunity_activities")
       .select(
-        "id, created_at, fecha, hora, medio, resultado_text, memo, resultado, event_type, actor_profile_id, effective_at, parent_event_id"
+        "id, created_at, fecha, hora, medio, resultado_text, memo, resultado, event_type, assigned_profile_id, parent_event_id"
       )
       .eq("opportunity_id", Number(leadId))
       .eq("event_type", "rg")
@@ -1851,7 +1914,7 @@ export function LeadDetailPanel({
     const { data, error } = await supabase
       .from("opportunity_activities")
       .select(
-        "id, created_at, fecha, memo, resultado, event_type, actor_profile_id, effective_at, metadata, parent_event_id"
+        "id, created_at, fecha, memo, resultado, event_type, created_by, profile:profiles!opportunity_activities_created_by_fkey(name), assigned_profile_id, assigned_profile:profiles!opportunity_activities_assigned_profile_id_fkey(name), metadata, parent_event_id"
       )
       .eq("opportunity_id", Number(leadId))
       .eq("event_type", "valuation")
@@ -1869,10 +1932,12 @@ export function LeadDetailPanel({
   async function loadContactEntries(leadId: string) {
     const { data, error } = await supabase
       .from("opportunity_activities")
-      .select("id, created_at, fecha, memo, resultado, event_type, actor_profile_id, effective_at, metadata, parent_event_id")
+      .select("id, created_at, fecha, memo, resultado, event_type, created_by, profile:profiles!opportunity_activities_created_by_fkey(name), assigned_profile:profiles!opportunity_activities_assigned_profile_id_fkey(name), assigned_profile_id, metadata, parent_event_id")
       .eq("opportunity_id", Number(leadId))
       .eq("event_type", "contact")
-      .order("created_at", { ascending: true });
+      .order("fecha", { ascending: false, nullsFirst: false })
+      .order("hora", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false });
 
     if (error) {
       console.error("Error cargando contactos:", error);
@@ -2025,13 +2090,44 @@ export function LeadDetailPanel({
   function resetValuationForm() {
     setEditingValuationId(null);
     setValuationError(null);
-    setValuationForm({ fecha: "", hora: "", medio: "" });
+    setValuationForm({
+      fecha: todayDateInput(),
+      hora: currentQuarterTimeInput(),
+      medio: "Teléfono",
+      resultado: "",
+      memo: "",
+      owner: "",
+    });
+  }
+
+  async function loadValuationOwnerOptions() {
+    setValuationOwnersLoading(true);
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, name")
+      .eq("enabled", true)
+      .not("name", "is", null)
+      .order("name");
+    setValuationOwnersLoading(false);
+
+    if (error) {
+      setValuationError(`No se pudieron cargar los Owners: ${error.message}`);
+      setValuationOwnerOptions([]);
+      return null;
+    }
+
+    const profiles = (data ?? []).flatMap((profile) => {
+      const name = profile.name?.trim();
+      return name ? [{ id: profile.id, name }] : [];
+    });
+    setValuationOwnerOptions(profiles);
+    return profiles;
   }
 
   function resetContactForm() {
     setEditingContactId(null);
     setContactError(null);
-    setContactForm({ fecha: "", hora: "", medio: "", resultado: "", memo: "" });
+    setContactForm({ fecha: todayDateInput(), hora: currentTimeInput(), medio: "Teléfono", resultado: "", memo: "" });
   }
 
   function openNewEncargoModal() {
@@ -2079,12 +2175,13 @@ export function LeadDetailPanel({
     setRgModalOpen(true);
   }
 
-  function openNewValuationModal() {
+  async function openNewValuationModal() {
     resetValuationForm();
     setValuationModalOpen(true);
+    await loadValuationOwnerOptions();
   }
 
-  function openEditValuationModal(event: ValuationHistoryEvent) {
+  async function openEditValuationModal(event: ValuationHistoryEvent) {
     const valuationId = persistedRowId(event.id);
     if (!valuationId) return;
 
@@ -2092,10 +2189,24 @@ export function LeadDetailPanel({
     setValuationError(null);
     setValuationForm({
       fecha: dateOnlyValue(event.fecha),
-      hora: event.hora || "",
+      hora: roundTimeToQuarter(event.hora || ""),
       medio: event.medio === "—" ? "" : event.medio,
+      resultado: event.resultado === "—" ? "" : event.resultado,
+      memo: event.memo || "",
+      owner: "",
     });
     setValuationModalOpen(true);
+    const profiles = await loadValuationOwnerOptions();
+    if (!profiles) return;
+
+    const ownerName = event.owner.trim().toLowerCase();
+    const selectedOwner =
+      profiles.find((profile) => profile.id === event.ownerProfileId) ??
+      profiles.find((profile) => profile.name.toLowerCase() === ownerName);
+    setValuationForm((previous) => ({
+      ...previous,
+      owner: selectedOwner ? String(selectedOwner.id) : "",
+    }));
   }
 
   function openNewContactModal() {
@@ -2218,11 +2329,11 @@ export function LeadDetailPanel({
       .from("opportunity_activities")
       .insert({
         opportunity_id: Number(effectiveLead.id),
+        assigned_profile_id: userWithRole?.crmUser.id ?? null,
         fecha: new Date().toISOString().slice(0, 10),
         memo: null,
         resultado: true,
         event_type: wasEditing ? "order_updated" : "order_created",
-        effective_at: new Date().toISOString(),
         metadata: { actor_name: currentUserName, text: orderActivityText },
       });
 
@@ -2278,7 +2389,6 @@ export function LeadDetailPanel({
       memo: rgForm.memo.trim() || null,
       resultado: true,
       event_type: "rg",
-      effective_at: `${rgForm.fecha}T${rgForm.hora || "00:00"}:00`,
     };
     const { error } = wasEditing
       ? await supabase
@@ -2308,11 +2418,11 @@ export function LeadDetailPanel({
         .from("opportunity_activities")
         .insert({
           opportunity_id: Number(effectiveLead.id),
+          assigned_profile_id: userWithRole?.crmUser.id ?? null,
           fecha: new Date().toISOString().slice(0, 10),
           memo: null,
           resultado: true,
           event_type: "rg_updated",
-          effective_at: new Date().toISOString(),
           metadata: { actor_name: currentUserName, text: activityText, change_details: rgChanges },
           parent_event_id: editingRgId,
         });
@@ -2331,10 +2441,12 @@ export function LeadDetailPanel({
   async function handleAddValuation() {
     if (!effectiveLead || readOnly) return;
 
-    if (!valuationForm.fecha) {
+    const valuationDate = normalizeContactDateInput(valuationForm.fecha);
+    if (!valuationDate) {
       setValuationError("La fecha es obligatoria.");
       return;
     }
+    const ownerProfileId = valuationForm.owner ? Number(valuationForm.owner) : null;
 
     setValuationSaving(true);
     setValuationError(null);
@@ -2350,7 +2462,7 @@ export function LeadDetailPanel({
           {
             label: "Fecha",
             before: previousValuation.fecha,
-            after: valuationForm.fecha,
+            after: valuationDate,
             format: (value) => historyDateValue(value as string | null | undefined),
           },
           { label: "Hora", before: previousValuation.hora, after: valuationForm.hora },
@@ -2359,6 +2471,19 @@ export function LeadDetailPanel({
             before: previousValuation.medio,
             after: valuationForm.medio || "—",
           },
+          {
+            label: "Resultado",
+            before: previousValuation.resultado,
+            after: valuationForm.resultado || "—",
+          },
+          { label: "Observación", before: previousValuation.memo, after: valuationForm.memo.trim() },
+          {
+            label: "Owner",
+            before: previousValuation.owner,
+            after:
+              valuationOwnerOptions.find((profile) => profile.id === ownerProfileId)?.name ||
+              "—",
+          },
         ])
       : [];
 
@@ -2366,13 +2491,16 @@ export function LeadDetailPanel({
       actor_name: currentUserName,
       medio: valuationForm.medio || null,
       hora: valuationForm.hora || null,
+      resultado: valuationForm.resultado || null,
+      notes: valuationForm.memo.trim() || null,
     };
     const valuationPayload = {
-      fecha: valuationForm.fecha,
-      memo: null,
+      fecha: valuationDate,
+      memo: valuationForm.memo.trim() || null,
       resultado: true,
+      resultado_text: valuationForm.resultado || null,
       event_type: "valuation",
-      effective_at: `${valuationForm.fecha}T${valuationForm.hora || "00:00"}:00`,
+      assigned_profile_id: ownerProfileId,
       metadata: valuationMetadata,
     };
     const { error } = wasEditing
@@ -2384,6 +2512,7 @@ export function LeadDetailPanel({
           .eq("event_type", "valuation")
       : await supabase.from("opportunity_activities").insert({
           opportunity_id: Number(effectiveLead.id),
+          created_by: userWithRole?.crmUser.id ?? null,
           ...valuationPayload,
         });
 
@@ -2396,18 +2525,19 @@ export function LeadDetailPanel({
     }
 
     if (wasEditing) {
-      const activityText = `Editó una valoración${buildEventDateLabel(valuationForm.fecha)}${
+      const activityText = `Editó una valoración${buildEventDateLabel(valuationDate)}${
         valuationChanges.length ? `:\n${valuationChanges.join("\n")}` : " sin cambios visibles"
       }`;
       const { error: activityError } = await supabase
         .from("opportunity_activities")
         .insert({
           opportunity_id: Number(effectiveLead.id),
+          created_by: userWithRole?.crmUser.id ?? null,
+          assigned_profile_id: ownerProfileId,
           fecha: new Date().toISOString().slice(0, 10),
-          memo: null,
+          memo: valuationForm.memo.trim() || null,
           resultado: true,
           event_type: "valuation_updated",
-          effective_at: new Date().toISOString(),
           metadata: {
             actor_name: currentUserName,
             text: activityText,
@@ -2429,7 +2559,8 @@ export function LeadDetailPanel({
 
   async function handleAddContact() {
     if (!effectiveLead || readOnly) return;
-    if (!contactForm.fecha) {
+    const contactDate = normalizeContactDateInput(contactForm.fecha);
+    if (!contactDate) {
       setContactError("La fecha es obligatoria.");
       return;
     }
@@ -2444,13 +2575,11 @@ export function LeadDetailPanel({
       hora: contactForm.hora || null,
       notes: contactForm.memo.trim() || null,
     };
-    const effectiveAt = `${contactForm.fecha}T${contactForm.hora || "00:00"}:00`;
     const contactPayload = {
-      fecha: contactForm.fecha,
+      fecha: contactDate,
       memo: contactForm.memo.trim() || null,
       resultado: true,
       event_type: "contact",
-      effective_at: effectiveAt,
       metadata: eventMetadata,
     };
     const { error } = editingContactId
@@ -2462,6 +2591,8 @@ export function LeadDetailPanel({
           .eq("event_type", "contact")
       : await supabase.from("opportunity_activities").insert({
           opportunity_id: Number(effectiveLead.id),
+          assigned_profile_id: userWithRole?.crmUser.id ?? null,
+          created_by: userWithRole?.crmUser.id ?? null,
           ...contactPayload,
         });
 
@@ -2504,7 +2635,7 @@ export function LeadDetailPanel({
   const rgHistoryEvents: RgHistoryEvent[] = parsedRgEntries;
 
   const parsedValuationEntries: ValuationHistoryEvent[] = valuationEntries.map(
-    (row, index) => {
+    (row) => {
       const memoText = row.memo?.trim() || "";
       const detail = parseSystemMemoFields(
         memoText,
@@ -2514,15 +2645,20 @@ export function LeadDetailPanel({
 
       return {
         id: String(row.id),
-        numero: index + 1,
         fecha: row.fecha || row.created_at || "",
         hora: detail.fields.hora || "",
         medio: detail.fields.medio || "—",
-        planner: effectiveLead.planner || "—",
-        owner: effectiveLead.owner || "—",
-        dominio: getLeadDominio(effectiveLead) || "—",
-        resultado: statusLabel(effectiveLead.status),
-        memo: detail.memo,
+        planner:
+          (Array.isArray(row.profile) ? row.profile[0] : row.profile)?.name?.trim() ||
+          "—",
+        ownerProfileId: row.assigned_profile_id ?? null,
+        owner:
+          (Array.isArray(row.assigned_profile)
+            ? row.assigned_profile[0]
+            : row.assigned_profile
+          )?.name?.trim() || "—",
+        resultado: detail.fields.resultado || row.resultado_text || "—",
+        memo: detail.memo || row.memo?.trim() || "",
       };
     }
   );
@@ -2531,6 +2667,11 @@ export function LeadDetailPanel({
 
   const contactHistoryEvents: ContactHistoryEvent[] = contactEntries.map((row, index) => {
     const memoText = row.memo?.trim() || "";
+    const profileName = (Array.isArray(row.profile) ? row.profile[0] : row.profile)?.name?.trim();
+    const assignedProfileName = (Array.isArray(row.assigned_profile)
+      ? row.assigned_profile[0]
+      : row.assigned_profile
+    )?.name?.trim();
     return {
       id: String(row.id),
       numero: index + 1,
@@ -2538,6 +2679,11 @@ export function LeadDetailPanel({
       hora: opportunityContactMetadataText(row.metadata, "hora") || "",
       medio: opportunityContactMetadataText(row.metadata, "medio") || "—",
       resultado: opportunityContactMetadataText(row.metadata, "resultado") || "—",
+      usuario:
+        assignedProfileName ||
+        profileName ||
+        opportunityContactMetadataText(row.metadata, "actor_name") ||
+        "—",
       memo: opportunityContactMetadataText(row.metadata, "notes") || memoText,
     };
   });
@@ -2884,23 +3030,64 @@ export function LeadDetailPanel({
                       </p>
                     </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="overflow-x-auto rounded-lg border border-border bg-card">
+                      <div className="grid min-w-[760px] grid-cols-[96px_56px_96px_180px_104px_minmax(180px,1fr)_56px] border-b border-border bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        <span>Fecha</span>
+                        <span>Hora</span>
+                        <span>Medio</span>
+                        <span>Responsable</span>
+                        <span>Resultado</span>
+                        <span>Memo</span>
+                        <span />
+                      </div>
                       {contactHistoryEvents.map((event) => {
                         const isOpen = openContactRowId === event.id;
                         return (
                           <div key={event.id} className="border-b border-border last:border-b-0">
-                            <button type="button" onClick={() => setOpenContactRowId((current) => current === event.id ? null : event.id)} className="grid w-full grid-cols-[64px_1.3fr_90px_1fr_1fr_72px] items-center px-3 py-3 text-left text-sm transition hover:bg-muted/40">
-                              <span className="font-semibold text-foreground">#{event.numero}</span>
-                              <span className="text-foreground">{fmtDate(event.fecha)}</span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setOpenContactRowId((current) =>
+                                  current === event.id ? null : event.id
+                                )
+                              }
+                              className="grid w-full min-w-[760px] grid-cols-[96px_56px_96px_180px_104px_minmax(180px,1fr)_56px] items-center px-3 py-3 text-left text-sm transition hover:bg-muted/40"
+                            >
+                              <span className="text-foreground">{fmtDateDdMmYy(event.fecha)}</span>
                               <span className="text-muted-foreground">{event.hora || "—"}</span>
                               <span className="text-muted-foreground">{event.medio}</span>
+                              <span className="whitespace-nowrap text-muted-foreground">{event.usuario}</span>
                               <span className="text-muted-foreground">{event.resultado}</span>
+                              <span className="truncate pr-2 text-muted-foreground" title={event.memo}>
+                                {event.memo || "—"}
+                              </span>
                               <span className="flex justify-end gap-2">
-                                {!readOnly && <span role="button" tabIndex={0} title="Editar contacto" aria-label="Editar contacto" className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={(clickEvent) => { clickEvent.stopPropagation(); openEditContactModal(event); }}><Pencil className="h-3.5 w-3.5" /></span>}
-                                <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", isOpen && "rotate-180")} />
+                                {!readOnly && (
+                                  <button
+                                    type="button"
+                                    title="Editar contacto"
+                                    aria-label="Editar contacto"
+                                    className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                                    onClick={() => openEditContactModal(event)}
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                                <ChevronDown
+                                  className={cn(
+                                    "h-4 w-4 text-muted-foreground transition-transform",
+                                    isOpen && "rotate-180"
+                                  )}
+                                />
                               </span>
                             </button>
-                            {isOpen && <div className="border-t border-border bg-muted/20 px-4 py-4"><SmallDataCard label="Observación">{event.memo || "—"}</SmallDataCard></div>}
+                            {isOpen && (
+                              <div className="border-t border-border bg-muted/20 px-4 py-2">
+                                <div className="rounded-lg border border-border bg-card p-3 text-sm text-foreground whitespace-pre-wrap">
+                                  {event.memo}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -2941,13 +3128,14 @@ export function LeadDetailPanel({
                     </div>
                   ) : (
                     <div className="overflow-x-auto rounded-lg border border-border bg-card">
-                      <div className="grid min-w-[760px] grid-cols-[94px_1.3fr_90px_1fr_1fr_1fr_72px] border-b border-border bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        <span>Valoración</span>
+                      <div className="grid min-w-[948px] grid-cols-[96px_56px_96px_180px_180px_104px_minmax(180px,1fr)_56px] border-b border-border bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                         <span>Fecha</span>
                         <span>Hora</span>
                         <span>Medio</span>
                         <span>Planner</span>
+                        <span>Owner</span>
                         <span>Resultado</span>
+                        <span>Memo</span>
                         <span />
                       </div>
 
@@ -2963,21 +3151,20 @@ export function LeadDetailPanel({
                                   current === event.id ? null : event.id
                                 )
                               }
-                              className="grid w-full min-w-[760px] grid-cols-[94px_1.3fr_90px_1fr_1fr_1fr_72px] items-center px-3 py-3 text-left text-sm transition hover:bg-muted/40"
+                              className="grid w-full min-w-[948px] grid-cols-[96px_56px_96px_180px_180px_104px_minmax(180px,1fr)_56px] items-center px-3 py-3 text-left text-sm transition hover:bg-muted/40"
                             >
-                              <span className="font-semibold text-foreground">
-                                #{event.numero}
-                              </span>
-                              <span className="text-foreground">{fmtDate(event.fecha)}</span>
-                              <span className="text-muted-foreground">
-                                {event.hora || "—"}
-                              </span>
+                              <span className="text-foreground">{fmtDateDdMmYy(event.fecha)}</span>
+                              <span className="text-muted-foreground">{event.hora || "—"}</span>
                               <span className="text-muted-foreground">{event.medio}</span>
-                              <span className="text-muted-foreground">{event.planner}</span>
+                              <span className="whitespace-nowrap text-muted-foreground">{event.planner}</span>
+                              <span className="whitespace-nowrap text-muted-foreground">{event.owner}</span>
                               <span>
                                 <Badge variant="outline" className="rounded-md text-[11px]">
                                   {event.resultado}
                                 </Badge>
+                              </span>
+                              <span className="truncate pr-2 text-muted-foreground" title={event.memo}>
+                                {event.memo || "—"}
                               </span>
                               <span className="flex items-center justify-end gap-2">
                                 {!readOnly && (persistedRowId(event.id) ? (
@@ -3013,38 +3200,8 @@ export function LeadDetailPanel({
                             </button>
 
                             {isOpen && (
-                              <div className="border-t border-border bg-muted/20 px-4 py-4">
-                                <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-                                  <SmallDataCard label="Número valoración">
-                                    #{event.numero}
-                                  </SmallDataCard>
-                                  <SmallDataCard label="Fecha valoración">
-                                    {fmtDate(event.fecha)}
-                                  </SmallDataCard>
-                                  <SmallDataCard label="Hora">
-                                    {event.hora || "—"}
-                                  </SmallDataCard>
-                                  <SmallDataCard label="Medio">
-                                    {event.medio}
-                                  </SmallDataCard>
-                                  <SmallDataCard label="Planner">
-                                    {event.planner}
-                                  </SmallDataCard>
-                                  <SmallDataCard label="Owner">
-                                    {event.owner}
-                                  </SmallDataCard>
-                                  <SmallDataCard label="Dominio">
-                                    {event.dominio}
-                                  </SmallDataCard>
-                                  <SmallDataCard label="Resultado">
-                                    {event.resultado}
-                                  </SmallDataCard>
-                                </div>
-
-                                <div className="mt-3 rounded-md border border-border bg-background px-3 py-2 text-xs text-muted-foreground">
-                                  <span className="font-semibold uppercase tracking-wide text-foreground">
-                                    Observación / memo:{" "}
-                                  </span>
+                              <div className="border-t border-border bg-muted/20 px-4 py-2">
+                                <div className="rounded-lg border border-border bg-card p-3 text-sm text-foreground whitespace-pre-wrap">
                                   {event.memo || "—"}
                                 </div>
                               </div>
@@ -3604,9 +3761,9 @@ export function LeadDetailPanel({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-medium">Fecha valoración</Label>
+              <Label className="text-xs font-medium">Fecha</Label>
               <Input
                 type="date"
                 className="h-9 text-sm"
@@ -3619,14 +3776,44 @@ export function LeadDetailPanel({
 
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs font-medium">Hora</Label>
-              <Input
-                type="time"
-                className="h-9 text-sm"
-                value={valuationForm.hora}
-                onChange={(e) =>
-                  setValuationForm((prev) => ({ ...prev, hora: e.target.value }))
-                }
-              />
+              <div className="grid grid-cols-2 gap-2">
+                <Select
+                  value={valuationForm.hora.split(":")[0] || ""}
+                  onValueChange={(hour) => {
+                    const minute = valuationForm.hora.split(":")[1] || "00";
+                    setValuationForm((prev) => ({ ...prev, hora: `${hour}:${minute}` }));
+                  }}
+                >
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="Hora" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {HOUR_OPTIONS.map((hour) => (
+                      <SelectItem key={hour} value={hour} className="text-sm">
+                        {hour}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={valuationForm.hora.split(":")[1] || ""}
+                  onValueChange={(minute) => {
+                    const hour = valuationForm.hora.split(":")[0] || "00";
+                    setValuationForm((prev) => ({ ...prev, hora: `${hour}:${minute}` }));
+                  }}
+                >
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="Minutos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MINUTE_OPTIONS.map((minute) => (
+                      <SelectItem key={minute} value={minute} className="text-sm">
+                        {minute}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -3649,6 +3836,60 @@ export function LeadDetailPanel({
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs font-medium">Owner</Label>
+              <Select
+                value={valuationForm.owner}
+                onValueChange={(value) =>
+                  setValuationForm((prev) => ({ ...prev, owner: value }))
+                }
+                disabled={valuationOwnersLoading}
+              >
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue
+                    placeholder={valuationOwnersLoading ? "Cargando perfiles activos..." : "Seleccionar owner"}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {valuationOwnerOptions.map((profile) => (
+                    <SelectItem key={profile.id} value={String(profile.id)} className="text-sm">
+                      {profile.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs font-medium">Resultado</Label>
+              <Select
+                value={valuationForm.resultado}
+                onValueChange={(value) =>
+                  setValuationForm((prev) => ({ ...prev, resultado: value }))
+                }
+              >
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue placeholder="Seleccionar resultado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Positivo" className="text-sm">Positivo</SelectItem>
+                  <SelectItem value="Negativo" className="text-sm">Negativo</SelectItem>
+                  <SelectItem value="Cancelado" className="text-sm">Cancelado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-1.5 md:col-span-3">
+              <Label className="text-xs font-medium">Observación</Label>
+              <Textarea
+                className="min-h-[96px] resize-none text-sm"
+                value={valuationForm.memo}
+                onChange={(e) =>
+                  setValuationForm((prev) => ({ ...prev, memo: e.target.value }))
+                }
+              />
+            </div>
           </div>
 
           {valuationError ? (
@@ -3667,7 +3908,7 @@ export function LeadDetailPanel({
             <Button
               type="button"
               onClick={handleAddValuation}
-              disabled={valuationSaving}
+              disabled={valuationSaving || valuationOwnersLoading}
             >
               {valuationSaving
                 ? "Guardando..."
@@ -3950,10 +4191,10 @@ export function LeadDetailPanel({
           </DialogHeader>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="flex flex-col gap-1.5"><Label className="text-xs font-medium">Fecha</Label><Input type="date" className="h-9 text-sm" value={contactForm.fecha} onChange={(e) => setContactForm((prev) => ({ ...prev, fecha: e.target.value }))} /></div>
+            <div className="flex flex-col gap-1.5"><Label className="text-xs font-medium">Fecha</Label><Input type="text" inputMode="numeric" placeholder="DD/MM/AA" className="h-9 text-sm" value={formatContactDateInput(contactForm.fecha)} onChange={(e) => setContactForm((prev) => ({ ...prev, fecha: e.target.value }))} /></div>
             <div className="flex flex-col gap-1.5"><Label className="text-xs font-medium">Hora</Label><Input type="time" className="h-9 text-sm" value={contactForm.hora} onChange={(e) => setContactForm((prev) => ({ ...prev, hora: e.target.value }))} /></div>
             <div className="flex flex-col gap-1.5"><Label className="text-xs font-medium">Medio</Label><Select value={contactForm.medio} onValueChange={(value) => setContactForm((prev) => ({ ...prev, medio: value }))}><SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Seleccionar medio" /></SelectTrigger><SelectContent>{LEAD_DETAIL_MEDIO_OPTIONS.map((option) => <SelectItem key={option} value={option} className="text-sm">{option}</SelectItem>)}</SelectContent></Select></div>
-            <div className="flex flex-col gap-1.5"><Label className="text-xs font-medium">Resultado</Label><Input className="h-9 text-sm" placeholder="Resultado del contacto" value={contactForm.resultado} onChange={(e) => setContactForm((prev) => ({ ...prev, resultado: e.target.value }))} /></div>
+            <div className="flex flex-col gap-1.5"><Label className="text-xs font-medium">Resultado</Label><Select value={contactForm.resultado} onValueChange={(value) => setContactForm((prev) => ({ ...prev, resultado: value }))}><SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Seleccionar resultado" /></SelectTrigger><SelectContent><SelectItem value="Positivo" className="text-sm">Positivo</SelectItem><SelectItem value="Negativo" className="text-sm">Negativo</SelectItem><SelectItem value="Cancelado" className="text-sm">Cancelado</SelectItem></SelectContent></Select></div>
             <div className="flex flex-col gap-1.5 md:col-span-2"><Label className="text-xs font-medium">Observación</Label><Textarea className="min-h-[96px] resize-none text-sm" value={contactForm.memo} onChange={(e) => setContactForm((prev) => ({ ...prev, memo: e.target.value }))} /></div>
           </div>
           {contactError && <p className="text-sm text-destructive">{contactError}</p>}

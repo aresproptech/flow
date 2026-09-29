@@ -6,13 +6,11 @@ CREATE TABLE "public"."opportunity_activities" (
   "hora"             time without time zone,
   "medio"            text,
   "resultado_text"   text,
-  "contact_id"       bigint,
   "memo"             character varying,
   "resultado"        boolean,
-  "domicilio"        character varying,
   "event_type"       text                     NOT NULL DEFAULT 'legacy'::text,
-  "actor_profile_id" bigint,
-  "effective_at"     timestamp with time zone,
+  "assigned_profile_id" bigint,
+  "created_by"       bigint,
   "metadata"         jsonb                    NOT NULL DEFAULT '{}'::jsonb,
   "parent_event_id"  bigint,
   "updated_at"       timestamp with time zone NOT NULL DEFAULT now(),
@@ -22,14 +20,15 @@ CREATE TABLE "public"."opportunity_activities" (
     ((event_type = ANY (ARRAY['contact'::text, 'valuation'::text, 'rg'::text,'visit'::text, 'order'::text ]))),
   CONSTRAINT "order_contacts_pkey" PRIMARY KEY (id),
   CONSTRAINT "opportunity_contacts_parent_event_id_fkey" FOREIGN KEY (parent_event_id) REFERENCES public.opportunity_activities(id) ON DELETE SET NULL,
-  CONSTRAINT "opportunity_contacts_actor_profile_id_fkey" FOREIGN KEY (actor_profile_id) REFERENCES public.profiles(id) ON DELETE SET NULL
+  CONSTRAINT "opportunity_activities_assigned_profile_id_fkey" FOREIGN KEY (assigned_profile_id) REFERENCES public.profiles(id) ON DELETE SET NULL,
+  CONSTRAINT "opportunity_activities_created_by_fkey" FOREIGN KEY (created_by) REFERENCES public.profiles(id) ON DELETE SET NULL
 );
 
 ALTER TABLE "public"."opportunity_activities"
   ENABLE ROW LEVEL SECURITY;
 
-CREATE INDEX idx_opportunity_contacts_actor_profile_id ON public.opportunity_activities USING btree (actor_profile_id)
-  WHERE (actor_profile_id IS NOT NULL);
+CREATE INDEX idx_opportunity_activities_assigned_profile_id ON public.opportunity_activities USING btree (assigned_profile_id)
+  WHERE (assigned_profile_id IS NOT NULL);
 
 CREATE INDEX idx_opportunity_contacts_event_type_fecha ON public.opportunity_activities USING btree (event_type, fecha DESC);
 

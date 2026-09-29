@@ -339,10 +339,9 @@ function formatLongDateKey(value: string) {
   if (isNaN(parsed.getTime())) return value;
 
   return parsed.toLocaleDateString("es-ES", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
   });
 }
 

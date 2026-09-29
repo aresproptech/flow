@@ -358,11 +358,11 @@ export default function VisitasPage() {
     const actorName = userWithRole?.crmUser?.name?.trim() || "Usuario";
     const { error: activityError } = await supabase.from("opportunity_activities").insert({
       opportunity_id: opportunityId,
+      assigned_profile_id: userWithRole?.crmUser.id ?? null,
       fecha: form.fecha_visita || new Date().toISOString().slice(0, 10),
       memo: null,
       resultado: true,
       event_type: "visit_created",
-      effective_at: new Date().toISOString(),
       metadata: { actor_name: actorName, text: "Agregó una visita" },
     });
 
@@ -409,11 +409,11 @@ export default function VisitasPage() {
     }`;
     const { error: activityError } = await supabase.from("opportunity_activities").insert({
       opportunity_id: selectedVisita.opportunity_id,
+      assigned_profile_id: userWithRole?.crmUser.id ?? null,
       fecha: editForm.fecha_visita || new Date().toISOString().slice(0, 10),
       memo: null,
       resultado: true,
       event_type: "visit_updated",
-      effective_at: new Date().toISOString(),
       metadata: { actor_name: actorName, text: activityText, change_details: changes },
     });
 

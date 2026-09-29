@@ -113,7 +113,11 @@ export function LeadObservationsTimeline({
             <div className="absolute left-0 top-1 h-2 w-2 rounded-full bg-primary" />
             <div className="flex flex-col gap-0.5 rounded-md bg-muted/60 px-2 py-1.5">
               <span className="text-[11px] font-medium text-muted-foreground">
-                {new Date(obs.date).toLocaleDateString()}
+                {new Date(obs.date).toLocaleDateString("es-ES", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "2-digit",
+                })}
               </span>
               <p className="text-xs text-foreground whitespace-pre-line">
                 {obs.text}

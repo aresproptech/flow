@@ -56,7 +56,6 @@ type ContactPlanningRow = {
   memo: string | null;
   created_at: string | null;
   event_type: string | null;
-  effective_at: string | null;
   metadata: unknown;
 };
 
@@ -178,13 +177,13 @@ export default function PlanningPage() {
         supabase
           .from("opportunity_activities")
           .select(
-            "id, opportunity_id, fecha, memo, created_at, event_type, effective_at, metadata"
+            "id, opportunity_id, fecha, memo, created_at, event_type, metadata"
           )
           .eq("event_type", "valuation"),
         supabase
           .from("opportunity_activities")
           .select(
-            "id, opportunity_id, fecha, memo, created_at, event_type, effective_at, metadata"
+            "id, opportunity_id, fecha, memo, created_at, event_type, metadata"
           )
           .eq("event_type", "rg"),
         supabase
