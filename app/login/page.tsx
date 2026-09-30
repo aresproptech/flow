@@ -103,6 +103,15 @@ export default function LoginPage() {
             />
           </label>
 
+          <div className="-mt-2 flex justify-end">
+            <a
+              href={email ? `/login/forgot-password?email=${encodeURIComponent(email)}` : "/login/forgot-password"}
+              className="text-sm font-medium text-slate-600 underline-offset-4 transition hover:text-slate-900 hover:underline"
+            >
+              Olvidé mi clave
+            </a>
+          </div>
+
           {error && (
             <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
               {error}

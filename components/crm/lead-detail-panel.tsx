@@ -1757,39 +1757,6 @@ export function LeadDetailPanel({
     return cleanUserDisplayName(raw);
   }, [userWithRole]);
 
-  async function persistActivity(
-    text: string,
-    eventType: "activity" | "call" | "lead_updated" = "lead_updated",
-    metadata: Record<string, unknown> = {}
-  ) {
-    if (!effectiveLead || readOnly) return;
-
-    const { error } = await supabase.from("opportunity_activities").insert({
-      opportunity_id: Number(effectiveLead.id),
-      assigned_profile_id: userWithRole?.crmUser.id ?? null,
-      fecha: new Date().toISOString().slice(0, 10),
-      memo: null,
-      resultado: true,
-      event_type: eventType,
-      metadata: { ...metadata, actor_name: currentUserName, text },
-    });
-
-    if (error) {
-      console.error("Error guardando historial:", error);
-    }
-  }
-
-  async function handleCallLead() {
-    if (!effectiveLead) return;
-
-    if (!readOnly) {
-      await persistActivity("Llamó al lead", "call", {
-        phone: effectiveLead.phone,
-      });
-      await loadObservations(effectiveLead.id);
-    }
-  }
-
   async function loadObservations(leadId: string) {
     setNote("");
     const { data: opportunityMemo, error: memoError } = await supabase
@@ -2522,42 +2489,6 @@ export function LeadDetailPanel({
     setValuationSaving(true);
     setValuationError(null);
     const wasEditing = Boolean(editingValuationId);
-    const previousValuation = wasEditing
-      ? valuationHistoryEvents.find(
-          (event) => String(persistedRowId(event.id)) === String(editingValuationId)
-        )
-      : null;
-
-    const valuationChanges = previousValuation
-      ? buildHistoryChangeLines([
-          {
-            label: "Fecha",
-            before: previousValuation.fecha,
-            after: valuationDate,
-            format: (value) => historyDateValue(value as string | null | undefined),
-          },
-          { label: "Hora", before: previousValuation.hora, after: valuationForm.hora },
-          {
-            label: "Medio",
-            before: previousValuation.medio,
-            after: valuationForm.medio || "—",
-          },
-          {
-            label: "Resultado",
-            before: previousValuation.resultado,
-            after: valuationForm.resultado || "—",
-          },
-          { label: "Memo", before: previousValuation.memo, after: valuationForm.memo.trim() },
-          {
-            label: "Owner",
-            before: previousValuation.owner,
-            after:
-              valuationOwnerOptions.find((profile) => profile.id === ownerProfileId)?.name ||
-              "—",
-          },
-        ])
-      : [];
-
     const valuationMetadata = {
       actor_name: currentUserName,
       medio: valuationForm.medio || null,
@@ -2593,33 +2524,6 @@ export function LeadDetailPanel({
       console.error("Error guardando valoración:", error);
       setValuationError(`No se pudo guardar la valoración: ${error.message}`);
       return;
-    }
-
-    if (wasEditing) {
-      const activityText = `Editó una valoración${buildEventDateLabel(valuationDate)}${
-        valuationChanges.length ? `:\n${valuationChanges.join("\n")}` : " sin cambios visibles"
-      }`;
-      const { error: activityError } = await supabase
-        .from("opportunity_activities")
-        .insert({
-          opportunity_id: Number(effectiveLead.id),
-          created_by: userWithRole?.crmUser.id ?? null,
-          assigned_profile_id: ownerProfileId,
-          fecha: new Date().toISOString().slice(0, 10),
-          memo: valuationForm.memo.trim() || null,
-          resultado: true,
-          event_type: "valuation_updated",
-          metadata: {
-            actor_name: currentUserName,
-            text: activityText,
-            change_details: valuationChanges,
-          },
-          parent_event_id: editingValuationId,
-        });
-
-      if (activityError) {
-        console.error("Error registrando historial de valoración:", activityError);
-      }
     }
 
     resetValuationForm();
@@ -2825,7 +2729,6 @@ export function LeadDetailPanel({
             <div className="mt-auto flex flex-wrap items-center justify-center gap-3 pt-3 md:justify-start">
               <a
                 href={`tel:${effectiveLead.phone.replace(/[^+\d]/g, "")}`}
-                onClick={() => void handleCallLead()}
                 className="text-sm font-semibold leading-normal text-primary underline-offset-2 hover:underline"
               >
                 {effectiveLead.phone}
@@ -3101,8 +3004,8 @@ export function LeadDetailPanel({
                       </p>
                     </div>
                   ) : (
-                    <div className="overflow-x-auto rounded-lg border border-border bg-card">
-                      <div className="grid min-w-[760px] grid-cols-[96px_56px_96px_180px_104px_minmax(180px,1fr)_56px] border-b border-border bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <div className="max-h-[55vh] overflow-auto overscroll-contain rounded-lg border border-border bg-card">
+                      <div className="sticky top-0 z-20 grid min-w-[760px] grid-cols-[96px_56px_96px_180px_104px_minmax(180px,1fr)_56px] border-b border-border bg-muted/95 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur">
                         <span>Fecha</span>
                         <span>Hora</span>
                         <span>Medio</span>
@@ -3203,8 +3106,8 @@ export function LeadDetailPanel({
                       </p>
                     </div>
                   ) : (
-                    <div className="overflow-x-auto rounded-lg border border-border bg-card">
-                      <div className="grid min-w-[948px] grid-cols-[96px_56px_96px_180px_180px_104px_minmax(180px,1fr)_56px] border-b border-border bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <div className="max-h-[55vh] overflow-auto overscroll-contain rounded-lg border border-border bg-card">
+                      <div className="sticky top-0 z-20 grid min-w-[948px] grid-cols-[96px_56px_96px_180px_180px_104px_minmax(180px,1fr)_56px] border-b border-border bg-muted/95 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur">
                         <span>Fecha</span>
                         <span>Hora</span>
                         <span>Medio</span>
@@ -3544,8 +3447,8 @@ export function LeadDetailPanel({
                       Sin gestiones R.G. registradas todavía.
                     </p>
                   ) : (
-                    <div className="overflow-x-auto rounded-lg border border-border bg-card">
-                      <div className="grid min-w-[720px] grid-cols-[64px_1.3fr_90px_1fr_1fr_1fr_72px] border-b border-border bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <div className="max-h-[55vh] overflow-auto overscroll-contain rounded-lg border border-border bg-card">
+                      <div className="sticky top-0 z-20 grid min-w-[720px] grid-cols-[64px_1.3fr_90px_1fr_1fr_1fr_72px] border-b border-border bg-muted/95 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur">
                         <span>R.G.</span>
                         <span>Fecha</span>
                         <span>Hora</span>
@@ -3686,8 +3589,8 @@ export function LeadDetailPanel({
                       </p>
                     </div>
                   ) : (
-                    <div className="overflow-x-auto rounded-lg border border-border bg-card">
-                      <div className="grid min-w-[760px] grid-cols-[84px_1.2fr_90px_1fr_1fr_1fr_72px] border-b border-border bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <div className="max-h-[55vh] overflow-auto overscroll-contain rounded-lg border border-border bg-card">
+                      <div className="sticky top-0 z-20 grid min-w-[760px] grid-cols-[84px_1.2fr_90px_1fr_1fr_1fr_72px] border-b border-border bg-muted/95 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur">
                         <span>Visita</span>
                         <span>Fecha</span>
                         <span>Hora</span>
@@ -4258,7 +4161,7 @@ export function LeadDetailPanel({
           </DialogHeader>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="flex flex-col gap-1.5"><Label className="text-xs font-medium">Fecha</Label><Input type="text" inputMode="numeric" placeholder="DD/MM/AA" className="h-9 text-sm" value={formatContactDateInput(contactForm.fecha)} onChange={(e) => setContactForm((prev) => ({ ...prev, fecha: e.target.value }))} /></div>
+            <div className="flex flex-col gap-1.5"><Label className="text-xs font-medium">Fecha</Label><Input type="date" className="h-9 text-sm" value={contactForm.fecha} onChange={(e) => setContactForm((prev) => ({ ...prev, fecha: e.target.value }))} /></div>
             <TimeSelectFields
               value={contactForm.hora}
               onChange={(hora) => setContactForm((previous) => ({ ...previous, hora }))}
