@@ -102,7 +102,7 @@ select ok(
 from unnest(array[
   'public.crm_current_role()',
   'public.crm_current_name()',
-  'public.crm_is_visitador()',
+  'public.crm_can_manage_visits()',
   'public.crm_can_read_opportunity(bigint)',
   'public.crm_can_write_opportunity(bigint)'
 ]) function_name;
