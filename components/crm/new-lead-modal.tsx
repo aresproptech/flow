@@ -583,14 +583,14 @@ export function NewLeadModal({
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="notes" className="text-xs font-medium">
-              Observaciones iniciales <span className="text-destructive">*</span>
+              Memo inicial <span className="text-destructive">*</span>
             </Label>
             <Textarea
               id="notes"
               value={form.notes}
               onChange={(e) => handleField("notes", e.target.value)}
               className="min-h-[72px] text-sm resize-none"
-              placeholder="Notas u observaciones iniciales sobre el lead..."
+              placeholder="Memo inicial sobre el lead..."
               required
             />
           </div>

@@ -878,7 +878,7 @@ export default function ValoracionesPage() {
                 {selectedItem.notes && (
                   <section>
                     <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Observaciones
+                      Memo
                     </h3>
                     <div className="whitespace-pre-wrap rounded-lg border border-border bg-muted/20 p-3 text-sm text-foreground">
                       {selectedItem.notes}

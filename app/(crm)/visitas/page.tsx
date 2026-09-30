@@ -159,7 +159,7 @@ function buildVisitChangeLines(previous: VisitaForm, next: VisitaForm) {
     { field: "telefono", label: "Teléfono" },
     { field: "dni", label: "DNI" },
     { field: "vende", label: "Vende" },
-    { field: "observaciones_visita", label: "Observaciones" },
+    { field: "observaciones_visita", label: "Memo" },
   ];
 
   return tracked.flatMap(({ field, label }) => {
@@ -472,7 +472,7 @@ export default function VisitasPage() {
   }
 
   const columns = ["Estado", "Dominio", "Planner", "Owner", "Inmueble",
-    "Fecha", "Hora", "Buyer", "Nombre y Apellido", "Teléfono", "DNI", "Vende?", "Observaciones"];
+    "Fecha", "Hora", "Buyer", "Nombre y Apellido", "Teléfono", "DNI", "Vende?", "Memo"];
 
   return (
     <>
@@ -733,8 +733,8 @@ export default function VisitasPage() {
             </div>
 
             <div className="col-span-2 flex flex-col gap-1.5">
-              <Label className="text-xs font-medium">Observaciones</Label>
-              <Textarea value={form.observaciones_visita} onChange={(e) => setField("observaciones_visita", e.target.value)} className="text-sm min-h-[72px] resize-none" placeholder="Observaciones de la visita..." />
+              <Label className="text-xs font-medium">Memo</Label>
+              <Textarea value={form.observaciones_visita} onChange={(e) => setField("observaciones_visita", e.target.value)} className="text-sm min-h-[72px] resize-none" placeholder="Memo de la visita..." />
             </div>
           </div>
 
@@ -818,7 +818,7 @@ export default function VisitasPage() {
             </div>
 
             <div className="col-span-2 flex flex-col gap-1.5">
-              <Label className="text-xs font-medium">Observaciones</Label>
+              <Label className="text-xs font-medium">Memo</Label>
               <Textarea value={editForm.observaciones_visita} onChange={(e) => setEditField("observaciones_visita", e.target.value)} className="text-sm min-h-[72px] resize-none" />
             </div>
           </div>

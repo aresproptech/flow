@@ -190,9 +190,10 @@ function roundTimeToQuarter(value: string) {
   const match = value.match(/^(\d{2}):(\d{2})/);
   if (!match) return "";
 
-  const roundedMinutes = (Number(match[1]) * 60 + Math.round(Number(match[2]) / 15) * 15) % 1440;
-  const hour = Math.floor(roundedMinutes / 60);
-  const minute = roundedMinutes % 60;
+  const roundedMinutes = Number(match[1]) * 60 + Math.round(Number(match[2]) / 15) * 15;
+  const boundedMinutes = Math.min(20 * 60 + 45, Math.max(8 * 60, roundedMinutes));
+  const hour = Math.floor(boundedMinutes / 60);
+  const minute = boundedMinutes % 60;
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
@@ -521,8 +522,66 @@ const LEAD_DETAIL_STATUS_OPTIONS = [
 ];
 
 const LEAD_DETAIL_MEDIO_OPTIONS = ["Presencial", "Videollamada", "Teléfono"];
-const HOUR_OPTIONS = Array.from({ length: 24 }, (_, hour) => String(hour).padStart(2, "0"));
+const LEAD_DETAIL_RESULT_OPTIONS = ["Positivo", "Negativo", "Cancelado"];
+const HOUR_OPTIONS = Array.from({ length: 13 }, (_, index) => String(index + 8).padStart(2, "0"));
 const MINUTE_OPTIONS = ["00", "15", "30", "45"];
+
+function TimeSelectFields({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [selectedHour, selectedMinute] = value.split(":");
+
+  return (
+    <div className="grid min-w-0 grid-cols-2 gap-2">
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <Label className="text-xs font-medium">Hora</Label>
+        <Select
+          value={selectedHour || ""}
+          onValueChange={(hour) =>
+            onChange(`${hour}:${MINUTE_OPTIONS.includes(selectedMinute) ? selectedMinute : "00"}`)
+          }
+        >
+          <SelectTrigger className="h-9 w-full min-w-0 text-sm">
+            <SelectValue placeholder="Hora" />
+          </SelectTrigger>
+          <SelectContent>
+            {HOUR_OPTIONS.map((hour) => (
+              <SelectItem key={hour} value={hour} className="text-sm">
+                {hour}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <Label className="text-xs font-medium">Minutos</Label>
+        <Select
+          value={selectedMinute || ""}
+          onValueChange={(minute) =>
+            onChange(`${HOUR_OPTIONS.includes(selectedHour) ? selectedHour : HOUR_OPTIONS[0]}:${minute}`)
+          }
+        >
+          <SelectTrigger className="h-9 w-full min-w-0 text-sm">
+            <SelectValue placeholder="Minutos" />
+          </SelectTrigger>
+          <SelectContent>
+            {MINUTE_OPTIONS.map((minute) => (
+              <SelectItem key={minute} value={minute} className="text-sm">
+                {minute}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+}
+
 const PHASE_BADGE_STYLES: Record<
   string,
   { backgroundColor: string; color: string; borderColor: string }
@@ -642,6 +701,31 @@ function getDominioBadgeStyle(value: string | null | undefined) {
       borderColor: "#CBD5E1",
     }
   );
+}
+
+function getResultColorStyle(value: string | null | undefined): React.CSSProperties | undefined {
+  switch (normalizeBadgeKey(value)) {
+    case "positivo":
+      return {
+        backgroundColor: "#DCFCE7",
+        color: "#166534",
+        borderColor: "#BBF7D0",
+      };
+    case "negativo":
+      return {
+        backgroundColor: "#FEE2E2",
+        color: "#991B1B",
+        borderColor: "#FECACA",
+      };
+    case "cancelado":
+      return {
+        backgroundColor: "#F3F4F6",
+        color: "#4B5563",
+        borderColor: "#D1D5DB",
+      };
+    default:
+      return undefined;
+  }
 }
 
 function getLeadDominio(lead: Lead) {
@@ -794,17 +878,6 @@ function persistedRowId(value: number | string | null | undefined) {
   }
 
   return value;
-}
-
-function statusValueFromLabel(label: string) {
-  const normalized = normalizeBadgeKey(label);
-
-  return (
-    LEAD_DETAIL_STATUS_OPTIONS.find(
-      (option) =>
-        option.value === normalized || normalizeBadgeKey(option.label) === normalized
-    )?.value || ""
-  );
 }
 
 function historyDisplayValue(value: unknown) {
@@ -1172,7 +1245,7 @@ function EditLeadModal({
                           onValueChange={(v) => set("planner", v)}
                         >
                           <SelectTrigger id="edit-lead-planner" className="h-9 text-sm">
-                            <SelectValue placeholder="Seleccionar planner" />
+                            <SelectValue placeholder="Seleccionar" />
                           </SelectTrigger>
                           <SelectContent>
                             {Array.from(
@@ -1225,7 +1298,7 @@ function EditLeadModal({
                           onValueChange={(v) => set("buyer", v)}
                         >
                           <SelectTrigger className="h-9 text-sm">
-                            <SelectValue placeholder="Seleccionar buyer" />
+                            <SelectValue placeholder="Seleccionar" />
                           </SelectTrigger>
                           <SelectContent>
                             {Array.from(
@@ -1491,7 +1564,7 @@ export function LeadDetailPanel({
   const [editingContactId, setEditingContactId] = useState<number | string | null>(null);
   const [contactSaving, setContactSaving] = useState(false);
   const [contactError, setContactError] = useState<string | null>(null);
-  const [contactForm, setContactForm] = useState({ fecha: todayDateInput(), hora: currentTimeInput(), medio: "Teléfono", resultado: "", memo: "" });
+  const [contactForm, setContactForm] = useState({ fecha: todayDateInput(), hora: currentQuarterTimeInput(), medio: "Teléfono", resultado: "", memo: "" });
 
   useEffect(() => {
     setLocalLead(lead as LeadWithDominio | null);
@@ -2127,7 +2200,7 @@ export function LeadDetailPanel({
   function resetContactForm() {
     setEditingContactId(null);
     setContactError(null);
-    setContactForm({ fecha: todayDateInput(), hora: currentTimeInput(), medio: "Teléfono", resultado: "", memo: "" });
+    setContactForm({ fecha: todayDateInput(), hora: currentQuarterTimeInput(), medio: "Teléfono", resultado: "", memo: "" });
   }
 
   function openNewEncargoModal() {
@@ -2167,9 +2240,9 @@ export function LeadDetailPanel({
     setRgError(null);
     setRgForm({
       fecha: dateOnlyValue(event.fecha),
-      hora: event.hora || "",
+      hora: roundTimeToQuarter(event.hora || ""),
       medio: event.medio === "—" ? "" : event.medio,
-      resultado: statusValueFromLabel(event.resultado),
+      resultado: event.resultado === "—" ? "" : event.resultado,
       memo: event.memo || "",
     });
     setRgModalOpen(true);
@@ -2221,7 +2294,7 @@ export function LeadDetailPanel({
     setContactError(null);
     setContactForm({
       fecha: dateOnlyValue(event.fecha),
-      hora: event.hora || "",
+      hora: roundTimeToQuarter(event.hora || ""),
       medio: event.medio === "—" ? "" : event.medio,
       resultado: event.resultado === "—" ? "" : event.resultado,
       memo: event.memo || "",
@@ -2362,9 +2435,7 @@ export function LeadDetailPanel({
       ? rgHistoryEvents.find((event) => String(persistedRowId(event.id)) === String(editingRgId))
       : null;
 
-    const resultadoLabel =
-      LEAD_DETAIL_STATUS_OPTIONS.find((option) => option.value === rgForm.resultado)
-        ?.label || "—";
+    const resultadoLabel = rgForm.resultado || "—";
 
     const rgChanges = previousRg
       ? buildHistoryChangeLines([
@@ -2476,7 +2547,7 @@ export function LeadDetailPanel({
             before: previousValuation.resultado,
             after: valuationForm.resultado || "—",
           },
-          { label: "Observación", before: previousValuation.memo, after: valuationForm.memo.trim() },
+          { label: "Memo", before: previousValuation.memo, after: valuationForm.memo.trim() },
           {
             label: "Owner",
             before: previousValuation.owner,
@@ -3057,7 +3128,12 @@ export function LeadDetailPanel({
                               <span className="text-muted-foreground">{event.hora || "—"}</span>
                               <span className="text-muted-foreground">{event.medio}</span>
                               <span className="whitespace-nowrap text-muted-foreground">{event.usuario}</span>
-                              <span className="text-muted-foreground">{event.resultado}</span>
+                              <span
+                                className="inline-flex w-fit rounded-md border px-2 py-1 text-xs font-medium text-muted-foreground"
+                                style={getResultColorStyle(event.resultado)}
+                              >
+                                {event.resultado}
+                              </span>
                               <span className="truncate pr-2 text-muted-foreground" title={event.memo}>
                                 {event.memo || "—"}
                               </span>
@@ -3159,7 +3235,10 @@ export function LeadDetailPanel({
                               <span className="whitespace-nowrap text-muted-foreground">{event.planner}</span>
                               <span className="whitespace-nowrap text-muted-foreground">{event.owner}</span>
                               <span>
-                                <Badge variant="outline" className="rounded-md text-[11px]">
+                                <Badge
+                                  className="rounded-md text-[11px]"
+                                  style={getResultColorStyle(event.resultado)}
+                                >
                                   {event.resultado}
                                 </Badge>
                               </span>
@@ -3499,7 +3578,10 @@ export function LeadDetailPanel({
                               </span>
                               <span className="text-muted-foreground">{event.medio}</span>
                               <span>
-                                <Badge variant="outline" className="rounded-md text-[11px]">
+                                <Badge
+                                  className="rounded-md text-[11px]"
+                                  style={getResultColorStyle(event.resultado)}
+                                >
                                   {event.resultado}
                                 </Badge>
                               </span>
@@ -3568,7 +3650,7 @@ export function LeadDetailPanel({
 
                                 <div className="mt-3 rounded-md border border-border bg-background px-3 py-2 text-xs text-muted-foreground">
                                   <span className="font-semibold uppercase tracking-wide text-foreground">
-                                    Observación / memo:{" "}
+                                    Memo:{" "}
                                   </span>
                                   {event.memo || "—"}
                                 </div>
@@ -3707,7 +3789,7 @@ export function LeadDetailPanel({
 
                                 <section className="mt-5 border-t border-border pt-4">
                                   <h5 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                    Observaciones
+                                    Memo
                                   </h5>
                                   <div className="rounded-md border border-border bg-background px-3 py-2 text-xs text-muted-foreground">
                                     {visit.observaciones_visita || "—"}
@@ -3774,47 +3856,10 @@ export function LeadDetailPanel({
               />
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-medium">Hora</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <Select
-                  value={valuationForm.hora.split(":")[0] || ""}
-                  onValueChange={(hour) => {
-                    const minute = valuationForm.hora.split(":")[1] || "00";
-                    setValuationForm((prev) => ({ ...prev, hora: `${hour}:${minute}` }));
-                  }}
-                >
-                  <SelectTrigger className="h-9 text-sm">
-                    <SelectValue placeholder="Hora" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {HOUR_OPTIONS.map((hour) => (
-                      <SelectItem key={hour} value={hour} className="text-sm">
-                        {hour}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={valuationForm.hora.split(":")[1] || ""}
-                  onValueChange={(minute) => {
-                    const hour = valuationForm.hora.split(":")[0] || "00";
-                    setValuationForm((prev) => ({ ...prev, hora: `${hour}:${minute}` }));
-                  }}
-                >
-                  <SelectTrigger className="h-9 text-sm">
-                    <SelectValue placeholder="Minutos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MINUTE_OPTIONS.map((minute) => (
-                      <SelectItem key={minute} value={minute} className="text-sm">
-                        {minute}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+            <TimeSelectFields
+              value={valuationForm.hora}
+              onChange={(hora) => setValuationForm((previous) => ({ ...previous, hora }))}
+            />
 
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs font-medium">Medio</Label>
@@ -3824,8 +3869,8 @@ export function LeadDetailPanel({
                   setValuationForm((prev) => ({ ...prev, medio: value }))
                 }
               >
-                <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder="Seleccionar medio" />
+                <SelectTrigger className="h-9 w-full min-w-0 text-sm">
+                  <SelectValue placeholder="Seleccionar" />
                 </SelectTrigger>
                 <SelectContent>
                   {LEAD_DETAIL_MEDIO_OPTIONS.map((option) => (
@@ -3846,9 +3891,9 @@ export function LeadDetailPanel({
                 }
                 disabled={valuationOwnersLoading}
               >
-                <SelectTrigger className="h-9 text-sm">
+                <SelectTrigger className="h-9 w-full min-w-0 text-sm">
                   <SelectValue
-                    placeholder={valuationOwnersLoading ? "Cargando perfiles activos..." : "Seleccionar owner"}
+                    placeholder={valuationOwnersLoading ? "Cargando perfiles activos..." : "Seleccionar"}
                   />
                 </SelectTrigger>
                 <SelectContent>
@@ -3869,19 +3914,28 @@ export function LeadDetailPanel({
                   setValuationForm((prev) => ({ ...prev, resultado: value }))
                 }
               >
-                <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder="Seleccionar resultado" />
+                <SelectTrigger
+                  className="h-9 w-full min-w-0 text-sm"
+                  style={getResultColorStyle(valuationForm.resultado)}
+                >
+                  <SelectValue placeholder="Seleccionar" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Positivo" className="text-sm">Positivo</SelectItem>
-                  <SelectItem value="Negativo" className="text-sm">Negativo</SelectItem>
-                  <SelectItem value="Cancelado" className="text-sm">Cancelado</SelectItem>
+                  <SelectItem value="Positivo" className="text-sm" style={getResultColorStyle("Positivo")}>
+                    Positivo
+                  </SelectItem>
+                  <SelectItem value="Negativo" className="text-sm" style={getResultColorStyle("Negativo")}>
+                    Negativo
+                  </SelectItem>
+                  <SelectItem value="Cancelado" className="text-sm" style={getResultColorStyle("Cancelado")}>
+                    Cancelado
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="flex flex-col gap-1.5 md:col-span-3">
-              <Label className="text-xs font-medium">Observación</Label>
+              <Label className="text-xs font-medium">Memo</Label>
               <Textarea
                 className="min-h-[96px] resize-none text-sm"
                 value={valuationForm.memo}
@@ -4028,9 +4082,9 @@ export function LeadDetailPanel({
             </div>
 
             <div className="flex flex-col gap-1.5 md:col-span-2">
-              <Label className="text-xs font-medium">Observación</Label>
+              <Label className="text-xs font-medium">Memo</Label>
               <Textarea
-                placeholder="Observaciones del encargo..."
+                placeholder="Memo del encargo..."
                 className="min-h-[96px] resize-none text-sm"
                 value={encargoForm.memo}
                 onChange={(e) =>
@@ -4092,15 +4146,10 @@ export function LeadDetailPanel({
               />
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-medium">Hora</Label>
-              <Input
-                type="time"
-                className="h-9 text-sm"
-                value={rgForm.hora}
-                onChange={(e) => setRgForm((prev) => ({ ...prev, hora: e.target.value }))}
-              />
-            </div>
+            <TimeSelectFields
+              value={rgForm.hora}
+              onChange={(hora) => setRgForm((previous) => ({ ...previous, hora }))}
+            />
 
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs font-medium">Medio</Label>
@@ -4109,7 +4158,7 @@ export function LeadDetailPanel({
                 onValueChange={(value) => setRgForm((prev) => ({ ...prev, medio: value }))}
               >
                 <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder="Seleccionar medio" />
+                  <SelectValue placeholder="Seleccionar" />
                 </SelectTrigger>
                 <SelectContent>
                   {LEAD_DETAIL_MEDIO_OPTIONS.map((option) => (
@@ -4129,13 +4178,31 @@ export function LeadDetailPanel({
                   setRgForm((prev) => ({ ...prev, resultado: value }))
                 }
               >
-                <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder="Seleccionar resultado" />
+                <SelectTrigger
+                  className="h-9 text-sm"
+                  style={getResultColorStyle(rgForm.resultado)}
+                >
+                  <SelectValue placeholder="Seleccionar" />
                 </SelectTrigger>
                 <SelectContent>
-                  {LEAD_DETAIL_STATUS_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value} className="text-sm">
-                      {option.label}
+                  {rgForm.resultado &&
+                    !LEAD_DETAIL_RESULT_OPTIONS.includes(rgForm.resultado) && (
+                      <SelectItem
+                        value={rgForm.resultado}
+                        className="text-sm"
+                        style={getResultColorStyle(rgForm.resultado)}
+                      >
+                        {rgForm.resultado}
+                      </SelectItem>
+                    )}
+                  {LEAD_DETAIL_RESULT_OPTIONS.map((result) => (
+                    <SelectItem
+                      key={result}
+                      value={result}
+                      className="text-sm"
+                      style={getResultColorStyle(result)}
+                    >
+                      {result}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -4143,9 +4210,9 @@ export function LeadDetailPanel({
             </div>
 
             <div className="flex flex-col gap-1.5 md:col-span-2">
-              <Label className="text-xs font-medium">Observación</Label>
+              <Label className="text-xs font-medium">Memo</Label>
               <Textarea
-                placeholder="Observaciones de la R.G..."
+                placeholder="Memo de la R.G..."
                 className="min-h-[96px] resize-none text-sm"
                 value={rgForm.memo}
                 onChange={(e) => setRgForm((prev) => ({ ...prev, memo: e.target.value }))}
@@ -4192,10 +4259,39 @@ export function LeadDetailPanel({
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="flex flex-col gap-1.5"><Label className="text-xs font-medium">Fecha</Label><Input type="text" inputMode="numeric" placeholder="DD/MM/AA" className="h-9 text-sm" value={formatContactDateInput(contactForm.fecha)} onChange={(e) => setContactForm((prev) => ({ ...prev, fecha: e.target.value }))} /></div>
-            <div className="flex flex-col gap-1.5"><Label className="text-xs font-medium">Hora</Label><Input type="time" className="h-9 text-sm" value={contactForm.hora} onChange={(e) => setContactForm((prev) => ({ ...prev, hora: e.target.value }))} /></div>
-            <div className="flex flex-col gap-1.5"><Label className="text-xs font-medium">Medio</Label><Select value={contactForm.medio} onValueChange={(value) => setContactForm((prev) => ({ ...prev, medio: value }))}><SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Seleccionar medio" /></SelectTrigger><SelectContent>{LEAD_DETAIL_MEDIO_OPTIONS.map((option) => <SelectItem key={option} value={option} className="text-sm">{option}</SelectItem>)}</SelectContent></Select></div>
-            <div className="flex flex-col gap-1.5"><Label className="text-xs font-medium">Resultado</Label><Select value={contactForm.resultado} onValueChange={(value) => setContactForm((prev) => ({ ...prev, resultado: value }))}><SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Seleccionar resultado" /></SelectTrigger><SelectContent><SelectItem value="Positivo" className="text-sm">Positivo</SelectItem><SelectItem value="Negativo" className="text-sm">Negativo</SelectItem><SelectItem value="Cancelado" className="text-sm">Cancelado</SelectItem></SelectContent></Select></div>
-            <div className="flex flex-col gap-1.5 md:col-span-2"><Label className="text-xs font-medium">Observación</Label><Textarea className="min-h-[96px] resize-none text-sm" value={contactForm.memo} onChange={(e) => setContactForm((prev) => ({ ...prev, memo: e.target.value }))} /></div>
+            <TimeSelectFields
+              value={contactForm.hora}
+              onChange={(hora) => setContactForm((previous) => ({ ...previous, hora }))}
+            />
+            <div className="flex flex-col gap-1.5"><Label className="text-xs font-medium">Medio</Label><Select value={contactForm.medio} onValueChange={(value) => setContactForm((prev) => ({ ...prev, medio: value }))}><SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Seleccionar" /></SelectTrigger><SelectContent>{LEAD_DETAIL_MEDIO_OPTIONS.map((option) => <SelectItem key={option} value={option} className="text-sm">{option}</SelectItem>)}</SelectContent></Select></div>
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs font-medium">Resultado</Label>
+              <Select
+                value={contactForm.resultado}
+                onValueChange={(value) =>
+                  setContactForm((prev) => ({ ...prev, resultado: value }))
+                }
+              >
+                <SelectTrigger
+                  className="h-9 text-sm"
+                  style={getResultColorStyle(contactForm.resultado)}
+                >
+                  <SelectValue placeholder="Seleccionar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Positivo" className="text-sm" style={getResultColorStyle("Positivo")}>
+                    Positivo
+                  </SelectItem>
+                  <SelectItem value="Negativo" className="text-sm" style={getResultColorStyle("Negativo")}>
+                    Negativo
+                  </SelectItem>
+                  <SelectItem value="Cancelado" className="text-sm" style={getResultColorStyle("Cancelado")}>
+                    Cancelado
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5 md:col-span-2"><Label className="text-xs font-medium">Memo</Label><Textarea className="min-h-[96px] resize-none text-sm" value={contactForm.memo} onChange={(e) => setContactForm((prev) => ({ ...prev, memo: e.target.value }))} /></div>
           </div>
           {contactError && <p className="text-sm text-destructive">{contactError}</p>}
           <DialogFooter>

@@ -54,13 +54,13 @@ export function LeadObservationsTimeline({
         "flex flex-col gap-4 rounded-xl border border-border bg-card p-4",
         className
       )}
-      aria-label="Observaciones del lead"
+      aria-label="Memo del lead"
     >
       <header className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Clock className="h-4 w-4 text-muted-foreground" />
           <h3 className="text-sm font-semibold text-foreground">
-            Observaciones
+            Memo
           </h3>
         </div>
         <span className="text-[11px] text-muted-foreground">
@@ -85,7 +85,7 @@ export function LeadObservationsTimeline({
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Añade una nueva observación..."
+            placeholder="Añade un memo..."
             rows={3}
             className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary resize-none"
           />
@@ -95,7 +95,7 @@ export function LeadObservationsTimeline({
               disabled={!text.trim()}
               className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Guardar observación
+              Guardar memo
             </button>
           </div>
         </div>
@@ -104,7 +104,7 @@ export function LeadObservationsTimeline({
       <ol className="mt-2 space-y-3 text-xs">
         {observations.length === 0 && (
           <li className="text-[11px] text-muted-foreground">
-            Aún no hay observaciones para este lead.
+            Aún no hay memos para este lead.
           </li>
         )}
 
