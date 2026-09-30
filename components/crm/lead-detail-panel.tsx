@@ -2418,7 +2418,11 @@ export function LeadDetailPanel({
   }
 
   async function handleSaveVisit() {
-    if (!effectiveLead || readOnly || effectiveLead.phase !== "encargo") return;
+    if (
+      !effectiveLead ||
+      readOnly ||
+      (!editingVisitId && effectiveLead.phase !== "encargo")
+    ) return;
     if (!visitForm.fecha_visita) {
       setVisitError("La fecha de la visita es obligatoria.");
       return;
@@ -3811,13 +3815,13 @@ export function LeadDetailPanel({
                     </div>
                   ) : (
                     <div className="max-h-[55vh] overflow-auto overscroll-contain rounded-lg border border-border bg-card">
-                      <div className="sticky top-0 z-20 grid min-w-[900px] grid-cols-[72px_1.1fr_90px_1fr_1.2fr_1fr_1fr_64px] border-b border-border bg-muted/95 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur">
-                        <span>Visita</span>
+                      <div className="sticky top-0 z-20 grid min-w-[900px] grid-cols-[100px_72px_1fr_1.2fr_1fr_0.8fr_1fr_64px] border-b border-border bg-muted/95 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur">
                         <span>Fecha</span>
                         <span>Hora</span>
                         <span>Buyer</span>
                         <span>Comprador</span>
                         <span>Teléfono</span>
+                        <span>Vende?</span>
                         <span>Resultado</span>
                         <span />
                       </div>
@@ -3835,16 +3839,13 @@ export function LeadDetailPanel({
                                   current === rowId ? null : rowId
                                 )
                               }
-                              className="grid w-full min-w-[900px] grid-cols-[72px_1.1fr_90px_1fr_1.2fr_1fr_1fr_64px] items-center px-3 py-3 text-left text-sm transition hover:bg-muted/40"
+                              className="grid w-full min-w-[900px] grid-cols-[100px_72px_1fr_1.2fr_1fr_0.8fr_1fr_64px] items-center px-3 py-3 text-left text-sm transition hover:bg-muted/40"
                             >
-                              <span className="font-semibold text-foreground">
-                                #{index + 1}
-                              </span>
                               <span className="text-foreground">
                                 {fmtDate(visit.fecha_visita || "")}
                               </span>
                               <span className="text-muted-foreground">
-                                {visit.hora || "—"}
+                                {visit.hora ? visit.hora.slice(0, 5) : "—"}
                               </span>
                               <span className="text-muted-foreground">
                                 {displayValue(visit.buyer)}
@@ -3855,6 +3856,9 @@ export function LeadDetailPanel({
                               <span className="text-muted-foreground">
                                 {displayValue(visit.telefono_comprador || visit.telefono)}
                               </span>
+                              <span className="text-muted-foreground">
+                                {visit.vende === true ? "Sí" : visit.vende === false ? "No" : "—"}
+                              </span>
                               <span>
                                 <Badge
                                   className="rounded-md text-[11px]"
@@ -3864,7 +3868,7 @@ export function LeadDetailPanel({
                                 </Badge>
                               </span>
                               <span className="flex items-center justify-end gap-2">
-                                {!readOnly && persistedRowId(visit.id) && effectiveLead.phase === "encargo" ? (
+                                {!readOnly && persistedRowId(visit.id) ? (
                                   <span
                                     role="button"
                                     tabIndex={0}
@@ -3897,57 +3901,10 @@ export function LeadDetailPanel({
                             </button>
 
                             {isOpen && (
-                              <div className="border-t border-border bg-muted/20 px-4 py-4">
-                                <section className="space-y-3">
-                                  <h5 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                    Datos de la visita #{index + 1}
-                                  </h5>
-
-                                  <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-                                    <SmallDataCard label="Fecha visita">
-                                      {fmtDate(visit.fecha_visita || "")}
-                                    </SmallDataCard>
-                                    <SmallDataCard label="Hora">
-                                      {visit.hora || "—"}
-                                    </SmallDataCard>
-                                    <SmallDataCard label="Resultado">
-                                      {displayValue(visit.resultado)}
-                                    </SmallDataCard>
-                                    <SmallDataCard label="Buyer">
-                                      {displayValue(visit.buyer)}
-                                    </SmallDataCard>
-                                    <SmallDataCard label="Nombre">
-                                      {displayValue(visit.nombre_apellido)}
-                                    </SmallDataCard>
-                                    <SmallDataCard label="Teléfono">
-                                      {displayValue(visit.telefono_comprador || visit.telefono)}
-                                    </SmallDataCard>
-                                    <SmallDataCard label="DNI">
-                                      {displayValue(visit.dni)}
-                                    </SmallDataCard>
-                                    <SmallDataCard label="Vende">
-                                      {displayValue(visit.vende)}
-                                    </SmallDataCard>
-                                    <SmallDataCard label="Planner">
-                                      {displayValue(visit.planner)}
-                                    </SmallDataCard>
-                                    <SmallDataCard label="Owner">
-                                      {displayValue(visit.owner)}
-                                    </SmallDataCard>
-                                    <SmallDataCard label="Dominio">
-                                      {displayValue(visit.dominio)}
-                                    </SmallDataCard>
-                                  </div>
-                                </section>
-
-                                <section className="mt-5 border-t border-border pt-4">
-                                  <h5 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                    Memo
-                                  </h5>
-                                  <div className="rounded-md border border-border bg-background px-3 py-2 text-xs text-muted-foreground">
-                                    {visit.observaciones_visita || "—"}
-                                  </div>
-                                </section>
+                              <div className="border-t border-border bg-muted/20 px-4 py-2">
+                                <div className="rounded-lg border border-border bg-card p-3 text-sm text-foreground whitespace-pre-wrap">
+                                  {visit.observaciones_visita || "—"}
+                                </div>
                               </div>
                             )}
                           </div>
