@@ -214,6 +214,18 @@ function currentQuarterTimeInput() {
   return roundTimeToQuarter(currentTimeInput());
 }
 
+function compareScheduledItemsDescending<T extends { id: string; fecha: string; hora: string }>(
+  left: T,
+  right: T
+) {
+  const scheduleKey = (item: T) =>
+    `${item.fecha.slice(0, 10)}T${item.hora.slice(0, 5) || "00:00"}`;
+  return (
+    scheduleKey(right).localeCompare(scheduleKey(left)) ||
+    right.id.localeCompare(left.id, undefined, { numeric: true })
+  );
+}
+
 function fmtDateTimeShort(d: string) {
   if (!d) return "—";
   const dt = new Date(d);
@@ -1744,7 +1756,9 @@ export function LeadDetailPanel({
         .from("opportunity_buyers")
         .select("*")
         .eq("opportunity_id", numericLeadId)
-        .order("fecha_visita", { ascending: false }),
+        .order("fecha_visita", { ascending: false, nullsFirst: false })
+        .order("hora", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false }),
     ]);
 
     if (ordersResponse.error || visitsResponse.error) {
@@ -2024,7 +2038,9 @@ export function LeadDetailPanel({
       )
       .eq("opportunity_id", Number(leadId))
       .eq("event_type", "rg")
-      .order("created_at", { ascending: true });
+      .order("fecha", { ascending: false, nullsFirst: false })
+      .order("hora", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false });
 
     if (error) {
       console.error("Error cargando R.G.:", error);
@@ -2817,7 +2833,7 @@ export function LeadDetailPanel({
     };
   });
 
-  const rgHistoryEvents: RgHistoryEvent[] = parsedRgEntries;
+  const rgHistoryEvents: RgHistoryEvent[] = parsedRgEntries.sort(compareScheduledItemsDescending);
 
   const parsedValuationEntries: ValuationHistoryEvent[] = valuationEntries.map(
     (row) => {
@@ -2848,7 +2864,9 @@ export function LeadDetailPanel({
     }
   );
 
-  const valuationHistoryEvents: ValuationHistoryEvent[] = parsedValuationEntries;
+  const valuationHistoryEvents: ValuationHistoryEvent[] = parsedValuationEntries.sort(
+    compareScheduledItemsDescending
+  );
 
   const contactHistoryEvents: ContactHistoryEvent[] = contactEntries.map((row, index) => {
     const memoText = row.memo?.trim() || "";
@@ -2874,7 +2892,7 @@ export function LeadDetailPanel({
         "—",
       memo: opportunityContactMetadataText(row.metadata, "notes") || memoText,
     };
-  });
+  }).sort(compareScheduledItemsDescending);
 
   const callEvents = activityEvents.filter(
     (event) => event.eventType === "call" || isCallActivityText(event.text)
