@@ -355,21 +355,6 @@ export default function VisitasPage() {
       return;
     }
 
-    const actorName = userWithRole?.crmUser?.name?.trim() || "Usuario";
-    const { error: activityError } = await supabase.from("opportunity_activities").insert({
-      opportunity_id: opportunityId,
-      assigned_profile_id: userWithRole?.crmUser.id ?? null,
-      fecha: form.fecha_visita || new Date().toISOString().slice(0, 10),
-      memo: null,
-      resultado: true,
-      event_type: "visit_created",
-      metadata: { actor_name: actorName, text: "Agregó una visita" },
-    });
-
-    if (activityError) {
-      console.error("Error registrando historial de visita:", activityError);
-    }
-
     setAddModalOpen(false);
     setForm(EMPTY_FORM);
     void loadVisitas();
@@ -675,11 +660,6 @@ export default function VisitasPage() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-medium">Dominio</Label>
-              <Input value={form.dominio} readOnly className="h-8 text-sm bg-muted/40" placeholder="Auto" />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
               <Label className="text-xs font-medium">Planner</Label>
               <Input value={form.planner} readOnly className="h-8 text-sm bg-muted/40" placeholder="Auto" />
             </div>
@@ -705,7 +685,7 @@ export default function VisitasPage() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-medium">Teléfono</Label>
+              <Label className="text-xs font-medium">Teléfono (comprador)</Label>
               <Input value={form.telefono} onChange={(e) => setField("telefono", e.target.value)} className="h-8 text-sm" />
             </div>
 
@@ -720,7 +700,7 @@ export default function VisitasPage() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-medium">¿Vende?</Label>
+              <Label className="text-xs font-medium">¿Vende? (comprador)</Label>
               <Select value={form.vende} onValueChange={(v) => setField("vende", v)}>
                 <SelectTrigger className="h-8 text-sm">
                   <SelectValue placeholder="Seleccioná..." />
@@ -770,11 +750,6 @@ export default function VisitasPage() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-medium">Dominio</Label>
-              <Input value={editForm.dominio} readOnly className="h-8 text-sm bg-muted/40" />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
               <Label className="text-xs font-medium">Fecha visita</Label>
               <Input type="date" value={editForm.fecha_visita} onChange={(e) => setEditField("fecha_visita", e.target.value)} className="h-8 text-sm" />
             </div>
@@ -790,7 +765,7 @@ export default function VisitasPage() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-medium">Teléfono</Label>
+              <Label className="text-xs font-medium">Teléfono (comprador)</Label>
               <Input value={editForm.telefono} onChange={(e) => setEditField("telefono", e.target.value)} className="h-8 text-sm" />
             </div>
 
@@ -805,7 +780,7 @@ export default function VisitasPage() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-medium">¿Vende?</Label>
+              <Label className="text-xs font-medium">¿Vende? (comprador)</Label>
               <Select value={editForm.vende} onValueChange={(v) => setEditField("vende", v)}>
                 <SelectTrigger className="h-8 text-sm">
                   <SelectValue placeholder="Seleccioná..." />

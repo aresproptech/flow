@@ -174,6 +174,19 @@ function normalizeContactDateInput(value: string) {
   return value.trim();
 }
 
+function isFutureActivityDateTime(dateValue: string, timeValue: string) {
+  const dateMatch = normalizeContactDateInput(dateValue).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!dateMatch) return false;
+
+  const timeMatch = timeValue.match(/^(\d{2}):(\d{2})$/);
+  const [, year, month, day] = dateMatch;
+  const hour = Number(timeMatch?.[1] ?? "00");
+  const minute = Number(timeMatch?.[2] ?? "00");
+  const activityDateTime = new Date(Number(year), Number(month) - 1, Number(day), hour, minute);
+
+  return activityDateTime.getTime() > Date.now();
+}
+
 function todayDateInput() {
   const date = new Date();
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
@@ -412,6 +425,7 @@ type VisitRow = {
   id?: number | string;
   opportunity_id?: number | string | null;
   estado?: string | null;
+  resultado?: string | null;
   dominio?: string | null;
   planner?: string | null;
   owner?: string | null;
@@ -426,6 +440,18 @@ type VisitRow = {
   observaciones_visita?: string | null;
   created_by?: string | null;
   created_at?: string | null;
+};
+
+type LeadDetailVisitForm = {
+  fecha_visita: string;
+  hora: string;
+  resultado: string;
+  buyer: string;
+  nombre_apellido: string;
+  telefono: string;
+  dni: string;
+  vende: string;
+  memo: string;
 };
 
 type LeadChecklist = {
@@ -523,6 +549,17 @@ const LEAD_DETAIL_STATUS_OPTIONS = [
 
 const LEAD_DETAIL_MEDIO_OPTIONS = ["Presencial", "Videollamada", "Teléfono"];
 const LEAD_DETAIL_RESULT_OPTIONS = ["Positivo", "Negativo", "Cancelado"];
+const LEAD_DETAIL_CONTACT_RESULT_OPTIONS = ["Pendiente", ...LEAD_DETAIL_RESULT_OPTIONS];
+const LEAD_DETAIL_VISIT_RESULT_OPTIONS = [
+  "Pendiente",
+  "Descartada",
+  "Pensará",
+  "Repetirá",
+  "Oferta",
+  "Caro",
+  "Cancelada",
+  "Comprador",
+];
 const HOUR_OPTIONS = Array.from({ length: 13 }, (_, index) => String(index + 8).padStart(2, "0"));
 const MINUTE_OPTIONS = ["00", "15", "30", "45"];
 
@@ -705,18 +742,51 @@ function getDominioBadgeStyle(value: string | null | undefined) {
 
 function getResultColorStyle(value: string | null | undefined): React.CSSProperties | undefined {
   switch (normalizeBadgeKey(value)) {
+    case "pendiente":
+      return {
+        backgroundColor: "#DBEAFE",
+        color: "#1D4ED8",
+        borderColor: "#BFDBFE",
+      };
+    case "pensara":
+      return {
+        backgroundColor: "#FEF3C7",
+        color: "#92400E",
+        borderColor: "#FDE68A",
+      };
+    case "repetira":
     case "positivo":
       return {
         backgroundColor: "#DCFCE7",
         color: "#166534",
         borderColor: "#BBF7D0",
       };
+    case "descartada":
+      return {
+        backgroundColor: "#F3F4F6",
+        color: "#4B5563",
+        borderColor: "#D1D5DB",
+      };
+    case "oferta":
+      return {
+        backgroundColor: "#047857",
+        color: "#ECFDF5",
+        borderColor: "#047857",
+      };
+    case "caro":
     case "negativo":
       return {
         backgroundColor: "#FEE2E2",
         color: "#991B1B",
         borderColor: "#FECACA",
       };
+    case "comprador":
+      return {
+        backgroundColor: "#84CC16",
+        color: "#1A2E05",
+        borderColor: "#65A30D",
+      };
+    case "cancelada":
     case "cancelado":
       return {
         backgroundColor: "#F3F4F6",
@@ -1504,6 +1574,21 @@ export function LeadDetailPanel({
   const [localLead, setLocalLead] = useState<LeadWithDominio | null>(lead as LeadWithDominio | null);
   const [orders, setOrders] = useState<OpportunityOrderRow[]>([]);
   const [visits, setVisits] = useState<VisitRow[]>([]);
+  const [visitModalOpen, setVisitModalOpen] = useState(false);
+  const [editingVisitId, setEditingVisitId] = useState<number | string | null>(null);
+  const [visitSaving, setVisitSaving] = useState(false);
+  const [visitError, setVisitError] = useState<string | null>(null);
+  const [visitForm, setVisitForm] = useState<LeadDetailVisitForm>({
+    fecha_visita: todayDateInput(),
+    hora: currentQuarterTimeInput(),
+    resultado: "Pendiente",
+    buyer: "",
+    nombre_apellido: "",
+    telefono: "",
+    dni: "",
+    vende: "",
+    memo: "",
+  });
   const [relatedLoading, setRelatedLoading] = useState(false);
   const [relatedError, setRelatedError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<LeadDetailTab>("resumen");
@@ -1557,8 +1642,8 @@ export function LeadDetailPanel({
   });
   const [valuationSaving, setValuationSaving] = useState(false);
   const [valuationError, setValuationError] = useState<string | null>(null);
-  const [valuationOwnerOptions, setValuationOwnerOptions] = useState<ValuationOwnerOption[]>([]);
-  const [valuationOwnersLoading, setValuationOwnersLoading] = useState(false);
+  const [activeProfileOptions, setActiveProfileOptions] = useState<ValuationOwnerOption[]>([]);
+  const [activeProfilesLoading, setActiveProfilesLoading] = useState(false);
   const [valuationEntries, setValuationEntries] = useState<OpportunityContactRow[]>([]);
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [editingContactId, setEditingContactId] = useState<number | string | null>(null);
@@ -1954,7 +2039,7 @@ export function LeadDetailPanel({
     const { data, error } = await supabase
       .from("opportunity_activities")
       .select(
-        "id, created_at, fecha, memo, resultado, event_type, created_by, profile:profiles!opportunity_activities_created_by_fkey(name), assigned_profile_id, assigned_profile:profiles!opportunity_activities_assigned_profile_id_fkey(name), metadata, parent_event_id"
+        "id, created_at, fecha, memo, resultado, resultado_text, event_type, created_by, profile:profiles!opportunity_activities_created_by_fkey(name), assigned_profile_id, assigned_profile:profiles!opportunity_activities_assigned_profile_id_fkey(name), metadata, parent_event_id"
       )
       .eq("opportunity_id", Number(leadId))
       .eq("event_type", "valuation")
@@ -1972,7 +2057,7 @@ export function LeadDetailPanel({
   async function loadContactEntries(leadId: string) {
     const { data, error } = await supabase
       .from("opportunity_activities")
-      .select("id, created_at, fecha, memo, resultado, event_type, created_by, profile:profiles!opportunity_activities_created_by_fkey(name), assigned_profile:profiles!opportunity_activities_assigned_profile_id_fkey(name), assigned_profile_id, metadata, parent_event_id")
+        .select("id, created_at, fecha, memo, resultado, resultado_text, event_type, created_by, profile:profiles!opportunity_activities_created_by_fkey(name), assigned_profile:profiles!opportunity_activities_assigned_profile_id_fkey(name), assigned_profile_id, metadata, parent_event_id")
       .eq("opportunity_id", Number(leadId))
       .eq("event_type", "contact")
       .order("fecha", { ascending: false, nullsFirst: false })
@@ -2140,28 +2225,27 @@ export function LeadDetailPanel({
     });
   }
 
-  async function loadValuationOwnerOptions() {
-    setValuationOwnersLoading(true);
+  async function loadActiveProfiles() {
+    setActiveProfilesLoading(true);
     const { data, error } = await supabase
       .from("profiles")
       .select("id, name")
       .eq("enabled", true)
       .not("name", "is", null)
       .order("name");
-    setValuationOwnersLoading(false);
+    setActiveProfilesLoading(false);
 
     if (error) {
-      setValuationError(`No se pudieron cargar los Owners: ${error.message}`);
-      setValuationOwnerOptions([]);
-      return null;
+      setActiveProfileOptions([]);
+      return { profiles: null, error: error.message };
     }
 
     const profiles = (data ?? []).flatMap((profile) => {
       const name = profile.name?.trim();
       return name ? [{ id: profile.id, name }] : [];
     });
-    setValuationOwnerOptions(profiles);
-    return profiles;
+    setActiveProfileOptions(profiles);
+    return { profiles, error: null };
   }
 
   function resetContactForm() {
@@ -2218,7 +2302,8 @@ export function LeadDetailPanel({
   async function openNewValuationModal() {
     resetValuationForm();
     setValuationModalOpen(true);
-    await loadValuationOwnerOptions();
+    const { error } = await loadActiveProfiles();
+    if (error) setValuationError(`No se pudieron cargar los Owners: ${error}`);
   }
 
   async function openEditValuationModal(event: ValuationHistoryEvent) {
@@ -2236,8 +2321,11 @@ export function LeadDetailPanel({
       owner: "",
     });
     setValuationModalOpen(true);
-    const profiles = await loadValuationOwnerOptions();
-    if (!profiles) return;
+    const { profiles, error } = await loadActiveProfiles();
+    if (error || !profiles) {
+      if (error) setValuationError(`No se pudieron cargar los Owners: ${error}`);
+      return;
+    }
 
     const ownerName = event.owner.trim().toLowerCase();
     const selectedOwner =
@@ -2267,6 +2355,117 @@ export function LeadDetailPanel({
       memo: event.memo || "",
     });
     setContactModalOpen(true);
+  }
+
+  function resetVisitForm() {
+    setEditingVisitId(null);
+    setVisitError(null);
+    setVisitForm({
+      fecha_visita: todayDateInput(),
+      hora: currentQuarterTimeInput(),
+      resultado: "Pendiente",
+      buyer: "",
+      nombre_apellido: "",
+      telefono: "",
+      dni: "",
+      vende: "",
+      memo: "",
+    });
+  }
+
+  async function openNewVisitModal() {
+    if (!effectiveLead || readOnly || effectiveLead.phase !== "encargo") return;
+    resetVisitForm();
+    setVisitModalOpen(true);
+    const { profiles, error } = await loadActiveProfiles();
+    if (error || !profiles) {
+      if (error) setVisitError(`No se pudieron cargar los Buyers: ${error}`);
+      return;
+    }
+
+    const sessionUserName = userWithRole?.crmUser.name?.trim().toLowerCase();
+    const sessionProfile =
+      profiles.find((profile) => profile.id === userWithRole?.crmUser.id) ??
+      profiles.find((profile) => profile.name.toLowerCase() === sessionUserName);
+    setVisitForm((previous) => ({
+      ...previous,
+      buyer: sessionProfile?.name ?? "",
+    }));
+  }
+
+  async function openEditVisitModal(visit: VisitRow) {
+    if (!effectiveLead || readOnly || visit.id === undefined || visit.id === null) return;
+
+    setEditingVisitId(visit.id);
+    setVisitError(null);
+    setVisitForm({
+      fecha_visita: dateOnlyValue(visit.fecha_visita),
+      hora: roundTimeToQuarter(visit.hora || ""),
+      resultado: visit.resultado || "Pendiente",
+      buyer: visit.buyer || "",
+      nombre_apellido: visit.nombre_apellido || "",
+      telefono: visit.telefono_comprador || visit.telefono || "",
+      dni: visit.dni || "",
+      vende: visit.vende === true ? "si" : visit.vende === false ? "no" : "",
+      memo: visit.observaciones_visita || "",
+    });
+    setVisitModalOpen(true);
+    const { profiles, error } = await loadActiveProfiles();
+    if (error) {
+      setVisitError(`No se pudieron cargar los Buyers: ${error}`);
+      return;
+    }
+  }
+
+  async function handleSaveVisit() {
+    if (!effectiveLead || readOnly || effectiveLead.phase !== "encargo") return;
+    if (!visitForm.fecha_visita) {
+      setVisitError("La fecha de la visita es obligatoria.");
+      return;
+    }
+
+    setVisitSaving(true);
+    setVisitError(null);
+    const opportunityId = Number(effectiveLead.id);
+    const actorName = userWithRole?.crmUser.name?.trim() || "Usuario";
+    const visitPayload = {
+      fecha_visita: visitForm.fecha_visita,
+      hora: visitForm.hora || null,
+      resultado: visitForm.resultado || "Pendiente",
+      buyer: visitForm.buyer.trim() || actorName,
+      nombre_apellido: visitForm.nombre_apellido.trim() || null,
+      telefono: visitForm.telefono.trim() || null,
+      dni: visitForm.dni.trim() || null,
+      vende: visitForm.vende === "si" ? true : visitForm.vende === "no" ? false : null,
+      observaciones_visita: visitForm.memo.trim() || null,
+    };
+    const { error } = editingVisitId
+      ? await supabase
+          .from("opportunity_buyers")
+          .update(visitPayload)
+          .eq("id", editingVisitId)
+          .eq("opportunity_id", opportunityId)
+      : await supabase.from("opportunity_buyers").insert({
+          opportunity_id: opportunityId,
+          estado: statusLabel(effectiveLead.status),
+          dominio: getLeadDominio(effectiveLead) || null,
+          planner: effectiveLead.planner || null,
+          owner: effectiveLead.owner || null,
+          ...visitPayload,
+          created_by: actorName,
+        });
+
+    setVisitSaving(false);
+    if (error) {
+      console.error(editingVisitId ? "Error actualizando visita:" : "Error guardando visita:", error);
+      setVisitError(`No se pudo ${editingVisitId ? "actualizar" : "guardar"} la visita: ${error.message}`);
+      return;
+    }
+
+    setVisitModalOpen(false);
+    resetVisitForm();
+    await loadRelatedData(effectiveLead.id);
+    await loadObservations(effectiveLead.id);
   }
 
   async function handleAddEncargo() {
@@ -2485,6 +2684,9 @@ export function LeadDetailPanel({
       return;
     }
     const ownerProfileId = valuationForm.owner ? Number(valuationForm.owner) : null;
+    const valuationResult = isFutureActivityDateTime(valuationDate, valuationForm.hora)
+      ? "Pendiente"
+      : valuationForm.resultado || null;
 
     setValuationSaving(true);
     setValuationError(null);
@@ -2493,14 +2695,14 @@ export function LeadDetailPanel({
       actor_name: currentUserName,
       medio: valuationForm.medio || null,
       hora: valuationForm.hora || null,
-      resultado: valuationForm.resultado || null,
+      resultado: valuationResult,
       notes: valuationForm.memo.trim() || null,
     };
     const valuationPayload = {
       fecha: valuationDate,
       memo: valuationForm.memo.trim() || null,
       resultado: true,
-      resultado_text: valuationForm.resultado || null,
+      resultado_text: valuationResult,
       event_type: "valuation",
       assigned_profile_id: ownerProfileId,
       metadata: valuationMetadata,
@@ -2539,6 +2741,9 @@ export function LeadDetailPanel({
       setContactError("La fecha es obligatoria.");
       return;
     }
+    const contactResult = isFutureActivityDateTime(contactDate, contactForm.hora)
+      ? "Pendiente"
+      : contactForm.resultado || null;
 
     setContactSaving(true);
     setContactError(null);
@@ -2546,7 +2751,7 @@ export function LeadDetailPanel({
     const eventMetadata = {
       actor_name: currentUserName,
       medio: contactForm.medio || null,
-      resultado: contactForm.resultado || null,
+      resultado: contactResult,
       hora: contactForm.hora || null,
       notes: contactForm.memo.trim() || null,
     };
@@ -2554,6 +2759,7 @@ export function LeadDetailPanel({
       fecha: contactDate,
       memo: contactForm.memo.trim() || null,
       resultado: true,
+      resultado_text: contactResult,
       event_type: "contact",
       metadata: eventMetadata,
     };
@@ -2653,7 +2859,10 @@ export function LeadDetailPanel({
       fecha: row.fecha || row.created_at || "",
       hora: opportunityContactMetadataText(row.metadata, "hora") || "",
       medio: opportunityContactMetadataText(row.metadata, "medio") || "—",
-      resultado: opportunityContactMetadataText(row.metadata, "resultado") || "—",
+      resultado:
+        opportunityContactMetadataText(row.metadata, "resultado") ||
+        row.resultado_text ||
+        "—",
       usuario:
         assignedProfileName ||
         profileName ||
@@ -3578,6 +3787,18 @@ export function LeadDetailPanel({
                         {visits.length}
                       </Badge>
                     </div>
+                    {!readOnly && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={openNewVisitModal}
+                        disabled={visitSaving || effectiveLead.phase !== "encargo"}
+                        title={effectiveLead.phase !== "encargo" ? "Las visitas requieren fase Encargo" : undefined}
+                      >
+                        Agregar visita
+                      </Button>
+                    )}
                   </div>
 
                   {relatedLoading ? (
@@ -3590,13 +3811,14 @@ export function LeadDetailPanel({
                     </div>
                   ) : (
                     <div className="max-h-[55vh] overflow-auto overscroll-contain rounded-lg border border-border bg-card">
-                      <div className="sticky top-0 z-20 grid min-w-[760px] grid-cols-[84px_1.2fr_90px_1fr_1fr_1fr_72px] border-b border-border bg-muted/95 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur">
+                      <div className="sticky top-0 z-20 grid min-w-[900px] grid-cols-[72px_1.1fr_90px_1fr_1.2fr_1fr_1fr_64px] border-b border-border bg-muted/95 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur">
                         <span>Visita</span>
                         <span>Fecha</span>
                         <span>Hora</span>
+                        <span>Buyer</span>
                         <span>Comprador</span>
                         <span>Teléfono</span>
-                        <span>Estado</span>
+                        <span>Resultado</span>
                         <span />
                       </div>
 
@@ -3613,7 +3835,7 @@ export function LeadDetailPanel({
                                   current === rowId ? null : rowId
                                 )
                               }
-                              className="grid w-full min-w-[760px] grid-cols-[84px_1.2fr_90px_1fr_1fr_1fr_72px] items-center px-3 py-3 text-left text-sm transition hover:bg-muted/40"
+                              className="grid w-full min-w-[900px] grid-cols-[72px_1.1fr_90px_1fr_1.2fr_1fr_1fr_64px] items-center px-3 py-3 text-left text-sm transition hover:bg-muted/40"
                             >
                               <span className="font-semibold text-foreground">
                                 #{index + 1}
@@ -3625,18 +3847,46 @@ export function LeadDetailPanel({
                                 {visit.hora || "—"}
                               </span>
                               <span className="text-muted-foreground">
-                                {displayValue(visit.nombre_apellido || visit.buyer)}
+                                {displayValue(visit.buyer)}
+                              </span>
+                              <span className="text-muted-foreground">
+                                {displayValue(visit.nombre_apellido)}
                               </span>
                               <span className="text-muted-foreground">
                                 {displayValue(visit.telefono_comprador || visit.telefono)}
                               </span>
                               <span>
-                                <Badge variant="outline" className="rounded-md text-[11px]">
-                                  {displayValue(visit.estado)}
+                                <Badge
+                                  className="rounded-md text-[11px]"
+                                  style={getResultColorStyle(visit.resultado)}
+                                >
+                                  {displayValue(visit.resultado)}
                                 </Badge>
                               </span>
                               <span className="flex items-center justify-end gap-2">
-                                <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                                {!readOnly && persistedRowId(visit.id) && effectiveLead.phase === "encargo" ? (
+                                  <span
+                                    role="button"
+                                    tabIndex={0}
+                                    title="Editar visita"
+                                    aria-label="Editar visita"
+                                    className="rounded p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      void openEditVisitModal(visit);
+                                    }}
+                                    onKeyDown={(event) => {
+                                      if (event.key !== "Enter" && event.key !== " ") return;
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                      void openEditVisitModal(visit);
+                                    }}
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </span>
+                                ) : (
+                                  <Pencil className="h-3.5 w-3.5 text-muted-foreground/40" />
+                                )}
                                 <ChevronDown
                                   className={cn(
                                     "h-4 w-4 text-muted-foreground transition-transform",
@@ -3660,8 +3910,8 @@ export function LeadDetailPanel({
                                     <SmallDataCard label="Hora">
                                       {visit.hora || "—"}
                                     </SmallDataCard>
-                                    <SmallDataCard label="Estado">
-                                      {displayValue(visit.estado)}
+                                    <SmallDataCard label="Resultado">
+                                      {displayValue(visit.resultado)}
                                     </SmallDataCard>
                                     <SmallDataCard label="Buyer">
                                       {displayValue(visit.buyer)}
@@ -3792,15 +4042,15 @@ export function LeadDetailPanel({
                 onValueChange={(value) =>
                   setValuationForm((prev) => ({ ...prev, owner: value }))
                 }
-                disabled={valuationOwnersLoading}
+                disabled={activeProfilesLoading}
               >
                 <SelectTrigger className="h-9 w-full min-w-0 text-sm">
                   <SelectValue
-                    placeholder={valuationOwnersLoading ? "Cargando perfiles activos..." : "Seleccionar"}
+                    placeholder={activeProfilesLoading ? "Cargando perfiles activos..." : "Seleccionar"}
                   />
                 </SelectTrigger>
                 <SelectContent>
-                  {valuationOwnerOptions.map((profile) => (
+                  {activeProfileOptions.map((profile) => (
                     <SelectItem key={profile.id} value={String(profile.id)} className="text-sm">
                       {profile.name}
                     </SelectItem>
@@ -3824,15 +4074,16 @@ export function LeadDetailPanel({
                   <SelectValue placeholder="Seleccionar" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Positivo" className="text-sm" style={getResultColorStyle("Positivo")}>
-                    Positivo
-                  </SelectItem>
-                  <SelectItem value="Negativo" className="text-sm" style={getResultColorStyle("Negativo")}>
-                    Negativo
-                  </SelectItem>
-                  <SelectItem value="Cancelado" className="text-sm" style={getResultColorStyle("Cancelado")}>
-                    Cancelado
-                  </SelectItem>
+                  {LEAD_DETAIL_CONTACT_RESULT_OPTIONS.map((result) => (
+                    <SelectItem
+                      key={result}
+                      value={result}
+                      className="text-sm"
+                      style={getResultColorStyle(result)}
+                    >
+                      {result}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -3865,7 +4116,7 @@ export function LeadDetailPanel({
             <Button
               type="button"
               onClick={handleAddValuation}
-              disabled={valuationSaving || valuationOwnersLoading}
+              disabled={valuationSaving || activeProfilesLoading}
             >
               {valuationSaving
                 ? "Guardando..."
@@ -4182,15 +4433,16 @@ export function LeadDetailPanel({
                   <SelectValue placeholder="Seleccionar" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Positivo" className="text-sm" style={getResultColorStyle("Positivo")}>
-                    Positivo
-                  </SelectItem>
-                  <SelectItem value="Negativo" className="text-sm" style={getResultColorStyle("Negativo")}>
-                    Negativo
-                  </SelectItem>
-                  <SelectItem value="Cancelado" className="text-sm" style={getResultColorStyle("Cancelado")}>
-                    Cancelado
-                  </SelectItem>
+                  {LEAD_DETAIL_CONTACT_RESULT_OPTIONS.map((result) => (
+                    <SelectItem
+                      key={result}
+                      value={result}
+                      className="text-sm"
+                      style={getResultColorStyle(result)}
+                    >
+                      {result}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -4200,6 +4452,201 @@ export function LeadDetailPanel({
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setContactModalOpen(false)} disabled={contactSaving}>Cancelar</Button>
             <Button type="button" onClick={handleAddContact} disabled={contactSaving}>{contactSaving ? "Guardando..." : editingContactId ? "Actualizar contacto" : "Guardar contacto"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={visitModalOpen}
+        onOpenChange={(open) => {
+          setVisitModalOpen(open);
+          if (!open) resetVisitForm();
+        }}
+      >
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[720px]">
+          <DialogHeader>
+            <DialogTitle>{editingVisitId ? "Editar visita" : "Agregar visita"}</DialogTitle>
+            <DialogDescription>
+              {editingVisitId
+                ? "Actualiza los datos principales de la visita del lead."
+                : "Carga los datos principales de la visita del lead."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+            <div className="flex flex-col gap-1.5 md:col-span-2">
+              <Label className="text-xs font-medium">Fecha visita</Label>
+              <Input
+                type="date"
+                className="h-9 text-sm"
+                value={visitForm.fecha_visita}
+                onChange={(event) =>
+                  setVisitForm((previous) => ({ ...previous, fecha_visita: event.target.value }))
+                }
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <TimeSelectFields
+                value={visitForm.hora}
+                onChange={(hora) => setVisitForm((previous) => ({ ...previous, hora }))}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5 md:col-span-2">
+              <Label className="text-xs font-medium">Nombre y apellido (comprador)</Label>
+              <Input
+                className="h-9 text-sm"
+                value={visitForm.nombre_apellido}
+                onChange={(event) =>
+                  setVisitForm((previous) => ({ ...previous, nombre_apellido: event.target.value }))
+                }
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs font-medium">DNI (comprador)</Label>
+              <Input
+                className="h-9 text-sm"
+                value={visitForm.dni}
+                onChange={(event) =>
+                  setVisitForm((previous) => ({ ...previous, dni: event.target.value }))
+                }
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs font-medium">Teléfono (comprador)</Label>
+              <Input
+                className="h-9 text-sm"
+                value={visitForm.telefono}
+                onChange={(event) =>
+                  setVisitForm((previous) => ({ ...previous, telefono: event.target.value }))
+                }
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5 md:col-span-2">
+              <Label className="text-xs font-medium">Buyer (visitador)</Label>
+              <Select
+                value={visitForm.buyer}
+                onValueChange={(buyer) =>
+                  setVisitForm((previous) => ({ ...previous, buyer }))
+                }
+                disabled={activeProfilesLoading}
+              >
+                <SelectTrigger className="h-9 w-full min-w-0 text-sm">
+                  <SelectValue
+                    placeholder={activeProfilesLoading ? "Cargando perfiles activos..." : "Seleccionar"}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {visitForm.buyer &&
+                    !activeProfileOptions.some((profile) => profile.name === visitForm.buyer) && (
+                      <SelectItem value={visitForm.buyer} className="text-sm">
+                        {visitForm.buyer}
+                      </SelectItem>
+                    )}
+                  {activeProfileOptions.map((profile) => (
+                    <SelectItem key={profile.id} value={profile.name} className="text-sm">
+                      {profile.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs font-medium">Resultado</Label>
+              <Select
+                value={visitForm.resultado}
+                onValueChange={(resultado) =>
+                  setVisitForm((previous) => ({ ...previous, resultado }))
+                }
+              >
+                <SelectTrigger
+                  className="h-9 w-full min-w-0 text-sm"
+                  style={getResultColorStyle(visitForm.resultado)}
+                >
+                  <SelectValue placeholder="Seleccionar" />
+                </SelectTrigger>
+                <SelectContent>
+                  {visitForm.resultado &&
+                    !LEAD_DETAIL_VISIT_RESULT_OPTIONS.includes(visitForm.resultado) && (
+                      <SelectItem
+                        value={visitForm.resultado}
+                        className="text-sm"
+                        style={getResultColorStyle(visitForm.resultado)}
+                      >
+                        {visitForm.resultado}
+                      </SelectItem>
+                    )}
+                  {LEAD_DETAIL_VISIT_RESULT_OPTIONS.map((result) => (
+                    <SelectItem
+                      key={result}
+                      value={result}
+                      className="text-sm"
+                      style={getResultColorStyle(result)}
+                    >
+                      {result}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs font-medium">¿Vende? (comprador)</Label>
+              <Select
+                value={visitForm.vende}
+                onValueChange={(vende) =>
+                  setVisitForm((previous) => ({ ...previous, vende }))
+                }
+              >
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue placeholder="Seleccionar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="si" className="text-sm">Sí</SelectItem>
+                  <SelectItem value="no" className="text-sm">No</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-1.5 md:col-span-4">
+              <Label className="text-xs font-medium">Memo</Label>
+              <Textarea
+                className="min-h-[96px] resize-none text-sm"
+                value={visitForm.memo}
+                onChange={(event) =>
+                  setVisitForm((previous) => ({ ...previous, memo: event.target.value }))
+                }
+              />
+            </div>
+          </div>
+
+          {visitError ? <p className="text-sm text-destructive">{visitError}</p> : null}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setVisitModalOpen(false)}
+              disabled={visitSaving}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSaveVisit}
+              disabled={visitSaving}
+            >
+              {visitSaving
+                ? "Guardando..."
+                : editingVisitId
+                  ? "Actualizar visita"
+                  : "Guardar visita"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
