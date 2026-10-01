@@ -175,8 +175,14 @@ export default function ResetPasswordPage() {
                 Crear contraseña nueva
               </h1>
               <p className="mt-1 text-sm text-slate-500">
-                Usa al menos 10 caracteres, con mayúscula, minúscula y número.
+                La nueva contraseña debe cumplir estos criterios:
               </p>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-500">
+                <li>Al menos 10 caracteres</li>
+                <li>Una letra mayúscula</li>
+                <li>Una letra minúscula</li>
+                <li>Un número</li>
+              </ul>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
