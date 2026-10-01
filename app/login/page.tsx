@@ -15,6 +15,18 @@ export default function LoginPage() {
 
   useEffect(() => {
     async function checkSession() {
+      const currentUrl = new URL(window.location.href);
+      const hasRecoveryCallback =
+        currentUrl.searchParams.has("code") ||
+        currentUrl.searchParams.has("error") ||
+        currentUrl.searchParams.get("type") === "recovery" ||
+        currentUrl.hash.includes("access_token=");
+
+      if (hasRecoveryCallback) {
+        router.replace(`/login/reset-password${currentUrl.search}${currentUrl.hash}`);
+        return;
+      }
+
       const {
         data: { session },
       } = await supabase.auth.getSession();
