@@ -30,7 +30,10 @@ export default async function proxy(request: NextRequest) {
 
   const isLogin = request.nextUrl.pathname.startsWith("/login");
   const isPasswordRecovery = request.nextUrl.pathname === "/login/reset-password";
-  if (!user && !isLogin) {
+  const isRecoveryCallback =
+    request.nextUrl.pathname === "/" &&
+    ["code", "error", "error_code"].some((key) => request.nextUrl.searchParams.has(key));
+  if (!user && !isLogin && !isRecoveryCallback) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

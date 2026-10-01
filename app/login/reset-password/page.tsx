@@ -40,7 +40,10 @@ export default function ResetPasswordPage() {
       }
 
       const currentUrl = new URL(window.location.href);
-      const callbackError = currentUrl.searchParams.get("error_description");
+      const callbackError =
+        currentUrl.searchParams.get("error_description") ||
+        currentUrl.searchParams.get("error") ||
+        currentUrl.searchParams.get("error_code");
       if (callbackError) {
         setError(callbackError);
         setRecoveryState("invalid");
