@@ -561,7 +561,11 @@ const LEAD_DETAIL_STATUS_OPTIONS = [
 
 const LEAD_DETAIL_MEDIO_OPTIONS = ["Presencial", "Videollamada", "Teléfono"];
 const LEAD_DETAIL_RESULT_OPTIONS = ["Positivo", "Negativo", "Cancelado"];
-const LEAD_DETAIL_CONTACT_RESULT_OPTIONS = ["Pendiente", ...LEAD_DETAIL_RESULT_OPTIONS];
+const LEAD_DETAIL_VALUATION_RESULT_OPTIONS = ["Pendiente", ...LEAD_DETAIL_RESULT_OPTIONS];
+const LEAD_DETAIL_CONTACT_RESULT_OPTIONS = [
+  ...LEAD_DETAIL_VALUATION_RESULT_OPTIONS,
+  "No Contesta",
+];
 const LEAD_DETAIL_VISIT_RESULT_OPTIONS = [
   "Pendiente",
   "Descartada",
@@ -804,6 +808,12 @@ function getResultColorStyle(value: string | null | undefined): React.CSSPropert
         backgroundColor: "#F3F4F6",
         color: "#4B5563",
         borderColor: "#D1D5DB",
+      };
+    case "no-contesta":
+      return {
+        backgroundColor: "#111827",
+        color: "#FFFFFF",
+        borderColor: "#000000",
       };
     default:
       return undefined;
@@ -4049,7 +4059,7 @@ export function LeadDetailPanel({
                   <SelectValue placeholder="Seleccionar" />
                 </SelectTrigger>
                 <SelectContent>
-                  {LEAD_DETAIL_CONTACT_RESULT_OPTIONS.map((result) => (
+                  {LEAD_DETAIL_VALUATION_RESULT_OPTIONS.map((result) => (
                     <SelectItem
                       key={result}
                       value={result}
