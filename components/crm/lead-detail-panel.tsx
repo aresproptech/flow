@@ -52,8 +52,8 @@ import {
   AGENT_OPTIONS,
 } from "@/lib/crm-data";
 import {
+  legacyActivityText,
   matchesOpportunityContactEvent,
-  opportunityContactMetadataText,
   parseOpportunityContactMemo,
 } from "@/lib/opportunity-contact-memo";
 
@@ -326,10 +326,9 @@ function parseStoredMemo(memo: string) {
 
 function parseSystemMemoFields(
   memo: string,
-  prefix: "[VALORACION]" | "[R.G.]",
-  metadata?: unknown
+  prefix: "[VALORACION]" | "[R.G.]"
 ) {
-  const parsed = parseOpportunityContactMemo(memo, prefix, metadata);
+  const parsed = parseOpportunityContactMemo(memo, prefix);
   return {
     createdBy: cleanUserDisplayName(parsed.author),
     fields: parsed.fields,
@@ -408,7 +407,7 @@ type OpportunityContactRow = {
   assigned_profile_id?: number | null;
   profile?: { name: string | null } | { name: string | null }[] | null;
   assigned_profile?: { name: string | null } | { name: string | null }[] | null;
-  metadata?: unknown;
+  legacy?: { legacy_payload?: unknown } | { legacy_payload?: unknown }[] | null;
   parent_event_id?: number | string | null;
 };
 
@@ -561,13 +560,13 @@ const LEAD_DETAIL_STATUS_OPTIONS = [
 
 const LEAD_DETAIL_MEDIO_OPTIONS = ["Presencial", "Videollamada", "Teléfono"];
 const LEAD_DETAIL_RESULT_OPTIONS = ["Positivo", "Negativo", "Cancelado"];
-const LEAD_DETAIL_VALUATION_RESULT_OPTIONS = ["Pendiente", ...LEAD_DETAIL_RESULT_OPTIONS];
+const LEAD_DETAIL_VALUATION_RESULT_OPTIONS = ["Agendada", ...LEAD_DETAIL_RESULT_OPTIONS];
 const LEAD_DETAIL_CONTACT_RESULT_OPTIONS = [
   ...LEAD_DETAIL_VALUATION_RESULT_OPTIONS,
   "No Contesta",
 ];
 const LEAD_DETAIL_VISIT_RESULT_OPTIONS = [
-  "Pendiente",
+  "Agendada",
   "Descartada",
   "Pensará",
   "Repetirá",
@@ -758,6 +757,7 @@ function getDominioBadgeStyle(value: string | null | undefined) {
 
 function getResultColorStyle(value: string | null | undefined): React.CSSProperties | undefined {
   switch (normalizeBadgeKey(value)) {
+    case "agendada":
     case "pendiente":
       return {
         backgroundColor: "#DBEAFE",
@@ -1603,7 +1603,7 @@ export function LeadDetailPanel({
   const [visitForm, setVisitForm] = useState<LeadDetailVisitForm>({
     fecha_visita: todayDateInput(),
     hora: currentQuarterTimeInput(),
-    resultado: "Pendiente",
+    resultado: "Agendada",
     buyer: "",
     nombre_apellido: "",
     telefono: "",
@@ -1886,7 +1886,7 @@ export function LeadDetailPanel({
     const { data, error } = await supabase
       .from("opportunity_activities")
       .select(
-        "id, created_at, fecha, hora, medio, resultado_text, memo, resultado, event_type, assigned_profile_id, parent_event_id"
+        "id, created_at, fecha, hora, medio, resultado_text, memo, resultado, event_type, created_by, profile:profiles!opportunity_activities_created_by_fkey(name), assigned_profile_id, assigned_profile:profiles!opportunity_activities_assigned_profile_id_fkey(name), parent_event_id, legacy:opportunity_activity_history_archive(legacy_payload)"
       )
       .eq("opportunity_id", Number(leadId))
       .order("created_at", { ascending: false });
@@ -1902,7 +1902,12 @@ export function LeadDetailPanel({
     const rows = (data ?? []) as OpportunityContactRow[];
 
     const notes: LeadHistoryEvent[] = rows
-      .filter((row) => Boolean(row.memo?.trim()))
+      .filter(
+        (row) =>
+          Boolean(row.memo?.trim()) ||
+          Boolean(legacyActivityText(row.legacy, "text")) ||
+          Boolean(legacyActivityText(row.legacy, "notes"))
+      )
       .filter((row) =>
         matchesOpportunityContactEvent(
           row.event_type,
@@ -1919,22 +1924,31 @@ export function LeadDetailPanel({
         type: "note",
         createdAt: row.created_at || toHistoryCreatedAt(row.fecha || ""),
         createdBy:
-          opportunityContactMetadataText(row.metadata, "actor_name") ||
+          legacyActivityText(row.legacy, "actor_name") ||
+          (Array.isArray(row.assigned_profile) ? row.assigned_profile[0] : row.assigned_profile)?.name?.trim() ||
+          (Array.isArray(row.profile) ? row.profile[0] : row.profile)?.name?.trim() ||
           parseStoredMemo(row.memo || "").createdBy,
         noteText:
-          opportunityContactMetadataText(row.metadata, "text") ||
+          legacyActivityText(row.legacy, "text") ||
           parseStoredMemo(row.memo || "").text,
       }));
 
     const activities: LeadActivityEvent[] = rows
-      .filter((row) => Boolean(row.memo?.trim()))
+      .filter(
+        (row) =>
+          Boolean(row.memo?.trim()) ||
+          Boolean(legacyActivityText(row.legacy, "text")) ||
+          Boolean(legacyActivityText(row.legacy, "notes"))
+      )
       .flatMap((row) => {
         const memo = row.memo?.trim() || "";
         const parsed = parseStoredMemo(memo);
         const createdAt = row.created_at || toHistoryCreatedAt(row.fecha || "");
         const eventType = row.event_type || "legacy";
         const actorName =
-          opportunityContactMetadataText(row.metadata, "actor_name") ||
+          legacyActivityText(row.legacy, "actor_name") ||
+          (Array.isArray(row.assigned_profile) ? row.assigned_profile[0] : row.assigned_profile)?.name?.trim() ||
+          (Array.isArray(row.profile) ? row.profile[0] : row.profile)?.name?.trim() ||
           parsed.createdBy;
 
         if (
@@ -1951,7 +1965,7 @@ export function LeadDetailPanel({
               createdBy: actorName,
               eventType,
               text:
-                opportunityContactMetadataText(row.metadata, "text") ||
+                legacyActivityText(row.legacy, "text") ||
                 parsed.text,
             },
           ];
@@ -1965,20 +1979,20 @@ export function LeadDetailPanel({
             "[VALORACION]"
           )
         ) {
-          const detail = parseSystemMemoFields(
-            memo,
-            "[VALORACION]",
-            row.metadata
-          );
-          const medio = detail.fields.medio || "";
-          const hora = detail.fields.hora || "";
+          const detail = parseSystemMemoFields(memo, "[VALORACION]");
+          const medio = row.medio || "";
+          const hora = row.hora || "";
           const details = [medio, hora ? `Hora: ${hora}` : ""].filter(Boolean).join(" | ");
           return [
             {
               id: String(row.id),
               leadId,
               createdAt,
-              createdBy: detail.createdBy || parsed.createdBy,
+              createdBy:
+                detail.createdBy ||
+                legacyActivityText(row.legacy, "actor_name") ||
+                (Array.isArray(row.profile) ? row.profile[0] : row.profile)?.name?.trim() ||
+                parsed.createdBy,
               eventType: "valuation",
               text: `Agregó una valoración${buildEventDateLabel(row.fecha)}${
                 details ? `: ${details}` : ""
@@ -2065,7 +2079,7 @@ export function LeadDetailPanel({
     const { data, error } = await supabase
       .from("opportunity_activities")
       .select(
-        "id, created_at, fecha, memo, resultado, resultado_text, event_type, created_by, profile:profiles!opportunity_activities_created_by_fkey(name), assigned_profile_id, assigned_profile:profiles!opportunity_activities_assigned_profile_id_fkey(name), metadata, parent_event_id"
+        "id, created_at, fecha, hora, medio, memo, resultado, resultado_text, event_type, created_by, profile:profiles!opportunity_activities_created_by_fkey(name), assigned_profile_id, assigned_profile:profiles!opportunity_activities_assigned_profile_id_fkey(name), parent_event_id, legacy:opportunity_activity_history_archive(legacy_payload)"
       )
       .eq("opportunity_id", Number(leadId))
       .eq("event_type", "valuation")
@@ -2083,7 +2097,7 @@ export function LeadDetailPanel({
   async function loadContactEntries(leadId: string) {
     const { data, error } = await supabase
       .from("opportunity_activities")
-        .select("id, created_at, fecha, memo, resultado, resultado_text, event_type, created_by, profile:profiles!opportunity_activities_created_by_fkey(name), assigned_profile:profiles!opportunity_activities_assigned_profile_id_fkey(name), assigned_profile_id, metadata, parent_event_id")
+        .select("id, created_at, fecha, hora, medio, memo, resultado, resultado_text, event_type, created_by, profile:profiles!opportunity_activities_created_by_fkey(name), assigned_profile:profiles!opportunity_activities_assigned_profile_id_fkey(name), assigned_profile_id, parent_event_id, legacy:opportunity_activity_history_archive(legacy_payload)")
       .eq("opportunity_id", Number(leadId))
       .eq("event_type", "contact")
       .order("fecha", { ascending: false, nullsFirst: false })
@@ -2389,7 +2403,7 @@ export function LeadDetailPanel({
     setVisitForm({
       fecha_visita: todayDateInput(),
       hora: currentQuarterTimeInput(),
-      resultado: "Pendiente",
+      resultado: "Agendada",
       buyer: "",
       nombre_apellido: "",
       telefono: "",
@@ -2427,7 +2441,7 @@ export function LeadDetailPanel({
     setVisitForm({
       fecha_visita: dateOnlyValue(visit.fecha_visita),
       hora: roundTimeToQuarter(visit.hora || ""),
-      resultado: visit.resultado || "Pendiente",
+      resultado: visit.resultado || "Agendada",
       buyer: visit.buyer || "",
       nombre_apellido: visit.nombre_apellido || "",
       telefono: visit.telefono_comprador || visit.telefono || "",
@@ -2461,7 +2475,7 @@ export function LeadDetailPanel({
     const visitPayload = {
       fecha_visita: visitForm.fecha_visita,
       hora: visitForm.hora || null,
-      resultado: visitForm.resultado || "Pendiente",
+      resultado: visitForm.resultado || "Agendada",
       buyer: visitForm.buyer.trim() || actorName,
       nombre_apellido: visitForm.nombre_apellido.trim() || null,
       telefono: visitForm.telefono.trim() || null,
@@ -2600,10 +2614,9 @@ export function LeadDetailPanel({
         opportunity_id: Number(effectiveLead.id),
         assigned_profile_id: userWithRole?.crmUser.id ?? null,
         fecha: new Date().toISOString().slice(0, 10),
-        memo: null,
+        memo: `[HISTORIAL] ${currentUserName}: ${orderActivityText}`,
         resultado: true,
         event_type: wasEditing ? "order_updated" : "order_created",
-        metadata: { actor_name: currentUserName, text: orderActivityText },
       });
 
     if (orderActivityError) {
@@ -2687,10 +2700,9 @@ export function LeadDetailPanel({
           opportunity_id: Number(effectiveLead.id),
           assigned_profile_id: userWithRole?.crmUser.id ?? null,
           fecha: new Date().toISOString().slice(0, 10),
-          memo: null,
+          memo: `[HISTORIAL] ${currentUserName}: ${activityText}`,
           resultado: true,
           event_type: "rg_updated",
-          metadata: { actor_name: currentUserName, text: activityText, change_details: rgChanges },
           parent_event_id: editingRgId,
         });
 
@@ -2715,27 +2727,21 @@ export function LeadDetailPanel({
     }
     const ownerProfileId = valuationForm.owner ? Number(valuationForm.owner) : null;
     const valuationResult = isFutureActivityDateTime(valuationDate, valuationForm.hora)
-      ? "Pendiente"
+      ? "Agendada"
       : valuationForm.resultado || null;
 
     setValuationSaving(true);
     setValuationError(null);
     const wasEditing = Boolean(editingValuationId);
-    const valuationMetadata = {
-      actor_name: currentUserName,
-      medio: valuationForm.medio || null,
-      hora: valuationForm.hora || null,
-      resultado: valuationResult,
-      notes: valuationForm.memo.trim() || null,
-    };
     const valuationPayload = {
       fecha: valuationDate,
+      hora: valuationForm.hora || null,
+      medio: valuationForm.medio || null,
       memo: valuationForm.memo.trim() || null,
       resultado: true,
       resultado_text: valuationResult,
       event_type: "valuation",
       assigned_profile_id: ownerProfileId,
-      metadata: valuationMetadata,
     };
     const { error } = wasEditing
       ? await supabase
@@ -2772,26 +2778,20 @@ export function LeadDetailPanel({
       return;
     }
     const contactResult = isFutureActivityDateTime(contactDate, contactForm.hora)
-      ? "Pendiente"
+      ? "Agendada"
       : contactForm.resultado || null;
 
     setContactSaving(true);
     setContactError(null);
 
-    const eventMetadata = {
-      actor_name: currentUserName,
-      medio: contactForm.medio || null,
-      resultado: contactResult,
-      hora: contactForm.hora || null,
-      notes: contactForm.memo.trim() || null,
-    };
     const contactPayload = {
       fecha: contactDate,
+      hora: contactForm.hora || null,
+      medio: contactForm.medio || null,
       memo: contactForm.memo.trim() || null,
       resultado: true,
       resultado_text: contactResult,
       event_type: "contact",
-      metadata: eventMetadata,
     };
     const { error } = editingContactId
       ? await supabase
@@ -2848,17 +2848,12 @@ export function LeadDetailPanel({
   const parsedValuationEntries: ValuationHistoryEvent[] = valuationEntries.map(
     (row) => {
       const memoText = row.memo?.trim() || "";
-      const detail = parseSystemMemoFields(
-        memoText,
-        "[VALORACION]",
-        row.metadata
-      );
 
       return {
         id: String(row.id),
         fecha: row.fecha || row.created_at || "",
-        hora: detail.fields.hora || "",
-        medio: detail.fields.medio || "—",
+        hora: row.hora || "",
+        medio: row.medio || "—",
         planner:
           (Array.isArray(row.profile) ? row.profile[0] : row.profile)?.name?.trim() ||
           "—",
@@ -2868,8 +2863,8 @@ export function LeadDetailPanel({
             ? row.assigned_profile[0]
             : row.assigned_profile
           )?.name?.trim() || "—",
-        resultado: detail.fields.resultado || row.resultado_text || "—",
-        memo: detail.memo || row.memo?.trim() || "",
+        resultado: row.resultado_text || "—",
+          memo: memoText,
       };
     }
   );
@@ -2889,18 +2884,15 @@ export function LeadDetailPanel({
       id: String(row.id),
       numero: index + 1,
       fecha: row.fecha || row.created_at || "",
-      hora: opportunityContactMetadataText(row.metadata, "hora") || "",
-      medio: opportunityContactMetadataText(row.metadata, "medio") || "—",
-      resultado:
-        opportunityContactMetadataText(row.metadata, "resultado") ||
-        row.resultado_text ||
-        "—",
+      hora: row.hora || "",
+      medio: row.medio || "—",
+      resultado: row.resultado_text || "—",
       usuario:
         assignedProfileName ||
         profileName ||
-        opportunityContactMetadataText(row.metadata, "actor_name") ||
+        legacyActivityText(row.legacy, "actor_name") ||
         "—",
-      memo: opportunityContactMetadataText(row.metadata, "notes") || memoText,
+      memo: legacyActivityText(row.legacy, "notes") || memoText,
     };
   }).sort(compareScheduledItemsDescending);
 
@@ -4059,6 +4051,16 @@ export function LeadDetailPanel({
                   <SelectValue placeholder="Seleccionar" />
                 </SelectTrigger>
                 <SelectContent>
+                  {valuationForm.resultado &&
+                    !LEAD_DETAIL_VALUATION_RESULT_OPTIONS.includes(valuationForm.resultado) && (
+                      <SelectItem
+                        value={valuationForm.resultado}
+                        className="text-sm"
+                        style={getResultColorStyle(valuationForm.resultado)}
+                      >
+                        {valuationForm.resultado}
+                      </SelectItem>
+                    )}
                   {LEAD_DETAIL_VALUATION_RESULT_OPTIONS.map((result) => (
                     <SelectItem
                       key={result}
@@ -4418,6 +4420,16 @@ export function LeadDetailPanel({
                   <SelectValue placeholder="Seleccionar" />
                 </SelectTrigger>
                 <SelectContent>
+                  {contactForm.resultado &&
+                    !LEAD_DETAIL_CONTACT_RESULT_OPTIONS.includes(contactForm.resultado) && (
+                      <SelectItem
+                        value={contactForm.resultado}
+                        className="text-sm"
+                        style={getResultColorStyle(contactForm.resultado)}
+                      >
+                        {contactForm.resultado}
+                      </SelectItem>
+                    )}
                   {LEAD_DETAIL_CONTACT_RESULT_OPTIONS.map((result) => (
                     <SelectItem
                       key={result}

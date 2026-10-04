@@ -6,7 +6,6 @@ import { supabase } from "@/lib/supabase";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Lead } from "@/lib/crm-data";
-import { parseOpportunityContactMemo } from "@/lib/opportunity-contact-memo";
 import { canViewAllLeads, useUser } from "@/lib/hooks/useUser";
 import { LeadDetailPanel } from "@/components/crm/lead-detail-panel";
 
@@ -53,10 +52,10 @@ type ContactPlanningRow = {
   id: number;
   opportunity_id: number;
   fecha: string | null;
+  hora: string | null;
   memo: string | null;
   created_at: string | null;
   event_type: string | null;
-  metadata: unknown;
 };
 
 type VisitPlanningRow = {
@@ -177,13 +176,13 @@ export default function PlanningPage() {
         supabase
           .from("opportunity_activities")
           .select(
-            "id, opportunity_id, fecha, memo, created_at, event_type, metadata"
+            "id, opportunity_id, fecha, hora, memo, created_at, event_type"
           )
           .eq("event_type", "valuation"),
         supabase
           .from("opportunity_activities")
           .select(
-            "id, opportunity_id, fecha, memo, created_at, event_type, metadata"
+            "id, opportunity_id, fecha, hora, memo, created_at, event_type"
           )
           .eq("event_type", "rg"),
         supabase
@@ -248,32 +247,22 @@ export default function PlanningPage() {
       }
 
       for (const row of (valuationsResult.data ?? []) as ContactPlanningRow[]) {
-        const { fields } = parseOpportunityContactMemo(
-          row.memo,
-          "[VALORACION]",
-          row.metadata
-        );
         addPlanningItem(
           `valoracion-${row.id}`,
           row.opportunity_id,
           "Valoración",
           row.fecha || row.created_at || "",
-          fields.hora || ""
+          row.hora || ""
         );
       }
 
       for (const row of (rgResult.data ?? []) as ContactPlanningRow[]) {
-        const { fields } = parseOpportunityContactMemo(
-          row.memo,
-          "[R.G.]",
-          row.metadata
-        );
         addPlanningItem(
           `rg-${row.id}`,
           row.opportunity_id,
           "R.G.",
           row.fecha || row.created_at || "",
-          fields.hora || ""
+          row.hora || ""
         );
       }
 

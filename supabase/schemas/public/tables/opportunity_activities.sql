@@ -11,7 +11,6 @@ CREATE TABLE "public"."opportunity_activities" (
   "event_type"       text                     NOT NULL DEFAULT 'legacy'::text,
   "assigned_profile_id" bigint,
   "created_by"       bigint,
-  "metadata"         jsonb                    NOT NULL DEFAULT '{}'::jsonb,
   "parent_event_id"  bigint,
   "updated_at"       timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT "oportunity_contacts_oportunity_id_fkey" FOREIGN KEY (opportunity_id) REFERENCES public.opportunities(id),

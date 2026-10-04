@@ -6,8 +6,8 @@ import { supabase } from "@/lib/supabase";
 import { Search, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PHASE_LABELS, type Lead } from "@/lib/crm-data";
-import { parseOpportunityContactMemo } from "@/lib/opportunity-contact-memo";
 import { canViewAllLeads, useUser } from "@/lib/hooks/useUser";
+import { legacyActivityText } from "@/lib/opportunity-contact-memo";
 import { LeadDetailPanel } from "@/components/crm/lead-detail-panel";
 import {
   Dialog,
@@ -51,10 +51,14 @@ type OpportunityContactRow = {
   id: number;
   opportunity_id: number;
   fecha: string | null;
+  hora: string | null;
+  medio: string | null;
+  resultado_text: string | null;
   memo: string | null;
   created_at: string | null;
   event_type: string | null;
-  metadata: unknown;
+  profile?: { name: string | null } | { name: string | null }[] | null;
+  legacy?: { legacy_payload?: unknown } | { legacy_payload?: unknown }[] | null;
 };
 
 type ValoracionEntry = {
@@ -80,17 +84,6 @@ type ValoracionEntry = {
   owner: string;
   lead?: ValoracionLead;
 };
-
-function parseValuationMemo(row: OpportunityContactRow) {
-  const { author, fields, memo: notes } = parseOpportunityContactMemo(
-    row.memo,
-    "[VALORACION]",
-    row.metadata
-  );
-  const medio = fields.medio && fields.medio !== "—" ? fields.medio : "";
-
-  return { medio, hora: fields.hora || "", createdBy: author, notes };
-}
 
 const STATUS_CONFIG: Record<string, { label: string; dot: string }> = {
   activa: { label: "Activa", dot: "bg-emerald-500" },
@@ -476,7 +469,7 @@ export default function ValoracionesPage() {
         supabase
           .from("opportunity_activities")
           .select(
-            "id, opportunity_id, fecha, memo, created_at, event_type, metadata"
+            "id, opportunity_id, fecha, hora, medio, resultado_text, memo, created_at, event_type, created_by, profile:profiles!opportunity_activities_created_by_fkey(name), legacy:opportunity_activity_history_archive(legacy_payload)"
           )
           .eq("event_type", "valuation")
           .order("fecha", { ascending: false }),
@@ -511,17 +504,20 @@ export default function ValoracionesPage() {
 
       const entries: ValoracionEntry[] = contactRows.map((row) => {
         const lead = leadsMap.get(row.opportunity_id);
-        const { medio, hora, createdBy, notes } = parseValuationMemo(row);
+        const createdBy =
+          legacyActivityText(row.legacy, "actor_name") ||
+          (Array.isArray(row.profile) ? row.profile[0] : row.profile)?.name?.trim() ||
+          "";
 
         return {
           id: String(row.id),
           leadId: String(row.opportunity_id),
           fecha: normalizeDate(row.fecha || row.created_at || ""),
           registeredAt: row.created_at || "",
-          hora,
-          medio,
+          hora: row.hora || "",
+          medio: row.medio || "",
           createdBy,
-          notes,
+          notes: row.memo?.trim() || "",
           ownerName: lead?.ownerName || "—",
           address: lead?.address || "—",
           district: lead?.distrito || "—",

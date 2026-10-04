@@ -38,15 +38,14 @@ begin
 
   foreach target_id in array lead_ids loop
     insert into public.opportunity_activities (
-      opportunity_id, fecha, memo, resultado, event_type, assigned_profile_id, metadata
+      opportunity_id, fecha, memo, resultado, event_type, assigned_profile_id
     ) values (
       target_id,
       current_date,
-      null,
+      '[HISTORIAL] ' || actor_name || ': Eliminó el lead',
       true,
       'lead_deleted',
-      actor_id,
-      jsonb_build_object('actor_name', actor_name, 'text', 'Eliminó el lead', 'lead_id', target_id)
+      actor_id
     );
   end loop;
 end

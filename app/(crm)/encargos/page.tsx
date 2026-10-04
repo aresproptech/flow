@@ -820,10 +820,9 @@ export default function EncargosPage() {
         opportunity_id: activeItem.leadId,
         assigned_profile_id: userWithRole?.crmUser.id ?? null,
         fecha: new Date().toISOString().slice(0, 10),
-        memo: null,
+        memo: `[HISTORIAL] ${actorName}: ${activityText}`,
         resultado: true,
         event_type: isEditing ? "order_updated" : "order_created",
-        metadata: { actor_name: actorName, text: activityText },
       });
 
     if (activityError) {

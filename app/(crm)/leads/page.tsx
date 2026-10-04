@@ -1039,10 +1039,9 @@ export default function LeadsPage() {
           opportunity_id: id,
           assigned_profile_id: userWithRole?.crmUser.id ?? null,
           fecha: new Date().toISOString().slice(0, 10),
-          memo: null,
+          memo: `[HISTORIAL] ${actorName}: Importó el lead por CSV`,
           resultado: true,
           event_type: "lead_imported",
-          metadata: { actor_name: actorName, text: "Importó el lead por CSV", lead_id: id },
         }))
       );
 
@@ -1116,10 +1115,9 @@ export default function LeadsPage() {
         opportunity_id: insertedLead.id,
         assigned_profile_id: userWithRole?.crmUser.id ?? null,
         fecha: new Date().toISOString().slice(0, 10),
-        memo: null,
+        memo: `[HISTORIAL] ${actorName}: Creó el lead`,
         resultado: true,
         event_type: "lead_created",
-        metadata: { actor_name: actorName, text: "Creó el lead", lead_id: insertedLead.id },
       });
 
     if (activityError) {
@@ -1197,10 +1195,9 @@ export default function LeadsPage() {
           opportunity_id: Number(next.id),
           assigned_profile_id: userWithRole?.crmUser.id ?? null,
           fecha: new Date().toISOString().slice(0, 10),
-          memo: null,
+          memo: `[HISTORIAL] ${actorName}: ${text}`,
           resultado: true,
           event_type: "lead_updated",
-          metadata: { actor_name: actorName, text, change_details: changeDetails },
         });
 
       if (activityError) {
@@ -1287,17 +1284,9 @@ export default function LeadsPage() {
         opportunity_id: Number(leadId),
         assigned_profile_id: userWithRole?.crmUser.id ?? null,
         fecha: new Date().toISOString().slice(0, 10),
-        memo: null,
+        memo: `[HISTORIAL] ${actorName}: ${text}`,
         resultado: true,
         event_type: "phase_changed",
-        metadata: {
-          actor_name: actorName,
-          text,
-          previous_phase_id: PHASE_ID_MAP[currentLead.phase],
-          next_phase_id: resolvedPhaseId,
-          previous_phase_name: PHASE_LABELS[currentLead.phase],
-          next_phase_name: PHASE_LABELS[nextPhase],
-        },
       });
 
     if (activityError) {

@@ -396,10 +396,9 @@ export default function VisitasPage() {
       opportunity_id: selectedVisita.opportunity_id,
       assigned_profile_id: userWithRole?.crmUser.id ?? null,
       fecha: editForm.fecha_visita || new Date().toISOString().slice(0, 10),
-      memo: null,
+      memo: `[HISTORIAL] ${actorName}: ${activityText}`,
       resultado: true,
       event_type: "visit_updated",
-      metadata: { actor_name: actorName, text: activityText, change_details: changes },
     });
 
     if (activityError) {

@@ -42,23 +42,15 @@ begin
 
   insert into public.opportunity_activities (
     opportunity_id, fecha, memo, resultado, event_type,
-    assigned_profile_id, metadata
+    assigned_profile_id
   )
   values (
     target_file.opportunity_id,
     current_date,
-    null,
+    '[HISTORIAL] ' || actor_name || ': ' || activity_text,
     true,
     'document_viewed',
-    actor_id,
-    jsonb_build_object(
-      'actor_name', actor_name,
-      'text', activity_text,
-      'document_id', target_file.id,
-      'requirement_key', target_file.requirement_key,
-      'file_name', target_file.file_name,
-      'storage_path', target_file.storage_path
-    )
+    actor_id
   );
 
   return target_file.storage_path;

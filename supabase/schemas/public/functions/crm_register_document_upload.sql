@@ -84,26 +84,15 @@ begin
   activity_text := 'Subió el documento «' || file_name || '»';
 
   insert into public.opportunity_activities (
-    opportunity_id, fecha, memo, resultado, event_type,
-    assigned_profile_id, metadata
+    opportunity_id, fecha, memo, resultado, event_type, assigned_profile_id
   )
   values (
     p_opportunity_id,
     current_date,
-    null,
+    '[HISTORIAL] ' || actor_name || ': ' || activity_text,
     true,
     'document_uploaded',
-    actor_id,
-    jsonb_build_object(
-      'actor_name', actor_name,
-      'text', activity_text,
-      'document_id', saved_file.id,
-      'requirement_key', requirement_key,
-      'file_name', file_name,
-      'storage_path', storage_path,
-      'mime_type', mime_type,
-      'file_size', file_size
-    )
+    actor_id
   );
 
   return to_jsonb(saved_file);

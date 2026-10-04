@@ -6,7 +6,6 @@ import { supabase } from "@/lib/supabase";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Lead } from "@/lib/crm-data";
-import { parseOpportunityContactMemo } from "@/lib/opportunity-contact-memo";
 import { canViewAllLeads, useUser } from "@/lib/hooks/useUser";
 import { LeadDetailPanel } from "@/components/crm/lead-detail-panel";
 
@@ -116,10 +115,12 @@ type OpportunityContactRow = {
   id: number;
   opportunity_id: number;
   fecha: string | null;
+  hora: string | null;
+  medio: string | null;
+  resultado_text: string | null;
   memo: string | null;
   created_at: string | null;
   event_type: string | null;
-  metadata: unknown;
 };
 
 type RgEntry = {
@@ -136,20 +137,6 @@ type RgEntry = {
   owner: string;
   lead?: Lead;
 };
-
-function parseRgMemo(row: OpportunityContactRow) {
-  const { fields } = parseOpportunityContactMemo(
-    row.memo,
-    "[R.G.]",
-    row.metadata
-  );
-
-  return {
-    medio: fields.medio && fields.medio !== "—" ? fields.medio : "",
-    resultado: fields.resultado && fields.resultado !== "—" ? fields.resultado : "",
-    hora: fields.hora || "",
-  };
-}
 
 function startOfDay(date: Date) {
   const d = new Date(date);
@@ -198,7 +185,7 @@ export default function RGPage() {
         supabase
           .from("opportunity_activities")
           .select(
-            "id, opportunity_id, fecha, memo, created_at, event_type, metadata"
+            "id, opportunity_id, fecha, hora, medio, resultado_text, memo, created_at, event_type"
           )
           .eq("event_type", "rg")
           .order("fecha", { ascending: false }),
@@ -233,15 +220,14 @@ export default function RGPage() {
 
       const entries: RgEntry[] = contactRows.map((row) => {
         const lead = leadsMap.get(row.opportunity_id);
-        const { medio, hora, resultado } = parseRgMemo(row);
 
         return {
           id: String(row.id),
           leadId: String(row.opportunity_id),
           fecha: row.fecha || row.created_at || "",
-          hora,
-          medio,
-          resultado,
+          hora: row.hora || "",
+          medio: row.medio || "",
+          resultado: row.resultado_text || "",
           ownerName: lead?.ownerName || "—",
           address: lead?.address || "—",
           phone: lead?.phone || "—",
