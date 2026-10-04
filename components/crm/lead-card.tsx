@@ -1,4 +1,4 @@
-import { Circle, MapPin, Phone, Tag } from "lucide-react";
+import { MapPin, Phone, Tag } from "lucide-react";
 import { type Lead } from "@/lib/crm-data";
 import { cn } from "@/lib/utils";
 import { MaskedPhone } from "@/components/crm/masked-phone";
@@ -74,7 +74,6 @@ export function LeadCard({ lead, onClick }: LeadCardProps) {
             status.className
           )}
         >
-          <Circle className="h-1.5 w-1.5 fill-current" />
           {status.label}
         </span>
       </div>
