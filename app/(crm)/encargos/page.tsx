@@ -1191,7 +1191,7 @@ export default function EncargosPage() {
               <Textarea
                 value={editForm.memo}
                 onChange={(e) => setField("memo", e.target.value)}
-                className="min-h-[104px] max-h-[180px] resize-none overflow-y-auto text-sm sm:min-h-[90px]"
+                className="memo-scroll h-[104px] min-h-[104px] max-h-[180px] resize-none text-sm sm:min-h-[90px]"
                 placeholder="Notas internas del encargo, condiciones pactadas, límites de precio, contexto comercial..."
               />
             </div>

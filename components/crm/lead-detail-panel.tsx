@@ -3137,7 +3137,7 @@ export function LeadDetailPanel({
                         onChange={(event) => setNote(event.target.value)}
                         onBlur={() => void handleAddNote()}
                         placeholder=""
-                        className="min-h-[180px] max-h-[360px] resize-none overflow-y-auto text-sm"
+                        className="memo-scroll h-[180px] min-h-[180px] max-h-[360px] resize-none text-sm"
                       />
                     </>
                   )}
@@ -4078,7 +4078,7 @@ export function LeadDetailPanel({
             <div className="flex flex-col gap-1.5 md:col-span-3">
               <Label className="text-xs font-medium">Memo</Label>
               <Textarea
-                className="min-h-[96px] max-h-[180px] resize-none overflow-y-auto text-sm"
+                className="memo-scroll h-[96px] min-h-[96px] max-h-[180px] resize-none text-sm"
                 value={valuationForm.memo}
                 onChange={(e) =>
                   setValuationForm((prev) => ({ ...prev, memo: e.target.value }))
@@ -4226,7 +4226,7 @@ export function LeadDetailPanel({
               <Label className="text-xs font-medium">Memo</Label>
               <Textarea
                 placeholder="Memo del encargo..."
-                className="min-h-[96px] max-h-[180px] resize-none overflow-y-auto text-sm"
+                className="memo-scroll h-[96px] min-h-[96px] max-h-[180px] resize-none text-sm"
                 value={encargoForm.memo}
                 onChange={(e) =>
                   setEncargoForm((prev) => ({ ...prev, memo: e.target.value }))
@@ -4354,7 +4354,7 @@ export function LeadDetailPanel({
               <Label className="text-xs font-medium">Memo</Label>
               <Textarea
                 placeholder="Memo de la R.G..."
-                className="min-h-[96px] max-h-[180px] resize-none overflow-y-auto text-sm"
+                className="memo-scroll h-[96px] min-h-[96px] max-h-[180px] resize-none text-sm"
                 value={rgForm.memo}
                 onChange={(e) => setRgForm((prev) => ({ ...prev, memo: e.target.value }))}
               />
@@ -4443,7 +4443,7 @@ export function LeadDetailPanel({
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex flex-col gap-1.5 md:col-span-2"><Label className="text-xs font-medium">Memo</Label><Textarea className="min-h-[96px] max-h-[180px] resize-none overflow-y-auto text-sm" value={contactForm.memo} onChange={(e) => setContactForm((prev) => ({ ...prev, memo: e.target.value }))} /></div>
+            <div className="flex flex-col gap-1.5 md:col-span-2"><Label className="text-xs font-medium">Memo</Label><Textarea className="memo-scroll h-[96px] min-h-[96px] max-h-[180px] resize-none text-sm" value={contactForm.memo} onChange={(e) => setContactForm((prev) => ({ ...prev, memo: e.target.value }))} /></div>
           </div>
           {contactError && <p className="text-sm text-destructive">{contactError}</p>}
           <DialogFooter>
@@ -4613,7 +4613,7 @@ export function LeadDetailPanel({
             <div className="flex flex-col gap-1.5 md:col-span-4">
               <Label className="text-xs font-medium">Memo</Label>
               <Textarea
-                className="min-h-[96px] max-h-[180px] resize-none overflow-y-auto text-sm"
+                className="memo-scroll h-[96px] min-h-[96px] max-h-[180px] resize-none text-sm"
                 value={visitForm.memo}
                 onChange={(event) =>
                   setVisitForm((previous) => ({ ...previous, memo: event.target.value }))

@@ -135,3 +135,30 @@
     @apply bg-background text-foreground;
   }
 }
+
+.memo-scroll {
+  field-sizing: fixed;
+  overflow-y: scroll;
+  scrollbar-color: #829eab #eaf0f3;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+.memo-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+
+.memo-scroll::-webkit-scrollbar-track {
+  background: #eaf0f3;
+  border-radius: 999px;
+}
+
+.memo-scroll::-webkit-scrollbar-thumb {
+  background: #829eab;
+  border: 2px solid #eaf0f3;
+  border-radius: 999px;
+}
+
+.memo-scroll::-webkit-scrollbar-thumb:hover {
+  background: #006699;
+}
