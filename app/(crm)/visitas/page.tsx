@@ -713,7 +713,7 @@ export default function VisitasPage() {
 
             <div className="col-span-2 flex flex-col gap-1.5">
               <Label className="text-xs font-medium">Memo</Label>
-              <Textarea value={form.observaciones_visita} onChange={(e) => setField("observaciones_visita", e.target.value)} className="text-sm min-h-[72px] resize-none" placeholder="Memo de la visita..." />
+              <Textarea value={form.observaciones_visita} onChange={(e) => setField("observaciones_visita", e.target.value)} className="text-sm min-h-[72px] max-h-[180px] resize-none overflow-y-auto" placeholder="Memo de la visita..." />
             </div>
           </div>
 
@@ -793,7 +793,7 @@ export default function VisitasPage() {
 
             <div className="col-span-2 flex flex-col gap-1.5">
               <Label className="text-xs font-medium">Memo</Label>
-              <Textarea value={editForm.observaciones_visita} onChange={(e) => setEditField("observaciones_visita", e.target.value)} className="text-sm min-h-[72px] resize-none" />
+              <Textarea value={editForm.observaciones_visita} onChange={(e) => setEditField("observaciones_visita", e.target.value)} className="text-sm min-h-[72px] max-h-[180px] resize-none overflow-y-auto" />
             </div>
           </div>
 
