@@ -1745,7 +1745,15 @@ export function LeadDetailPanel({
     }
 
     setOrders((ordersResponse.data ?? []) as OpportunityOrderRow[]);
-    setVisits((visitsResponse.data ?? []) as VisitRow[]);
+    setVisits(
+      ((visitsResponse.data ?? []) as VisitRow[]).map((visit) => ({
+        ...visit,
+        estado: effectiveLead ? statusLabel(effectiveLead.status) : null,
+        dominio: effectiveLead ? getLeadDominio(effectiveLead) || null : null,
+        planner: null,
+        owner: effectiveLead?.owner || null,
+      }))
+    );
     setRelatedLoading(false);
   }
 
@@ -2479,10 +2487,6 @@ export function LeadDetailPanel({
           .eq("opportunity_id", opportunityId)
       : await supabase.from("opportunity_buyers").insert({
           opportunity_id: opportunityId,
-          estado: statusLabel(effectiveLead.status),
-          dominio: getLeadDominio(effectiveLead) || null,
-          planner: effectiveLead.planner || null,
-          owner: effectiveLead.owner || null,
           ...visitPayload,
           created_by: actorName,
         });

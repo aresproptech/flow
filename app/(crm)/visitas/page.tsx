@@ -220,7 +220,40 @@ export default function VisitasPage() {
       setLoading(false);
       return;
     }
-    setVisitas((data ?? []) as Visita[]);
+    const visitRows = (data ?? []) as Omit<Visita, "estado" | "dominio" | "planner" | "owner">[];
+    const opportunityIds = Array.from(
+      new Set(
+        visitRows
+          .map((visit) => visit.opportunity_id)
+          .filter((id): id is number => id !== null)
+      )
+    );
+    const leadsResult = opportunityIds.length
+      ? await supabase
+          .from("crm_leads_view")
+          .select("id, estado, domain_name, responsable")
+          .in("id", opportunityIds)
+      : { data: [], error: null };
+
+    if (leadsResult.error) {
+      console.error("Error cargando datos relacionados de visitas:", leadsResult.error);
+    }
+
+    const leadById = new Map(
+      (leadsResult.data ?? []).map((lead) => [Number(lead.id), lead])
+    );
+    setVisitas(
+      visitRows.map((visit) => {
+        const lead = visit.opportunity_id ? leadById.get(visit.opportunity_id) : null;
+        return {
+          ...visit,
+          estado: lead?.estado ?? null,
+          dominio: lead?.domain_name ?? null,
+          planner: null,
+          owner: lead?.responsable ?? null,
+        };
+      })
+    );
     setLoading(false);
   }
 
