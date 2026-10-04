@@ -9,7 +9,6 @@ import {
   MapPin,
   User,
   Tag,
-  Circle,
   Pencil,
   MessageSquare,
   Clock,
@@ -77,9 +76,9 @@ const STATUS_CONFIG = {
   desestimada: {
     label: "Desestimada",
     badgeStyle: {
-      backgroundColor: "#F1F5F9",
-      color: "#64748B",
-      borderColor: "#CBD5E1",
+      backgroundColor: "#000000",
+      color: "#FFFFFF",
+      borderColor: "#000000",
     },
   },
 } as const;
@@ -91,6 +90,7 @@ interface LeadDetailPanelProps {
   readOnly?: boolean;
   ownerOptions?: string[];
   plannerOptions?: string[];
+  plannerProfiles?: Array<{ id: number; name: string; rol: string | null }>;
 }
 
 type LeadWithDominio = Lead & {
@@ -536,8 +536,8 @@ const LEAD_DETAIL_TABS: Array<{ value: LeadDetailTab; label: string }> = [
   { value: "resumen", label: "General" },
   { value: "contactos", label: "Contactos" },
   { value: "valoracion", label: "Valoraciones" },
-  { value: "encargo", label: "Encargo" },
   { value: "rg", label: "R.G." },
+  { value: "encargo", label: "Encargos" },
   { value: "visitas", label: "Visitas" },
   { value: "documentacion", label: "Docs" },
 ];
@@ -1061,34 +1061,6 @@ function daysBetween(start: string | null | undefined, end: string | null | unde
   );
 }
 
-function daysSince(value: string | null | undefined) {
-  if (!value) return null;
-
-  const date = new Date(value);
-  if (isNaN(date.getTime())) return null;
-
-  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const today = new Date();
-  const end = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-
-  return Math.max(
-    0,
-    Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
-  );
-}
-
-function lastCallLabel(days: number | null) {
-  if (days === null) return "Sin llamadas";
-  if (days === 0) return "Hoy";
-  if (days === 1) return "Ayer";
-  return `Hace ${days} días`;
-}
-
-function isCallActivityText(text: string) {
-  const key = normalizeBadgeKey(text);
-  return key.startsWith("llamo-al-lead") || key.startsWith("registro-llamada");
-}
-
 function monthValue(value: string | null | undefined) {
   const dateValue = dateOnlyValue(value);
   return dateValue ? dateValue.slice(0, 7) : "—";
@@ -1099,26 +1071,8 @@ function percentageValue(value: unknown) {
   return `${String(value).replace("%", "")} %`;
 }
 
-function SmallDataCard({
-  label,
-  children,
-}: {
+function SmallDataCard({ label, count, children }: {
   label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-lg border border-border bg-card p-3">
-      <Row label={label}>{children}</Row>
-    </div>
-  );
-}
-
-function LeadDetailSection({
-  title,
-  count,
-  children,
-}: {
-  title: string;
   count?: number | string;
   children: React.ReactNode;
 }) {
@@ -1126,7 +1080,7 @@ function LeadDetailSection({
           <section className="mt-5 border-t border-border pt-4">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {title}
+          {label}
         </h3>
         {count !== undefined && (
           <Badge variant="secondary" className="rounded-full text-[10px]">
@@ -1582,11 +1536,14 @@ export function LeadDetailPanel({
   readOnly = false,
   ownerOptions = AGENT_OPTIONS,
   plannerOptions = AGENT_OPTIONS,
+  plannerProfiles = [],
 }: LeadDetailPanelProps) {
   const { userWithRole } = useUser();
   const [editOpen, setEditOpen] = useState(false);
   const [note, setNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  const [statusSaving, setStatusSaving] = useState(false);
+  const [responsibleSaving, setResponsibleSaving] = useState(false);
   const [noteError, setNoteError] = useState<string | null>(null);
   const [noteEvents, setNoteEvents] = useState<LeadHistoryEvent[]>([]);
   const [activityEvents, setActivityEvents] = useState<LeadActivityEvent[]>([]);
@@ -2195,6 +2152,36 @@ export function LeadDetailPanel({
     }
   }
 
+  async function handleStatusChange(value: string) {
+    if (!effectiveLead || readOnly || statusSaving) return;
+    const status = STATUS_OPTIONS.find((option) => option.value === value)?.value;
+    if (!status || status === effectiveLead.status) return;
+
+    setStatusSaving(true);
+    try {
+      await handleSave({ ...effectiveLead, status });
+    } catch (error) {
+      console.error("Error actualizando estado del lead:", error);
+    } finally {
+      setStatusSaving(false);
+    }
+  }
+
+  async function handleResponsibleChange(value: string) {
+    if (!effectiveLead || readOnly || responsibleSaving) return;
+    const planner = value === "__unassigned__" ? "—" : value;
+    if (planner === effectiveLead.planner) return;
+
+    setResponsibleSaving(true);
+    try {
+      await handleSave({ ...effectiveLead, planner });
+    } catch (error) {
+      console.error("Error actualizando responsable del lead:", error);
+    } finally {
+      setResponsibleSaving(false);
+    }
+  }
+
   async function handleAddNote() {
     if (!effectiveLead || readOnly) return;
 
@@ -2319,6 +2306,7 @@ export function LeadDetailPanel({
   }
 
   function openNewRgModal() {
+    if (!effectiveLead || effectiveLead.phase !== "encargo") return;
     resetRgForm();
     setRgModalOpen(true);
   }
@@ -2630,7 +2618,11 @@ export function LeadDetailPanel({
   }
 
   async function handleAddRg() {
-    if (!effectiveLead || readOnly) return;
+    if (
+      !effectiveLead ||
+      readOnly ||
+      (!editingRgId && effectiveLead.phase !== "encargo")
+    ) return;
 
     if (!rgForm.fecha) {
       setRgError("La fecha es obligatoria.");
@@ -2896,11 +2888,34 @@ export function LeadDetailPanel({
     };
   }).sort(compareScheduledItemsDescending);
 
-  const callEvents = activityEvents.filter(
-    (event) => event.eventType === "call" || isCallActivityText(event.text)
+  const selectedPlannerRole =
+    plannerProfiles.find((profile) => profile.id === effectiveLead.plannerId)?.rol ??
+    plannerProfiles.find(
+      (profile) => normalizeBadgeKey(profile.name) === normalizeBadgeKey(effectiveLead.planner)
+    )?.rol;
+  const selectedPlannerName = effectiveLead.planner?.trim() || "";
+  const plannerNameOptions = Array.from(
+    new Map(
+      [...plannerOptions, selectedPlannerName].flatMap((option) => {
+        const name = option.trim();
+        if (!name || name === "—") return [];
+        return [[normalizeBadgeKey(name), name] as const];
+      })
+    ).values()
   );
-  const lastCallEvent = callEvents[0] || null;
-  const lastCallDays = daysSince(lastCallEvent?.createdAt);
+  const responsibleFieldStyle =
+    normalizeBadgeKey(selectedPlannerRole) === "partner"
+      ? {
+          backgroundColor: "#FCE7F3",
+          color: "#9D174D",
+          borderColor: "#F9A8D4",
+        }
+      : {
+          backgroundColor: "#E0F2FE",
+          color: "#075985",
+          borderColor: "#7DD3FC",
+        };
+
   return (
     <aside className="fixed right-0 top-0 z-40 flex h-screen w-[1080px] max-w-[calc(100vw-1rem)] flex-col border-l border-border bg-background shadow-2xl">
       <div className="relative grid shrink-0 gap-5 border-b border-border px-5 py-4 md:grid-cols-3 md:items-stretch md:gap-0 md:divide-x md:divide-border md:pr-16">
@@ -2908,19 +2923,21 @@ export function LeadDetailPanel({
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
             Oportunidad
           </p>
-          {readOnly ? (
-            <p className="mt-1 text-xl font-bold leading-tight text-foreground">
-              #{effectiveLead.id.padStart(6, "0")}
-            </p>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setEditOpen(true)}
-              className="mt-1 text-left text-xl font-bold leading-tight text-primary underline-offset-2 hover:underline"
-            >
-              #{effectiveLead.id.padStart(6, "0")}
-            </button>
-          )}
+          <div className="mt-1 flex items-center justify-center gap-3 md:justify-start">
+            {readOnly ? (
+              <p className="text-xl font-bold leading-tight text-foreground">
+                #{effectiveLead.id.padStart(6, "0")}
+              </p>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setEditOpen(true)}
+                className="text-left text-xl font-bold leading-tight text-primary underline-offset-2 hover:underline"
+              >
+                #{effectiveLead.id.padStart(6, "0")}
+              </button>
+            )}
+          </div>
           <div className="mt-2 flex items-baseline justify-center gap-2 md:justify-start">
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               Valor
@@ -2986,14 +3003,6 @@ export function LeadDetailPanel({
         <div className="flex flex-wrap items-center justify-center gap-1.5 md:justify-start">
           <Badge
             variant="outline"
-            className="order-4 h-6 gap-1 rounded-md px-2 text-xs font-semibold"
-            style={getStatusConfig(effectiveLead.status).badgeStyle}
-          >
-            <Circle className="h-1.5 w-1.5 fill-current" />
-            {getStatusConfig(effectiveLead.status).label}
-          </Badge>
-          <Badge
-            variant="outline"
             className="order-3 h-6 rounded-md px-2 text-xs font-semibold"
             style={
               PHASE_BADGE_STYLES[effectiveLead.phase] ?? {
@@ -3020,16 +3029,66 @@ export function LeadDetailPanel({
             {getLeadDominio(effectiveLead) || "Sin dominio"}
           </Badge>
         </div>
-        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm font-semibold leading-normal text-muted-foreground md:justify-start">
-          <span>Planner: {effectiveLead.planner || "—"}</span>
-          <span>Owner: {effectiveLead.owner || "—"}</span>
+        <div className="flex items-center justify-start md:px-6 lg:-translate-x-4">
+          <span className="mr-2 text-xs font-semibold text-muted-foreground">Estado:</span>
+          {readOnly ? (
+            <Badge
+              variant="outline"
+              className="h-6 rounded-md px-2 text-xs font-semibold"
+              style={getStatusConfig(effectiveLead.status).badgeStyle}
+            >
+              {getStatusConfig(effectiveLead.status).label}
+            </Badge>
+          ) : (
+            <Select
+              value={effectiveLead.status}
+              onValueChange={(value) => void handleStatusChange(value)}
+              disabled={statusSaving}
+            >
+              <SelectTrigger
+                aria-label="Estado del lead"
+                className="!h-6 !py-0 w-fit min-w-[132px] gap-1 rounded-md px-2 text-xs font-semibold"
+                style={getStatusConfig(effectiveLead.status).badgeStyle}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
-        <div className="flex flex-wrap items-center justify-center gap-x-2 text-sm font-semibold leading-normal text-muted-foreground md:justify-start">
-          <span>Última llamada: {lastCallLabel(lastCallDays)}</span>
-          <span aria-hidden="true">·</span>
-          <span>
-            {callEvents.length} {callEvents.length === 1 ? "llamada realizada" : "llamadas realizadas"}
-          </span>
+        <div className="flex min-w-0 items-center justify-start gap-2 text-sm font-semibold leading-normal text-muted-foreground md:pl-6 lg:-translate-x-8">
+          <span className="shrink-0 text-xs">Responsable:</span>
+          {readOnly ? (
+            <span className="truncate">{effectiveLead.planner || "Sin asignar"}</span>
+          ) : (
+            <Select
+              value={selectedPlannerName && selectedPlannerName !== "—" ? selectedPlannerName : "__unassigned__"}
+              onValueChange={(value) => void handleResponsibleChange(value)}
+              disabled={responsibleSaving}
+            >
+              <SelectTrigger
+                aria-label="Responsable"
+                className="!h-6 !py-0 w-fit min-w-[140px] max-w-full gap-1 rounded-md px-2 text-xs font-semibold"
+                style={responsibleFieldStyle}
+              >
+                <SelectValue placeholder="Sin asignar" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__unassigned__">Sin asignar</SelectItem>
+                {plannerNameOptions.map((option) => (
+                  <SelectItem key={normalizeBadgeKey(option)} value={option}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
       </div>
 
@@ -3669,6 +3728,8 @@ export function LeadDetailPanel({
                         size="sm"
                         className="h-8 text-xs"
                         onClick={openNewRgModal}
+                        disabled={rgSaving || effectiveLead.phase !== "encargo"}
+                        title={effectiveLead.phase !== "encargo" ? "Las R.G. requieren fase Encargo" : undefined}
                       >
                         Agregar R.G.
                       </Button>

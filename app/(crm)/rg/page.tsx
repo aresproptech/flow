@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Topbar } from "@/components/crm/topbar";
 import { supabase } from "@/lib/supabase";
+import { loadCrmLeadDetails, type CrmLeadDetails } from "@/lib/crm-lead-details";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Lead } from "@/lib/crm-data";
@@ -21,12 +22,11 @@ type CrmLeadRow = {
   memo: string | null;
   fase_name: string | null;
   source_name: string | null;
-  comercial_name: string | null;
-  contact_name: string | null;
+  responsable: string | null;
   cp: number | null;
   provincia: string | null;
   distrito: string | null;
-  dominio_desc: string | null;
+  domain_name: string | null;
 };
 
 function fmt(d: string) {
@@ -70,11 +70,8 @@ function normalizeStatus(raw: string | null | undefined): Lead["status"] {
   return "activa";
 }
 
-function mapCrmLeadToLead(row: CrmLeadRow): Lead {
-  const ownerLabel =
-    row.comercial_name?.trim() ||
-    row.contact_name?.trim() ||
-    "Sin asignar";
+function mapCrmLeadToLead(row: CrmLeadRow, details?: CrmLeadDetails): Lead {
+  const ownerLabel = row.responsable?.trim() || "Sin asignar";
 
   const domicilio = row.domicilio?.trim() || "—";
   const distrito = row.distrito?.trim() || "—";
@@ -98,7 +95,7 @@ function mapCrmLeadToLead(row: CrmLeadRow): Lead {
     fechaContacto: "",
     fechaValoracion: "",
     hora: "",
-    planner: row.dominio_desc?.trim() || "—",
+    planner: details?.contact_name?.trim() || "—",
     owner: ownerLabel,
     createdAt: row.created_at || "",
     assignedUser: ownerLabel,
@@ -205,16 +202,22 @@ export default function RGPage() {
       }
 
       const contactRows = (contactsResult.data ?? []) as OpportunityContactRow[];
+      const leadRows = (leadsResult.data ?? []) as CrmLeadRow[];
+      const detailsResult = await loadCrmLeadDetails(leadRows.map((row) => row.id));
+      if (detailsResult.error) {
+        console.error("Supabase RG lead details error:", detailsResult.error);
+      }
+      const detailsById = new Map(detailsResult.data.map((row) => [row.id, row]));
 
       const leadsMap = new Map<number, Lead>();
-      for (const row of leadsResult.data ?? []) {
+      for (const row of leadRows) {
         if (
           !canSeeAllLeads &&
-          row.comercial_name !== currentUserName
+          row.responsable !== currentUserName
         ) {
           continue;
         }
-        const mapped = mapCrmLeadToLead(row as CrmLeadRow);
+        const mapped = mapCrmLeadToLead(row, detailsById.get(row.id));
         leadsMap.set(Number(mapped.id), mapped);
       }
 

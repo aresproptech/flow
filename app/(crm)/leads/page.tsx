@@ -12,7 +12,6 @@ import { KanbanBoard } from "@/components/crm/kanban-board";
 import { MaskedPhone } from "@/components/crm/masked-phone";
 import {
   Plus,
-  Circle,
   ChevronUp,
   ChevronDown,
   ChevronsUpDown,
@@ -27,6 +26,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
+import { loadCrmLeadDetails, type CrmLeadDetails } from "@/lib/crm-lead-details";
 import { type Lead, PHASE_LABELS } from "@/lib/crm-data";
 import { canEditLeads, canViewAllLeads, useUser } from "@/lib/hooks/useUser";
 
@@ -78,11 +78,10 @@ const LEAD_SEARCH_COLUMNS = [
   "medio",
   "fase_name",
   "source_name",
-  "comercial_name",
-  "contact_name",
+  "responsable",
   "provincia",
   "distrito",
-  "dominio_desc",
+  "domain_name",
 ] as const;
 
 function buildLeadSearchFilter(rawSearch: string) {
@@ -108,9 +107,6 @@ type CrmLeadRow = {
   id: number;
   created_at: string | null;
   fecha: string | null;
-  fecha_contacto: string | null;
-  fecha_valoracion: string | null;
-  hora: string | null;
   is_favorite?: boolean | null;
   propietario: string | null;
   telefono: string | null;
@@ -119,23 +115,18 @@ type CrmLeadRow = {
   estado: string | null;
   memo: string | null;
   en_venta: string | null;
-  medio: string | null;
   fase_id: number | null;
   fase_name: string | null;
   source_id: number | null;
   source_name: string | null;
   comercial_user_id: number | null;
-  comercial_name: string | null;
-  contact_user_id: number | null;
-  contact_name: string | null;
-  buyer_user_id: number | null;
-  buyer_name: string | null;
+  responsable: string | null;
   postal_id: number | null;
   cp: number | null;
   provincia: string | null;
   distrito: string | null;
-  team_id: number | null;
-  dominio_desc: string | null;
+  domain_id: number | null;
+  domain_name: string | null;
 };
 
 type PhaseRow = {
@@ -146,6 +137,7 @@ type PhaseRow = {
 type ProfileLookupRow = {
   id: number;
   name: string | null;
+  rol: string | null;
 };
 
 type SourceLookupRow = {
@@ -257,16 +249,16 @@ const STATUS_CONFIG: Record<
   caliente: {
     label: "Caliente",
     dot: "bg-orange-500",
-    backgroundColor: "#B32400",
-    color: "#FFFFFF",
-    borderColor: "#B32400",
+    backgroundColor: "#FFE5D0",
+    color: "#C2410C",
+    borderColor: "#FDBA74",
   },
   desestimada: {
     label: "Desestimada",
     dot: "bg-muted-foreground",
-    backgroundColor: "#4B3820",
-    color: "#FDE68A",
-    borderColor: "#4B3820",
+    backgroundColor: "#000000",
+    color: "#FFFFFF",
+    borderColor: "#000000",
   },
 };
 
@@ -690,11 +682,11 @@ function cleanNullable(value: string | null | undefined): string | null {
   return trimmed;
 }
 
-function mapCrmLeadToLead(row: CrmLeadRow): LeadTableRow {
-  const ownerLabel = row.comercial_name?.trim() || "Sin comercial";
-  const plannerLabel = row.contact_name?.trim() || "—";
-  const buyerLabel = row.buyer_name?.trim() || "—";
-  const dominioLabel = row.dominio_desc?.trim() || "—";
+function mapCrmLeadToLead(row: CrmLeadRow, details?: CrmLeadDetails): LeadTableRow {
+  const ownerLabel = row.responsable?.trim() || "Sin comercial";
+  const plannerLabel = details?.contact_name?.trim() || "—";
+  const buyerLabel = details?.buyer_name?.trim() || "—";
+  const dominioLabel = row.domain_name?.trim() || "—";
 
   const domicilio = row.domicilio?.trim() || "—";
   const distrito = row.distrito?.trim() || "—";
@@ -718,15 +710,15 @@ function mapCrmLeadToLead(row: CrmLeadRow): LeadTableRow {
     phase: normalizePhase(row.fase_name, row.fase_id),
     status: normalizeStatus(row.estado),
     fechaNoticia,
-    fechaContacto: normalizeDate(row.fecha_contacto),
-    fechaValoracion: normalizeDate(row.fecha_valoracion),
-    hora: row.hora ? row.hora.slice(0, 5) : "",
+    fechaContacto: normalizeDate(details?.fecha_contacto),
+    fechaValoracion: normalizeDate(details?.fecha_valoracion),
+    hora: details?.hora ? details.hora.slice(0, 5) : "",
     planner: plannerLabel,
-    plannerId: row.contact_user_id,
+    plannerId: details?.contact_user_id ?? null,
     owner: ownerLabel,
     ownerId: row.comercial_user_id,
     buyer: buyerLabel,
-    buyerId: row.buyer_user_id,
+    buyerId: details?.buyer_user_id ?? null,
     createdAt: row.created_at || "",
     assignedUser: ownerLabel,
     propertyAddress:
@@ -735,7 +727,7 @@ function mapCrmLeadToLead(row: CrmLeadRow): LeadTableRow {
         : "—",
     notes: row.memo?.trim() || "",
     observaciones: [],
-    medio: row.medio?.trim() || "—",
+    medio: details?.medio?.trim() || "—",
     month: fmtMonth(fechaNoticia),
     dominio: dominioLabel,
     enVenta: row.en_venta?.trim() || "No Sabe",
@@ -754,7 +746,13 @@ export default function LeadsPage() {
   const [sourceIdByCode, setSourceIdByCode] = useState<Map<string, number>>(
     new Map()
   );
+  const [domainIdByName, setDomainIdByName] = useState<Map<string, number>>(
+    new Map()
+  );
   const [profileOptions, setProfileOptions] = useState<string[]>([]);
+  const [plannerProfiles, setPlannerProfiles] = useState<
+    Array<{ id: number; name: string; rol: string | null }>
+  >([]);
   const [sourceOptions, setSourceOptions] = useState<string[]>([]);
   const [domainOptions, setDomainOptions] = useState<string[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
@@ -832,13 +830,13 @@ export default function LeadsPage() {
     const sources = ((sourcesResponse.data ?? []) as SourceLookupRow[]).filter(
       (row): row is SourceLookupRow & { code: string } => Boolean(row.code?.trim())
     );
-    const domains = (
-      domainsResponse.error
-        ? []
-        : ((domainsResponse.data ?? []) as DomainLookupRow[])
-    )
-      .map((row) => row.description?.trim() || row.code?.trim() || "")
-      .filter((label): label is string => Boolean(label));
+    const domainRows = domainsResponse.error
+      ? []
+      : ((domainsResponse.data ?? []) as DomainLookupRow[]);
+    const domainEntries = domainRows.flatMap((row) => {
+      const label = row.description?.trim() || row.code?.trim() || "";
+      return label ? [[normalizeLookupText(label), row.id, label] as const] : [];
+    });
 
     setProfileIdByName(
       new Map(
@@ -850,14 +848,22 @@ export default function LeadsPage() {
         sources.map((row) => [normalizeLookupText(row.code), row.id])
       )
     );
+    setDomainIdByName(
+      new Map(domainEntries.map(([name, id]) => [name, id]))
+    );
     setProfileOptions(
       profiles.map((row) => row.name).sort((a, b) => a.localeCompare(b, "es"))
+    );
+    setPlannerProfiles(
+      profiles.map((row) => ({ id: row.id, name: row.name, rol: row.rol }))
     );
     setSourceOptions(
       sources.map((row) => row.code).sort((a, b) => a.localeCompare(b, "es"))
     );
     setDomainOptions(
-      Array.from(new Set(domains)).sort((a, b) => a.localeCompare(b, "es"))
+      Array.from(new Set(domainEntries.map(([, , label]) => label))).sort(
+        (a, b) => a.localeCompare(b, "es")
+      )
     );
   }
 
@@ -867,6 +873,10 @@ export default function LeadsPage() {
 
   function sourceIdFor(code: string | null | undefined) {
     return sourceIdByCode.get(normalizeLookupText(code)) ?? null;
+  }
+
+  function domainIdFor(name: string | null | undefined) {
+    return domainIdByName.get(normalizeLookupText(name)) ?? null;
   }
 
   async function resolvePhaseId(phase: Lead["phase"]) {
@@ -916,11 +926,11 @@ export default function LeadsPage() {
       .order("created_at", { ascending: false });
 
     if (userWithRole?.crmUser && !canViewAllLeads(userWithRole.crmUser)) {
-      query = query.eq("comercial_name", userWithRole.crmUser.name);
+      query = query.eq("responsable", userWithRole.crmUser.name);
     }
 
     if (showFavoritesOnly) query = query.eq("is_favorite", true);
-    if (domainFilter !== "all") query = query.eq("dominio_desc", domainFilter);
+    if (domainFilter !== "all") query = query.eq("domain_name", domainFilter);
     if (phaseFilter !== "all") {
       query = query.ilike("fase_name", PHASE_LABELS[phaseFilter]);
     }
@@ -957,7 +967,12 @@ export default function LeadsPage() {
     }
 
     const rows = (data ?? []) as CrmLeadRow[];
-    const mapped = rows.map((row) => mapCrmLeadToLead(row));
+    const detailsResult = await loadCrmLeadDetails(rows.map((row) => row.id));
+    if (detailsResult.error) {
+      console.error("Supabase lead details error:", detailsResult.error);
+    }
+    const detailsById = new Map(detailsResult.data.map((row) => [row.id, row]));
+    const mapped = rows.map((row) => mapCrmLeadToLead(row, detailsById.get(row.id)));
     const nextTotal = count ?? mapped.length;
     const nextFavorites = new Set(
       rows.filter((row) => row.is_favorite).map((row) => String(row.id))
@@ -999,7 +1014,7 @@ export default function LeadsPage() {
       source_desc: cleanNullable(lead.source),
       comercial_user_desc: cleanNullable(lead.owner),
       contact_user_desc: cleanNullable(lead.planner),
-      dominio_desc: cleanNullable((lead as Lead & { dominio?: string | null }).dominio),
+      domain_id: domainIdFor((lead as Lead & { dominio?: string | null }).dominio),
       postal_id: normalizePostalId(lead.cp),
       fase_id: phaseIds.get(lead.phase) ?? PHASE_ID_MAP[lead.phase] ?? 1,
       memo: cleanNullable(lead.notes),
@@ -1008,7 +1023,6 @@ export default function LeadsPage() {
       source_id: sourceIdFor(lead.source),
       comercial_user_id: profileIdFor(lead.owner),
       contact_user_id: profileIdFor(lead.planner),
-      team_id: null,
     }));
 
     const { data: insertedRows, error } = await supabase
@@ -1074,7 +1088,7 @@ export default function LeadsPage() {
       comercial_user_desc: cleanNullable(form.owner),
       contact_user_desc: cleanNullable(form.planner),
       buyer_user_desc: cleanNullable(form.buyer),
-      dominio_desc: cleanNullable(form.dominio),
+      domain_id: domainIdFor(form.dominio),
       postal_id: normalizePostalId(form.cp),
       fase_id: resolvedPhaseId,
       memo: cleanNullable(form.notes),
@@ -1084,7 +1098,6 @@ export default function LeadsPage() {
       comercial_user_id: profileIdFor(form.owner),
       contact_user_id: profileIdFor(form.planner),
       buyer_user_id: profileIdFor(form.buyer),
-      team_id: null,
     };
 
     const { data: insertedLead, error } = await supabase
@@ -1152,7 +1165,7 @@ export default function LeadsPage() {
       comercial_user_desc: cleanNullable(next.owner),
       contact_user_desc: cleanNullable(next.planner),
       buyer_user_desc: cleanNullable(next.buyer),
-      dominio_desc: cleanNullable(nextWithDominio.dominio),
+      domain_id: domainIdFor(nextWithDominio.dominio),
       memo: cleanNullable(next.notes),
       medio: cleanNullable(next.medio),
       en_venta: cleanNullable(next.enVenta),
@@ -1220,7 +1233,14 @@ export default function LeadsPage() {
     }
 
     const savedRow = savedRows?.[0] as CrmLeadRow | undefined;
-    const mappedLead = savedRow ? mapCrmLeadToLead(savedRow) : next;
+    let mappedLead = next;
+    if (savedRow) {
+      const detailsResult = await loadCrmLeadDetails([savedRow.id]);
+      if (detailsResult.error) {
+        console.error("Error leyendo detalles del lead actualizado:", detailsResult.error);
+      }
+      mappedLead = mapCrmLeadToLead(savedRow, detailsResult.data[0]);
+    }
 
     await loadLeadsFromSupabase({ page: 1 });
     setSearchRefreshKey((value) => value + 1);
@@ -1395,7 +1415,7 @@ export default function LeadsPage() {
             .order("created_at", { ascending: false });
 
           if (!canViewAllLeads(crmUser)) {
-            query = query.eq("comercial_name", crmUser.name);
+            query = query.eq("responsable", crmUser.name);
           }
 
           const { data, error } = await query.range(
@@ -1423,7 +1443,14 @@ export default function LeadsPage() {
 
         if (cancelled) return;
 
-        setSearchResults(rows.map((row) => mapCrmLeadToLead(row)));
+        const detailsResult = await loadCrmLeadDetails(rows.map((row) => row.id));
+        if (detailsResult.error) {
+          console.error("Error cargando detalles de búsqueda:", detailsResult.error);
+        }
+        const detailsById = new Map(detailsResult.data.map((row) => [row.id, row]));
+        setSearchResults(
+          rows.map((row) => mapCrmLeadToLead(row, detailsById.get(row.id)))
+        );
         setCurrentPage(1);
         setFavoriteIds((prev) => {
           const next = new Set(prev);
@@ -2145,7 +2172,7 @@ export default function LeadsPage() {
                     className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
-                      Planner
+                      Responsable
                       <SortIcon
                         col={"planner"}
                         sortKey={sortKey}
@@ -2279,7 +2306,6 @@ export default function LeadsPage() {
                         className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-sm font-medium whitespace-nowrap"
                         style={getPhaseBadgeStyle(lead.phase)}
                       >
-                        <Circle className="h-1.5 w-1.5 fill-current" />
                         {PHASE_LABELS[lead.phase] ?? lead.phase}
                       </span>
                     </td>
@@ -2290,14 +2316,13 @@ export default function LeadsPage() {
 
                         return (
                           <span
-                            className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-sm font-medium whitespace-nowrap"
+                            className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-sm font-medium whitespace-nowrap"
                             style={{
                               backgroundColor: statusConfig.backgroundColor,
                               color: statusConfig.color,
                               borderColor: statusConfig.borderColor,
                             }}
                           >
-                            <Circle className="h-1.5 w-1.5 fill-current" />
                             {statusConfig.label}
                           </span>
                         );
@@ -2441,6 +2466,7 @@ export default function LeadsPage() {
         readOnly={!canEdit}
         ownerOptions={ownerOptions}
         plannerOptions={profileOptions}
+        plannerProfiles={plannerProfiles}
       />
 
     </>

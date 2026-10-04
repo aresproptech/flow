@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Topbar } from "@/components/crm/topbar";
 import { supabase } from "@/lib/supabase";
+import { loadCrmLeadDetails } from "@/lib/crm-lead-details";
 import { canEditLeads, canViewAllLeads, useUser } from "@/lib/hooks/useUser";
 import type { Lead } from "@/lib/crm-data";
 import { LeadDetailPanel } from "@/components/crm/lead-detail-panel";
@@ -40,17 +41,13 @@ type LeadRow = {
   id: number;
   created_at?: string | null;
   fecha?: string | null;
-  fecha_contacto?: string | null;
-  fecha_valoracion?: string | null;
-  hora?: string | null;
   propietario: string | null;
   telefono?: string | null;
   domicilio: string | null;
   tasacion?: string | null;
   estado: string | null;
-  dominio_desc: string | null;
-  contact_name: string | null;
-  comercial_name: string | null;
+  domain_name: string | null;
+  responsable: string | null;
   source_name: string | null;
   provincia?: string | null;
   distrito?: string | null;
@@ -538,7 +535,7 @@ export default function EncargosPage() {
     const [phaseLeadsResult, ordersResult] = await Promise.all([
       supabase
         .from("crm_leads_view")
-        .select("id, comercial_name")
+        .select("id, responsable")
         .eq("fase_name", "Encargo"),
       supabase.from("opportunity_orders").select("*"),
     ]);
@@ -578,11 +575,11 @@ export default function EncargosPage() {
 
     let leadsQuery = supabase
       .from("crm_leads_view")
-      .select("id, propietario, domicilio, estado, dominio_desc, contact_name, comercial_name, source_name")
+      .select("id, created_at, fecha, propietario, telefono, domicilio, tasacion, estado, memo, domain_name, responsable, source_name, provincia, distrito, cp")
       .in("id", safeLeadIds);
 
     if (userWithRole?.crmUser && !canViewAllLeads(userWithRole.crmUser) && nombre) {
-      leadsQuery = leadsQuery.eq("comercial_name", nombre);
+      leadsQuery = leadsQuery.eq("responsable", nombre);
     }
 
     const { data: leadsData, error: leadsError } = await leadsQuery;
@@ -596,6 +593,13 @@ export default function EncargosPage() {
 
     const finalLeadIds = (leadsData ?? []).map((r) => r.id as number);
     const safeFinalLeadIds = finalLeadIds.length > 0 ? finalLeadIds : [0];
+    const leadDetailsResult = await loadCrmLeadDetails(finalLeadIds);
+    if (leadDetailsResult.error) {
+      console.error("Error cargando detalles de encargos:", leadDetailsResult.error);
+    }
+    const leadDetailsById = new Map(
+      leadDetailsResult.data.map((details) => [details.id, details])
+    );
 
     const today = new Date();
     const fifteenDaysAgo = new Date(today);
@@ -645,15 +649,16 @@ export default function EncargosPage() {
 
     const mapped: EncargoItem[] = (leadsData ?? []).flatMap<EncargoItem>((row) => {
       const lead = row as LeadRow;
+      const details = leadDetailsById.get(lead.id);
       const orders = ordersByLead.get(lead.id) ?? [];
       const baseFields = {
         leadId: lead.id,
         propietario: lead.propietario?.trim() || "—",
         domicilio: lead.domicilio?.trim() || "—",
         estado: lead.estado?.trim() || "—",
-        dominio: lead.dominio_desc?.trim() || "—",
-        planner: lead.contact_name?.trim() || "—",
-        owner: lead.comercial_name?.trim() || "—",
+        dominio: lead.domain_name?.trim() || "—",
+        planner: details?.contact_name?.trim() || "—",
+        owner: lead.responsable?.trim() || "—",
         origen: lead.source_name?.trim() || "—",
         rg_15d: rg15dMap.get(lead.id) ?? 0,
         visitas_30d: visitas30dMap.get(lead.id) ?? 0,
@@ -714,14 +719,18 @@ export default function EncargosPage() {
   }
 
   async function handleOpenLead(item: EncargoItem) {
-    const { data, error } = await supabase
-      .from("crm_leads_view")
-      .select("*")
-      .eq("id", item.leadId)
-      .maybeSingle();
+    const [{ data, error }, detailsResult] = await Promise.all([
+      supabase
+        .from("crm_leads_view")
+        .select("*")
+        .eq("id", item.leadId)
+        .maybeSingle(),
+      loadCrmLeadDetails([item.leadId]),
+    ]);
 
     if (error || !data) return;
     const row = data as LeadRow & Record<string, unknown>;
+    const details = detailsResult.data[0];
     const address = row.domicilio?.trim() || "—";
     const district = row.distrito?.trim() || "—";
     setSelectedLead({
@@ -738,13 +747,13 @@ export default function EncargosPage() {
       phase: "encargo",
       status: "activa",
       fechaNoticia: row.fecha || row.created_at || "",
-      fechaContacto: row.fecha_contacto || "",
-      fechaValoracion: row.fecha_valoracion || "",
-      hora: row.hora || "",
-      planner: row.contact_name?.trim() || "—",
-      owner: row.comercial_name?.trim() || "—",
+      fechaContacto: details?.fecha_contacto || "",
+      fechaValoracion: details?.fecha_valoracion || "",
+      hora: details?.hora || "",
+      planner: details?.contact_name?.trim() || "—",
+      owner: row.responsable?.trim() || "—",
       createdAt: row.created_at || "",
-      assignedUser: row.comercial_name?.trim() || "—",
+      assignedUser: row.responsable?.trim() || "—",
       propertyAddress: address,
       notes: row.memo?.trim() || "",
       observaciones: [],

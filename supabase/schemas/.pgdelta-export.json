@@ -25,6 +25,7 @@
     "public/tables/opportunity_buyers.sql",
     "storage/tables/objects.sql",
     "public/views/crm_leads_view.sql",
+    "public/views/crm_lead_details_view.sql",
     "public/functions/crm_add_contact_activity.sql",
     "public/functions/crm_can_read_opportunity.sql",
     "public/functions/crm_can_write_opportunity.sql",
@@ -88,6 +89,7 @@
     "public/tables/sources.sql",
     "public/tables/opportunity_buyers.sql",
     "public/views/crm_leads_view.sql",
+    "public/views/crm_lead_details_view.sql",
     "storage/tables/objects.sql"
   ]
 }

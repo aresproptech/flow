@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Topbar } from "@/components/crm/topbar";
 import { supabase } from "@/lib/supabase";
+import { loadCrmLeadDetails, type CrmLeadDetails } from "@/lib/crm-lead-details";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Lead } from "@/lib/crm-data";
@@ -21,12 +22,11 @@ type CrmLeadRow = {
   memo: string | null;
   fase_name: string | null;
   source_name: string | null;
-  comercial_name: string | null;
-  contact_name: string | null;
+  responsable: string | null;
   cp: number | null;
   provincia: string | null;
   distrito: string | null;
-  dominio_desc: string | null;
+  domain_name: string | null;
 };
 
 type PlanningItem = {
@@ -89,8 +89,8 @@ function normalizePhase(raw: string | null | undefined): Lead["phase"] {
   return "identificada";
 }
 
-function mapCrmLeadToLead(row: CrmLeadRow): PlanningLead {
-  const ownerLabel = row.comercial_name?.trim() || "Sin asignar";
+function mapCrmLeadToLead(row: CrmLeadRow, details?: CrmLeadDetails): PlanningLead {
+  const ownerLabel = row.responsable?.trim() || "Sin asignar";
 
   const domicilio = row.domicilio?.trim() || "—";
   const distrito = row.distrito?.trim() || "—";
@@ -114,7 +114,7 @@ function mapCrmLeadToLead(row: CrmLeadRow): PlanningLead {
     fechaContacto: "",
     fechaValoracion: row.fecha || row.created_at || "",
     hora: "",
-    planner: row.contact_name?.trim() || "—",
+    planner: details?.contact_name?.trim() || "—",
     owner: ownerLabel,
     createdAt: row.created_at || "",
     assignedUser: ownerLabel,
@@ -124,7 +124,7 @@ function mapCrmLeadToLead(row: CrmLeadRow): PlanningLead {
         : "—",
     notes: row.memo?.trim() || "",
     observaciones: [],
-    dominio: row.dominio_desc?.trim() || "—",
+    dominio: row.domain_name?.trim() || "—",
   };
 }
 
@@ -206,15 +206,22 @@ export default function PlanningPage() {
         return;
       }
 
+      const leadRows = (leadsResult.data ?? []) as CrmLeadRow[];
+      const detailsResult = await loadCrmLeadDetails(leadRows.map((row) => row.id));
+      if (detailsResult.error) {
+        console.error("Supabase planning lead details error:", detailsResult.error);
+      }
+      const detailsById = new Map(detailsResult.data.map((row) => [row.id, row]));
+
       const leadsMap = new Map<number, PlanningLead>();
-      for (const row of leadsResult.data ?? []) {
+      for (const row of leadRows) {
         if (
           !canSeeAllLeads &&
-          row.comercial_name !== currentUserName
+          row.responsable !== currentUserName
         ) {
           continue;
         }
-        const lead = mapCrmLeadToLead(row as CrmLeadRow);
+        const lead = mapCrmLeadToLead(row, detailsById.get(row.id));
         leadsMap.set(Number(lead.id), lead);
       }
 

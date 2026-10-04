@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Topbar } from "@/components/crm/topbar";
 import { supabase } from "@/lib/supabase";
+import { loadCrmLeadDetails } from "@/lib/crm-lead-details";
 import { canManageVisits, useUser } from "@/lib/hooks/useUser";
 import type { Lead } from "@/lib/crm-data";
 import { LeadDetailPanel } from "@/components/crm/lead-detail-panel";
@@ -282,14 +283,18 @@ export default function VisitasPage() {
   async function openLeadDetail(v: Visita) {
     if (!v.opportunity_id) return;
 
-    const { data, error } = await supabase
-      .from("crm_leads_view")
-      .select("*")
-      .eq("id", v.opportunity_id)
-      .maybeSingle();
+    const [{ data, error }, detailsResult] = await Promise.all([
+      supabase
+        .from("crm_leads_view")
+        .select("*")
+        .eq("id", v.opportunity_id)
+        .maybeSingle(),
+      loadCrmLeadDetails([v.opportunity_id]),
+    ]);
 
     if (error || !data) return;
     const row = data as Record<string, unknown>;
+    const details = detailsResult.data[0];
     const text = (value: unknown, fallback = "—") =>
       typeof value === "string" && value.trim() ? value.trim() : fallback;
     const address = text(row.domicilio);
@@ -309,13 +314,13 @@ export default function VisitasPage() {
       phase: "identificada",
       status: "activa",
       fechaNoticia: text(row.fecha, ""),
-      fechaContacto: text(row.fecha_contacto, ""),
-      fechaValoracion: text(row.fecha_valoracion, ""),
-      hora: text(row.hora, ""),
-      planner: text(row.contact_name),
-      owner: text(row.comercial_name),
+      fechaContacto: text(details?.fecha_contacto, ""),
+      fechaValoracion: text(details?.fecha_valoracion, ""),
+      hora: text(details?.hora, ""),
+      planner: text(details?.contact_name),
+      owner: text(row.responsable),
       createdAt: text(row.created_at, ""),
-      assignedUser: text(row.comercial_name),
+      assignedUser: text(row.responsable),
       propertyAddress: address,
       notes: text(row.memo, ""),
       observaciones: [],

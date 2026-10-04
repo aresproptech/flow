@@ -95,15 +95,13 @@ type CrmLeadRow = {
   source_id: number | null;
   source_name: string | null;
   comercial_user_id: number | null;
-  comercial_name: string | null;
-  contact_user_id: number | null;
-  contact_name: string | null;
+  responsable: string | null;
   postal_id: number | null;
   cp: number | null;
   provincia: string | null;
   distrito: string | null;
-  team_id: number | null;
-  dominio_desc: string | null;
+  domain_id: number | null;
+  domain_name: string | null;
 };
 
 type DashboardLead = {
@@ -762,7 +760,7 @@ export default function DashboardPage() {
         .order("created_at", { ascending: false });
 
       if (!canViewAllLeads(userWithRole.crmUser)) {
-        query = query.eq("comercial_name", userWithRole.crmUser.name);
+        query = query.eq("responsable", userWithRole.crmUser.name);
       }
 
       const { data, error } = await query;
@@ -908,8 +906,8 @@ export default function DashboardPage() {
         phase: normalizedPhase,
         status: normalizedStatus,
         source: lead.source_name || "Sin origen",
-        commercialName: lead.comercial_name?.trim() || "Sin comercial",
-        domain: lead.dominio_desc?.trim() || "Sin dominio",
+        commercialName: lead.responsable?.trim() || "Sin comercial",
+        domain: lead.domain_name?.trim() || "Sin dominio",
       });
     }
 

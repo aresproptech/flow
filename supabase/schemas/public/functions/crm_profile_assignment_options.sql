@@ -14,7 +14,8 @@ CREATE OR REPLACE FUNCTION public.crm_profile_assignment_options()
   where coalesce(p.enabled, true)
     and public.crm_current_role() is not null
     and nullif(btrim(p.name), '') is not null
-  order by p.name
+    and btrim(coalesce(p.rol, '')) <> 'Admin'
+  order by p.rol, p.name
 $function$;
 
 GRANT EXECUTE ON FUNCTION "public"."crm_profile_assignment_options"() TO "authenticated", "postgres", "service_role";

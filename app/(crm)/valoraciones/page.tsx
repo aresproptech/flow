@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Topbar } from "@/components/crm/topbar";
 import { supabase } from "@/lib/supabase";
+import { loadCrmLeadDetails, type CrmLeadDetails } from "@/lib/crm-lead-details";
 import { Search, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PHASE_LABELS, type Lead } from "@/lib/crm-data";
@@ -30,17 +31,12 @@ type CrmLeadRow = {
   fase_name: string | null;
   source_name: string | null;
   source_id: number | null;
-  comercial_name: string | null;
-  contact_name: string | null;
+  responsable: string | null;
   cp: number | null;
   provincia: string | null;
   distrito: string | null;
-  dominio_desc: string | null;
-  hora: string | null;
-  medio: string | null;
+  domain_name: string | null;
   en_venta: string | null;
-  fecha_contacto: string | null;
-  fecha_valoracion: string | null;
 };
 
 type ValoracionLead = Lead & {
@@ -401,10 +397,10 @@ function DetailField({
   );
 }
 
-function mapCrmLeadToLead(row: CrmLeadRow): ValoracionLead {
-  const ownerLabel = row.comercial_name?.trim() || "Sin comercial";
-  const plannerLabel = row.contact_name?.trim() || "—";
-  const dominioLabel = row.dominio_desc?.trim() || "—";
+function mapCrmLeadToLead(row: CrmLeadRow, details?: CrmLeadDetails): ValoracionLead {
+  const ownerLabel = row.responsable?.trim() || "Sin comercial";
+  const plannerLabel = details?.contact_name?.trim() || "—";
+  const dominioLabel = row.domain_name?.trim() || "—";
 
   const domicilio = row.domicilio?.trim() || "—";
   const distrito = row.distrito?.trim() || "—";
@@ -425,10 +421,10 @@ function mapCrmLeadToLead(row: CrmLeadRow): ValoracionLead {
     phase: normalizePhase(row.fase_name),
     status: normalizeStatus(row.estado),
     fechaNoticia: row.fecha || row.created_at || "",
-    fechaContacto: normalizeDate(row.fecha_contacto),
-    fechaValoracion: normalizeDate(row.fecha_valoracion),
-    hora: row.hora ? row.hora.slice(0, 5) : "",
-    medio: row.medio?.trim() || "—",
+    fechaContacto: normalizeDate(details?.fecha_contacto),
+    fechaValoracion: normalizeDate(details?.fecha_valoracion),
+    hora: details?.hora ? details.hora.slice(0, 5) : "",
+    medio: details?.medio?.trim() || "—",
     planner: plannerLabel,
     dominio: dominioLabel,
     owner: ownerLabel,
@@ -489,16 +485,22 @@ export default function ValoracionesPage() {
       }
 
       const contactRows = (contactsResult.data ?? []) as OpportunityContactRow[];
+      const leadRows = (leadsResult.data ?? []) as CrmLeadRow[];
+      const detailsResult = await loadCrmLeadDetails(leadRows.map((row) => row.id));
+      if (detailsResult.error) {
+        console.error("Supabase valuation lead details error:", detailsResult.error);
+      }
+      const detailsById = new Map(detailsResult.data.map((row) => [row.id, row]));
 
       const leadsMap = new Map<number, ValoracionLead>();
-      for (const row of leadsResult.data ?? []) {
+      for (const row of leadRows) {
         if (
           !canSeeAllLeads &&
-          row.comercial_name !== currentUserName
+          row.responsable !== currentUserName
         ) {
           continue;
         }
-        const mapped = mapCrmLeadToLead(row as CrmLeadRow);
+        const mapped = mapCrmLeadToLead(row, detailsById.get(row.id));
         leadsMap.set(Number(mapped.id), mapped);
       }
 

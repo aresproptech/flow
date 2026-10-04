@@ -5,7 +5,9 @@ declare p record; expected bigint; actual bigint; affected bigint; target_id big
 begin
   select count(*) into expected_profile_options
   from public.profiles
-  where coalesce(enabled, true) and nullif(btrim(name), '') is not null;
+  where coalesce(enabled, true)
+    and nullif(btrim(name), '') is not null
+    and btrim(coalesce(rol, '')) <> 'Admin';
 
   for p in select id, auth_id, name, lower(btrim(rol)) rol, can_manage_visits from public.profiles where enabled and auth_id is not null loop
     target_id := null;
