@@ -17,14 +17,7 @@ CREATE OR REPLACE FUNCTION public.crm_can_read_opportunity (
         or (
           public.crm_current_role() = 'comercial'
           and not public.crm_can_manage_visits()
-          and (
-            (o.comercial_user_id is not null
-              and o.comercial_user_id = public.crm_current_profile_id())
-            or
-            (o.comercial_user_id is null
-              and lower(btrim(coalesce(o.comercial_user_desc, ''))) =
-                  lower(btrim(coalesce(public.crm_current_name(), ''))))
-          )
+          and o.comercial_user_id = public.crm_current_profile_id()
         )
       )
   )

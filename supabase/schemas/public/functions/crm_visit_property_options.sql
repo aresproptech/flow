@@ -23,14 +23,14 @@ begin
     o.id,
     o.propietario,
     o.domicilio,
-    coalesce(owner_profile.name, o.comercial_user_desc, 'Sin comercial') as owner,
-    coalesce(planner_profile.name, o.contact_user_desc, 'Sin contacto') as planner,
+      coalesce(owner_profile.name, 'Sin comercial') as owner,
+      'Sin contacto'::text as planner,
     o.estado,
-    o.dominio_desc as dominio
+      domain.description as dominio
   from public.opportunities o
   join public.phases phase on phase.id = o.fase_id
   left join public.profiles owner_profile on owner_profile.id = o.comercial_user_id
-  left join public.profiles planner_profile on planner_profile.id = o.contact_user_id
+    left join public.domain domain on domain.id = o.domain_id
   where o.deleted_at is null
     and lower(btrim(phase.name)) = 'encargo'
     and (

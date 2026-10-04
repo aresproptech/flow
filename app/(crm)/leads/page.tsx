@@ -1008,21 +1008,13 @@ export default function LeadsPage() {
       tasacion: cleanNullable(lead.valor),
       estado: cleanNullable(lead.status),
       fecha: cleanNullable(lead.fechaNoticia),
-      fecha_contacto: cleanNullable(lead.fechaContacto),
-      fecha_valoracion: cleanNullable(lead.fechaValoracion),
-      hora: cleanNullable(lead.hora),
-      source_desc: cleanNullable(lead.source),
-      comercial_user_desc: cleanNullable(lead.owner),
-      contact_user_desc: cleanNullable(lead.planner),
       domain_id: domainIdFor((lead as Lead & { dominio?: string | null }).dominio),
       postal_id: normalizePostalId(lead.cp),
       fase_id: phaseIds.get(lead.phase) ?? PHASE_ID_MAP[lead.phase] ?? 1,
       memo: cleanNullable(lead.notes),
       en_venta: null,
-      medio: cleanNullable(lead.medio),
       source_id: sourceIdFor(lead.source),
       comercial_user_id: profileIdFor(lead.owner),
-      contact_user_id: profileIdFor(lead.planner),
     }));
 
     const { data: insertedRows, error } = await supabase
@@ -1081,23 +1073,13 @@ export default function LeadsPage() {
       tasacion: cleanNullable(form.valor),
       estado: cleanNullable(form.status),
       fecha: cleanNullable(form.fechaNoticia),
-      fecha_contacto: cleanNullable(form.fechaContacto),
-      fecha_valoracion: cleanNullable(form.fechaValoracion),
-      hora: cleanNullable(form.hora),
-      source_desc: cleanNullable(form.source),
-      comercial_user_desc: cleanNullable(form.owner),
-      contact_user_desc: cleanNullable(form.planner),
-      buyer_user_desc: cleanNullable(form.buyer),
       domain_id: domainIdFor(form.dominio),
       postal_id: normalizePostalId(form.cp),
       fase_id: resolvedPhaseId,
       memo: cleanNullable(form.notes),
       en_venta: cleanNullable(form.enVenta),
-      medio: cleanNullable(form.medio),
       source_id: sourceIdFor(form.source),
       comercial_user_id: profileIdFor(form.owner),
-      contact_user_id: profileIdFor(form.planner),
-      buyer_user_id: profileIdFor(form.buyer),
     };
 
     const { data: insertedLead, error } = await supabase
@@ -1156,25 +1138,13 @@ export default function LeadsPage() {
       tasacion: cleanNullable(next.valor),
       estado: cleanNullable(next.status),
       fecha: next.fechaNoticia ? next.fechaNoticia.slice(0, 10) : null,
-      fecha_contacto: next.fechaContacto ? next.fechaContacto.slice(0, 10) : null,
-      fecha_valoracion: next.fechaValoracion
-        ? next.fechaValoracion.slice(0, 10)
-        : null,
-      hora: cleanNullable(next.hora),
-      source_desc: cleanNullable(next.source),
-      comercial_user_desc: cleanNullable(next.owner),
-      contact_user_desc: cleanNullable(next.planner),
-      buyer_user_desc: cleanNullable(next.buyer),
       domain_id: domainIdFor(nextWithDominio.dominio),
       memo: cleanNullable(next.notes),
-      medio: cleanNullable(next.medio),
       en_venta: cleanNullable(next.enVenta),
       fase_id: resolvedPhaseId,
       postal_id: normalizePostalId(next.cp),
       source_id: sourceIdFor(next.source),
       comercial_user_id: profileIdFor(next.owner),
-      contact_user_id: profileIdFor(next.planner),
-      buyer_user_id: profileIdFor(next.buyer),
     };
 
     const { data: updatedLead, error } = await supabase
