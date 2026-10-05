@@ -104,6 +104,18 @@ export function normalizeEnVenta(value: string | null | undefined): string {
   return normalized === "SI" || normalized === "NO" ? normalized : "";
 }
 
+export function normalizeOpportunityText(
+  value: string | null | undefined
+): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+
+  return trimmed.toLowerCase().replace(
+    /(^|[^\p{L}\p{N}])(\p{L})/gu,
+    (_match, boundary: string, letter: string) => `${boundary}${letter.toUpperCase()}`
+  );
+}
+
 export const AGENT_OPTIONS = [
   "Abdel",
   "Katy",

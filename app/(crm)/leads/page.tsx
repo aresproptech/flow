@@ -27,7 +27,12 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { loadCrmLeadDetails, type CrmLeadDetails } from "@/lib/crm-lead-details";
-import { normalizeEnVenta, type Lead, PHASE_LABELS } from "@/lib/crm-data";
+import {
+  normalizeEnVenta,
+  normalizeOpportunityText,
+  type Lead,
+  PHASE_LABELS,
+} from "@/lib/crm-data";
 import { canEditLeads, canViewAllLeads, useUser } from "@/lib/hooks/useUser";
 
 type LeadTableRow = Lead & {
@@ -1005,8 +1010,8 @@ export default function LeadsPage() {
     }
 
     const rowsToInsert = importedLeads.map((lead) => ({
-      propietario: cleanNullable(lead.ownerName),
-      domicilio: cleanNullable(lead.address),
+      propietario: normalizeOpportunityText(lead.ownerName),
+      domicilio: normalizeOpportunityText(lead.address),
       telefono: cleanNullable(lead.phone),
       tasacion: cleanNullable(lead.valor),
       estado: cleanNullable(lead.status),
@@ -1071,8 +1076,8 @@ export default function LeadsPage() {
     const resolvedPhaseId = await resolvePhaseId(form.phase as Lead["phase"]);
 
     const rowToInsert = {
-      propietario: cleanNullable(form.ownerName),
-      domicilio: cleanNullable(form.address),
+      propietario: normalizeOpportunityText(form.ownerName),
+      domicilio: normalizeOpportunityText(form.address),
       telefono: cleanNullable(form.phone),
       tasacion: cleanNullable(form.valor),
       estado: cleanNullable(form.status),
@@ -1137,8 +1142,8 @@ export default function LeadsPage() {
     const nextWithDominio = next as Lead & { dominio?: string | null };
 
     const updatePayload = {
-      propietario: cleanNullable(next.ownerName),
-      domicilio: cleanNullable(next.address),
+      propietario: normalizeOpportunityText(next.ownerName),
+      domicilio: normalizeOpportunityText(next.address),
       telefono: cleanNullable(next.phone),
       tasacion: cleanNullable(next.valor),
       estado: cleanNullable(next.status),

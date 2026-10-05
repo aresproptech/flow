@@ -49,6 +49,7 @@ import {
   STATUS_OPTIONS,
   EN_VENTA_OPTIONS,
   AGENT_OPTIONS,
+  normalizeOpportunityText,
 } from "@/lib/crm-data";
 import {
   legacyActivityText,
@@ -2230,8 +2231,8 @@ export function LeadDetailPanel({
     const { error } = await supabase
       .from("opportunities")
       .update({
-        propietario: next.ownerName.trim() || null,
-        domicilio: next.address.trim() || null,
+        propietario: normalizeOpportunityText(next.ownerName),
+        domicilio: normalizeOpportunityText(next.address),
         telefono: next.phone.trim() || null,
         tasacion: next.valor.trim() || null,
         estado: next.status,
