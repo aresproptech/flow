@@ -357,7 +357,7 @@ export default function VisitasPage() {
       hora: text(details?.hora, ""),
       planner: text(details?.contact_name),
       owner: text(row.responsable),
-      ownerId: typeof row.comercial_user_id === "number" ? row.comercial_user_id : null,
+      ownerId: typeof row.responsible_user_id === "number" ? row.responsible_user_id : null,
       createdAt: text(row.created_at, ""),
       assignedUser: text(row.responsable),
       propertyAddress: address,

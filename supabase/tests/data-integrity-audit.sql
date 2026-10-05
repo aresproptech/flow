@@ -15,7 +15,7 @@ with active_opportunities as (
   union all
   select 'responsable', 'id_nulo', count(*)
   from active_opportunities
-  where comercial_user_id is null
+  where responsible_user_id is null
   union all
   select 'dominio', 'id_nulo', count(*)
   from active_opportunities

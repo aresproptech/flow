@@ -40,7 +40,7 @@ type OpportunityOrderRow = {
 type LeadRow = {
   id: number;
   source_id: number | null;
-  comercial_user_id: number | null;
+  responsible_user_id: number | null;
   domain_id: number | null;
   created_at?: string | null;
   fecha?: string | null;
@@ -580,7 +580,7 @@ export default function EncargosPage() {
 
     let leadsQuery = supabase
       .from("crm_leads_view")
-      .select("id, created_at, fecha, propietario, telefono, domicilio, tasacion, estado, memo, source_id, source_name, comercial_user_id, responsable, domain_id, domain_name, provincia, distrito, cp")
+      .select("id, created_at, fecha, propietario, telefono, domicilio, tasacion, estado, memo, source_id, source_name, responsible_user_id, responsable, domain_id, domain_name, provincia, distrito, cp")
       .in("id", safeLeadIds);
 
     if (userWithRole?.crmUser && !canViewAllLeads(userWithRole.crmUser) && nombre) {
@@ -760,7 +760,7 @@ export default function EncargosPage() {
       hora: details?.hora || "",
       planner: details?.contact_name?.trim() || "—",
       owner: row.responsable?.trim() || "—",
-      ownerId: row.comercial_user_id,
+      ownerId: row.responsible_user_id,
       domainId: row.domain_id,
       createdAt: row.created_at || "",
       assignedUser: row.responsable?.trim() || "—",

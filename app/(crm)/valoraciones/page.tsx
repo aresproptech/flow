@@ -32,7 +32,7 @@ type CrmLeadRow = {
   fase_name: string | null;
   source_name: string | null;
   source_id: number | null;
-  comercial_user_id: number | null;
+  responsible_user_id: number | null;
   responsable: string | null;
   cp: number | null;
   provincia: string | null;
@@ -435,7 +435,7 @@ function mapCrmLeadToLead(row: CrmLeadRow, details?: CrmLeadDetails): Valoracion
     planner: plannerLabel,
     dominio: dominioLabel,
     owner: ownerLabel,
-    ownerId: row.comercial_user_id,
+    ownerId: row.responsible_user_id,
     domainId: row.domain_id,
     createdAt: row.created_at || "",
     assignedUser: ownerLabel,

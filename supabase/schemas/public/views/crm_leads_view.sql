@@ -17,7 +17,7 @@ SELECT
   o.fase_id,
   p.name AS fase_name,
   o.estado,
-  o.comercial_user_id,
+  o.responsible_user_id,
   u.name AS responsable,
   o.tasacion,
   o.en_venta,
@@ -28,7 +28,7 @@ FROM public.opportunities o
 LEFT JOIN public.domain d ON d.id = o.domain_id
 LEFT JOIN public.phases p ON p.id = o.fase_id
 LEFT JOIN public.sources s ON s.id = o.source_id
-LEFT JOIN public.profiles u ON u.id = o.comercial_user_id
+LEFT JOIN public.profiles u ON u.id = o.responsible_user_id
 LEFT JOIN public.postal po ON po.id = o.postal_id
 WHERE o.deleted_at IS NULL;
 

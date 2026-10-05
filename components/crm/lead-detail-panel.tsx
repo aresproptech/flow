@@ -2243,7 +2243,7 @@ export function LeadDetailPanel({
         postal_id: postalId,
         domain_id: domainId,
         source_id: sourceId,
-        comercial_user_id: ownerId,
+        responsible_user_id: ownerId,
       })
       .eq("id", Number(next.id));
 

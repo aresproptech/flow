@@ -94,7 +94,7 @@ type CrmLeadRow = {
   fase_name: string | null;
   source_id: number | null;
   source_name: string | null;
-  comercial_user_id: number | null;
+  responsible_user_id: number | null;
   responsable: string | null;
   postal_id: number | null;
   cp: number | null;

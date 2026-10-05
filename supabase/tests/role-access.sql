@@ -14,7 +14,7 @@ begin
     foreign_id := null;
     select count(*) into expected from public.opportunities o where deleted_at is null and
       (p.rol in ('admin','coordinador') or (p.rol='comercial' and not p.can_manage_visits and
-        o.comercial_user_id=p.id));
+        o.responsible_user_id=p.id));
     select count(*) into expected_visit_options
     from public.opportunities o
     join public.phases phase on phase.id = o.fase_id
@@ -26,7 +26,7 @@ begin
         or (
           p.rol = 'comercial'
           and not p.can_manage_visits
-          and o.comercial_user_id = p.id
+          and o.responsible_user_id = p.id
         )
       );
     select count(*) into expected_visits
@@ -42,13 +42,13 @@ begin
         p.rol = 'comercial'
         and not p.can_manage_visits
         and o.deleted_at is null
-        and o.comercial_user_id = p.id
+        and o.responsible_user_id = p.id
       );
     if p.rol='comercial' then
       select o.id into foreign_id
       from public.opportunities o
       where o.deleted_at is null
-        and o.comercial_user_id is distinct from p.id
+        and o.responsible_user_id is distinct from p.id
       limit 1;
     end if;
     perform set_config('request.jwt.claim.sub', p.auth_id::text, true);

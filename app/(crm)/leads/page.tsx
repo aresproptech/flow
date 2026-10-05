@@ -120,7 +120,7 @@ type CrmLeadRow = {
   fase_name: string | null;
   source_id: number | null;
   source_name: string | null;
-  comercial_user_id: number | null;
+  responsible_user_id: number | null;
   responsable: string | null;
   postal_id: number | null;
   cp: number | null;
@@ -718,7 +718,7 @@ function mapCrmLeadToLead(row: CrmLeadRow, details?: CrmLeadDetails): LeadTableR
     planner: plannerLabel,
     plannerId: details?.contact_user_id ?? null,
     owner: ownerLabel,
-    ownerId: row.comercial_user_id,
+    ownerId: row.responsible_user_id,
     buyer: buyerLabel,
     buyerId: details?.buyer_user_id ?? null,
     createdAt: row.created_at || "",
@@ -1018,7 +1018,7 @@ export default function LeadsPage() {
       en_venta: null,
       occupancy: cleanNullable(lead.occupancy),
       source_id: sourceIdFor(lead.source),
-      comercial_user_id: profileIdFor(lead.owner),
+      responsible_user_id: profileIdFor(lead.owner),
     }));
 
     const { data: insertedRows, error } = await supabase
@@ -1084,7 +1084,7 @@ export default function LeadsPage() {
       en_venta: cleanNullable(form.enVenta),
       occupancy: cleanNullable(form.occupancy),
       source_id: sourceIdFor(form.source),
-      comercial_user_id: profileIdFor(form.owner),
+      responsible_user_id: profileIdFor(form.owner),
     };
 
     const { data: insertedLead, error } = await supabase
@@ -1150,7 +1150,7 @@ export default function LeadsPage() {
       fase_id: resolvedPhaseId,
       postal_id: normalizePostalId(next.cp),
       source_id: sourceIdFor(next.source),
-      comercial_user_id: profileIdFor(next.owner),
+      responsible_user_id: profileIdFor(next.owner),
     };
 
     const { data: updatedLead, error } = await supabase

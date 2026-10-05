@@ -29,7 +29,7 @@ begin
     domain.description::text as dominio
   from public.opportunities o
   join public.phases phase on phase.id = o.fase_id
-  left join public.profiles owner_profile on owner_profile.id = o.comercial_user_id
+  left join public.profiles owner_profile on owner_profile.id = o.responsible_user_id
     left join public.domain domain on domain.id = o.domain_id
   where o.deleted_at is null
     and lower(btrim(phase.name)) = 'encargo'
