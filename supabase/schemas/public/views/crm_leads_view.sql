@@ -22,7 +22,8 @@ SELECT
   o.tasacion,
   o.en_venta,
   o.memo,
-  o.deleted_at
+  o.deleted_at,
+  o.occupancy
 FROM public.opportunities o
 LEFT JOIN public.domain d ON d.id = o.domain_id
 LEFT JOIN public.phases p ON p.id = o.fase_id

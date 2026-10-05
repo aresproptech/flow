@@ -28,6 +28,8 @@ export interface Lead {
   phone: string;
   source: string;
   sourceId?: number | null;
+  domainId?: number | null;
+  occupancy?: string | null;
   medio?: string;
   enVenta?: string;
   phase: LeadPhase;
@@ -91,6 +93,11 @@ export const STATUS_OPTIONS: { value: LeadStatus; label: string }[] = [
   { value: "caliente", label: "Caliente" },
   { value: "desestimada", label: "Desestimada" },
 ];
+
+export const EN_VENTA_OPTIONS = [
+  { value: "SI", label: "En Venta" },
+  { value: "NO", label: "No a la Venta" },
+] as const;
 
 export const AGENT_OPTIONS = [
   "Abdel",

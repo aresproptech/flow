@@ -344,14 +344,18 @@ export default function VisitasPage() {
       valor: text(row.tasacion),
       phone: text(row.telefono),
       source: text(row.source_name, "Sin origen"),
+      sourceId: typeof row.source_id === "number" ? row.source_id : null,
+      domainId: typeof row.domain_id === "number" ? row.domain_id : null,
       phase: "identificada",
       status: "activa",
+      occupancy: text(row.occupancy, ""),
       fechaNoticia: text(row.fecha, ""),
       fechaContacto: text(details?.fecha_contacto, ""),
       fechaValoracion: text(details?.fecha_valoracion, ""),
       hora: text(details?.hora, ""),
       planner: text(details?.contact_name),
       owner: text(row.responsable),
+      ownerId: typeof row.comercial_user_id === "number" ? row.comercial_user_id : null,
       createdAt: text(row.created_at, ""),
       assignedUser: text(row.responsable),
       propertyAddress: address,
@@ -371,10 +375,6 @@ export default function VisitasPage() {
     const opportunityId = Number(form.opportunity_id);
     const { error } = await supabase.from("opportunity_buyers").insert({
       opportunity_id: opportunityId,
-      estado: form.estado || null,
-      dominio: form.dominio || null,
-      planner: form.planner || null,
-      owner: form.owner || null,
       fecha_visita: form.fecha_visita || null,
       hora: form.hora || null,
       buyer: form.buyer || null,
@@ -656,8 +656,6 @@ export default function VisitasPage() {
       <LeadDetailPanel
         lead={selectedLead}
         onClose={() => setSelectedLead(null)}
-        onSaveLead={async () => undefined}
-        readOnly
       />
 
       {/* Modal Agregar Visita */}

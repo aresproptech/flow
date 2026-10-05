@@ -115,6 +115,7 @@ type CrmLeadRow = {
   estado: string | null;
   memo: string | null;
   en_venta: string | null;
+  occupancy: string | null;
   fase_id: number | null;
   fase_name: string | null;
   source_id: number | null;
@@ -707,6 +708,7 @@ function mapCrmLeadToLead(row: CrmLeadRow, details?: CrmLeadDetails): LeadTableR
     phone: row.telefono?.trim() || "—",
     source: row.source_name?.trim() || "Sin origen",
     sourceId: row.source_id,
+    domainId: row.domain_id,
     phase: normalizePhase(row.fase_name, row.fase_id),
     status: normalizeStatus(row.estado),
     fechaNoticia,
@@ -730,6 +732,7 @@ function mapCrmLeadToLead(row: CrmLeadRow, details?: CrmLeadDetails): LeadTableR
     medio: details?.medio?.trim() || "—",
     month: fmtMonth(fechaNoticia),
     dominio: dominioLabel,
+    occupancy: row.occupancy || "",
     enVenta: row.en_venta?.trim() || "No Sabe",
   };
 }
@@ -1013,6 +1016,7 @@ export default function LeadsPage() {
       fase_id: phaseIds.get(lead.phase) ?? PHASE_ID_MAP[lead.phase] ?? 1,
       memo: cleanNullable(lead.notes),
       en_venta: null,
+      occupancy: cleanNullable(lead.occupancy),
       source_id: sourceIdFor(lead.source),
       comercial_user_id: profileIdFor(lead.owner),
     }));
@@ -1078,6 +1082,7 @@ export default function LeadsPage() {
       fase_id: resolvedPhaseId,
       memo: cleanNullable(form.notes),
       en_venta: cleanNullable(form.enVenta),
+      occupancy: cleanNullable(form.occupancy),
       source_id: sourceIdFor(form.source),
       comercial_user_id: profileIdFor(form.owner),
     };
@@ -1141,6 +1146,7 @@ export default function LeadsPage() {
       domain_id: domainIdFor(nextWithDominio.dominio),
       memo: cleanNullable(next.notes),
       en_venta: cleanNullable(next.enVenta),
+      occupancy: cleanNullable(next.occupancy),
       fase_id: resolvedPhaseId,
       postal_id: normalizePostalId(next.cp),
       source_id: sourceIdFor(next.source),
@@ -2435,7 +2441,6 @@ export default function LeadsPage() {
         onSaveLead={handleSaveLead}
         readOnly={!canEdit}
         ownerOptions={ownerOptions}
-        plannerOptions={profileOptions}
         plannerProfiles={plannerProfiles}
       />
 

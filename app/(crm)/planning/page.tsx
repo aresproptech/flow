@@ -19,14 +19,18 @@ type CrmLeadRow = {
   domicilio: string | null;
   tasacion: string | null;
   estado: string | null;
+  occupancy: string | null;
   memo: string | null;
   fase_name: string | null;
   source_name: string | null;
+  source_id: number | null;
+  comercial_user_id: number | null;
   responsable: string | null;
   cp: number | null;
   provincia: string | null;
   distrito: string | null;
   domain_name: string | null;
+  domain_id: number | null;
 };
 
 type PlanningItem = {
@@ -46,6 +50,7 @@ type PlanningItem = {
 
 type PlanningLead = Lead & {
   dominio: string;
+  domainId: number | null;
 };
 
 type ContactPlanningRow = {
@@ -108,14 +113,17 @@ function mapCrmLeadToLead(row: CrmLeadRow, details?: CrmLeadDetails): PlanningLe
     valor: row.tasacion?.trim() || "—",
     phone: row.telefono?.trim() || "—",
     source: row.source_name?.trim() || "Sin origen",
+    sourceId: row.source_id,
     phase: normalizePhase(row.fase_name),
     status: "activa",
+    occupancy: row.occupancy?.trim() || "",
     fechaNoticia: row.fecha || row.created_at || "",
     fechaContacto: "",
     fechaValoracion: row.fecha || row.created_at || "",
     hora: "",
     planner: details?.contact_name?.trim() || "—",
     owner: ownerLabel,
+    ownerId: row.comercial_user_id,
     createdAt: row.created_at || "",
     assignedUser: ownerLabel,
     propertyAddress:
@@ -125,6 +133,7 @@ function mapCrmLeadToLead(row: CrmLeadRow, details?: CrmLeadDetails): PlanningLe
     notes: row.memo?.trim() || "",
     observaciones: [],
     dominio: row.domain_name?.trim() || "—",
+    domainId: row.domain_id,
   };
 }
 
@@ -438,8 +447,6 @@ export default function PlanningPage() {
       <LeadDetailPanel
         lead={selectedLead}
         onClose={() => setSelectedLead(null)}
-        onSaveLead={async () => undefined}
-        readOnly
       />
     </>
   );

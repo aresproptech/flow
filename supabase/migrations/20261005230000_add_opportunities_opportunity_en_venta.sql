@@ -1,0 +1,43 @@
+begin;
+
+alter table public.opportunities
+  add column if not exists opportunity_en_venta text;
+
+create or replace view public.crm_leads_view with (security_invoker = true) as
+select
+  o.id,
+  o.is_favorite,
+  o.created_at,
+  o.fecha,
+  o.propietario,
+  o.telefono,
+  o.domicilio,
+  o.postal_id as cp,
+  po.provincia,
+  po.distrito,
+  o.domain_id,
+  d.description as domain_name,
+  o.source_id,
+  s.code as source_name,
+  o.fase_id,
+  p.name as fase_name,
+  o.estado,
+  o.comercial_user_id,
+  u.name as responsable,
+  o.tasacion,
+  o.en_venta,
+  o.memo,
+  o.deleted_at,
+  o.occupancy,
+  o.opportunity_en_venta
+from public.opportunities o
+left join public.domain d on d.id = o.domain_id
+left join public.phases p on p.id = o.fase_id
+left join public.sources s on s.id = o.source_id
+left join public.profiles u on u.id = o.comercial_user_id
+left join public.postal po on po.id = o.postal_id
+where o.deleted_at is null;
+
+notify pgrst, 'reload schema';
+
+commit;

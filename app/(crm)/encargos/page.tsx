@@ -39,6 +39,9 @@ type OpportunityOrderRow = {
 
 type LeadRow = {
   id: number;
+  source_id: number | null;
+  comercial_user_id: number | null;
+  domain_id: number | null;
   created_at?: string | null;
   fecha?: string | null;
   propietario: string | null;
@@ -46,6 +49,7 @@ type LeadRow = {
   domicilio: string | null;
   tasacion?: string | null;
   estado: string | null;
+  occupancy: string | null;
   domain_name: string | null;
   responsable: string | null;
   source_name: string | null;
@@ -575,7 +579,7 @@ export default function EncargosPage() {
 
     let leadsQuery = supabase
       .from("crm_leads_view")
-      .select("id, created_at, fecha, propietario, telefono, domicilio, tasacion, estado, memo, domain_name, responsable, source_name, provincia, distrito, cp")
+      .select("id, created_at, fecha, propietario, telefono, domicilio, tasacion, estado, memo, source_id, source_name, comercial_user_id, responsable, domain_id, domain_name, provincia, distrito, cp")
       .in("id", safeLeadIds);
 
     if (userWithRole?.crmUser && !canViewAllLeads(userWithRole.crmUser) && nombre) {
@@ -744,14 +748,18 @@ export default function EncargosPage() {
       valor: row.tasacion?.trim() || "—",
       phone: row.telefono?.trim() || "—",
       source: row.source_name?.trim() || "Sin origen",
+      sourceId: row.source_id,
       phase: "encargo",
       status: "activa",
+      occupancy: row.occupancy?.trim() || "",
       fechaNoticia: row.fecha || row.created_at || "",
       fechaContacto: details?.fecha_contacto || "",
       fechaValoracion: details?.fecha_valoracion || "",
       hora: details?.hora || "",
       planner: details?.contact_name?.trim() || "—",
       owner: row.responsable?.trim() || "—",
+      ownerId: row.comercial_user_id,
+      domainId: row.domain_id,
       createdAt: row.created_at || "",
       assignedUser: row.responsable?.trim() || "—",
       propertyAddress: address,
@@ -1047,8 +1055,6 @@ export default function EncargosPage() {
       <LeadDetailPanel
         lead={selectedLead}
         onClose={() => setSelectedLead(null)}
-        onSaveLead={async () => undefined}
-        readOnly
       />
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>

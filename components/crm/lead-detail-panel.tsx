@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { useUser } from "@/lib/hooks/useUser";
+import { canEditLeads, useUser } from "@/lib/hooks/useUser";
 import {
   X,
   Phone,
@@ -46,8 +46,8 @@ import {
   type Lead,
   type Observacion,
   PHASE_LABELS,
-  PHASE_OPTIONS,
   STATUS_OPTIONS,
+  EN_VENTA_OPTIONS,
   AGENT_OPTIONS,
 } from "@/lib/crm-data";
 import {
@@ -86,15 +86,15 @@ const STATUS_CONFIG = {
 interface LeadDetailPanelProps {
   lead: Lead | null;
   onClose: () => void;
-  onSaveLead: (next: Lead, changeDetails: string[]) => Promise<void>;
+  onSaveLead?: (next: Lead, changeDetails: string[]) => Promise<void>;
   readOnly?: boolean;
   ownerOptions?: string[];
-  plannerOptions?: string[];
   plannerProfiles?: Array<{ id: number; name: string; rol: string | null }>;
 }
 
 type LeadWithDominio = Lead & {
   dominio?: string | null;
+  domainId?: number | null;
 };
 
 function Row({
@@ -544,13 +544,9 @@ const LEAD_DETAIL_TABS: Array<{ value: LeadDetailTab; label: string }> = [
 
 const EDIT_LEAD_TABS: Array<{ value: EditLeadTab; label: string }> = [
   { value: "oportunidad", label: "Oportunidad" },
-  { value: "propietario", label: "Propietario" },
   { value: "inmueble", label: "Inmueble" },
+  { value: "propietario", label: "Propietario" },
 ];
-
-const LEAD_DETAIL_PHASE_OPTIONS = PHASE_OPTIONS.filter((opt) =>
-  ["Identificada", "Cualificada", "Valorada", "Encargo"].includes(opt.label)
-);
 
 const LEAD_DETAIL_STATUS_OPTIONS = [
   { value: "activa", label: "Activa" },
@@ -865,6 +861,13 @@ function statusLabel(value: string) {
   );
 }
 
+function opportunityForSaleLabel(value: string | null | undefined) {
+  const normalized = value?.trim().toUpperCase();
+  if (normalized === "SI") return "En Venta";
+  if (normalized === "NO") return "No a la Venta";
+  return "";
+}
+
 function formatEuroValue(raw: string | null | undefined): string {
   const digits = raw?.replace(/\D/g, "") ?? "";
   if (!digits) return "";
@@ -1113,19 +1116,21 @@ async function fetchPostalCode(cp: string): Promise<PostalCodeResult | null> {
 interface EditLeadModalProps {
   lead: LeadWithDominio;
   open: boolean;
+  initialTab: EditLeadTab;
+  occupancyOptions: string[];
   onOpenChange: (v: boolean) => void;
   onSave: (next: LeadWithDominio) => Promise<void>;
   ownerOptions: string[];
-  plannerOptions: string[];
 }
 
 function EditLeadModal({
   lead,
   open,
+  initialTab,
+  occupancyOptions,
   onOpenChange,
   onSave,
   ownerOptions,
-  plannerOptions,
 }: EditLeadModalProps) {
   const [form, setForm] = useState({
     ...lead,
@@ -1144,8 +1149,8 @@ function EditLeadModal({
     });
     setCpAutoFilled(false);
     setSaveError(null);
-    setActiveEditTab("oportunidad");
-  }, [lead]);
+    setActiveEditTab(initialTab);
+  }, [lead, initialTab]);
 
   function set(field: keyof LeadWithDominio, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -1175,10 +1180,6 @@ function EditLeadModal({
       setCpLoading(false);
     }
   }, []);
-
-  function handleDistritoChange(value: string) {
-    set("distrito", value);
-  }
 
   async function handleSave() {
     setSaving(true);
@@ -1246,30 +1247,14 @@ function EditLeadModal({
                     <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       Estado del lead
                     </h3>
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-                      <div className="flex flex-col gap-1.5">
-                        <Label className="text-xs font-medium">Fase</Label>
-                        <Select value={form.phase} onValueChange={(v) => set("phase", v)}>
-                          <SelectTrigger className="h-9 text-sm">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {LEAD_DETAIL_PHASE_OPTIONS.map((o) => (
-                              <SelectItem key={o.value} value={o.value} className="text-sm">
-                                {o.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[minmax(180px,0.7fr)_minmax(240px,1.3fr)_minmax(320px,1.7fr)]">
                       <div className="flex flex-col gap-1.5">
                         <Label className="text-xs font-medium">Estado</Label>
                         <Select
                           value={form.status}
                           onValueChange={(v) => set("status", v)}
                         >
-                          <SelectTrigger className="h-9 text-sm">
+                          <SelectTrigger className="h-9 w-full min-w-0 text-sm">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -1283,39 +1268,20 @@ function EditLeadModal({
                       </div>
 
                       <div className="flex flex-col gap-1.5">
-                        <Label htmlFor="edit-lead-planner" className="text-xs font-medium">
-                          Planner
-                        </Label>
-                        <Select
-                          value={form.planner ?? ""}
-                          onValueChange={(v) => set("planner", v)}
-                        >
-                          <SelectTrigger id="edit-lead-planner" className="h-9 text-sm">
-                            <SelectValue placeholder="Seleccionar" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Array.from(
-                              new Set(
-                                [...plannerOptions, form.planner]
-                                  .map((value) => value?.trim())
-                                  .filter(
-                                    (value): value is string =>
-                                      Boolean(value) && value !== "—"
-                                  )
-                              )
-                            ).map((agent) => (
-                              <SelectItem key={agent} value={agent} className="text-sm">
-                                {agent}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <Label className="text-xs font-medium">Valor</Label>
+                        <Input
+                          value={form.valor}
+                          onChange={(e) => handleValorChange(e.target.value)}
+                          className="h-9 text-sm"
+                          placeholder="Ej. 450.000 €"
+                          inputMode="numeric"
+                        />
                       </div>
 
                       <div className="flex flex-col gap-1.5">
-                        <Label className="text-xs font-medium">Owner</Label>
+                        <Label className="text-xs font-medium">Responsable</Label>
                         <Select value={form.owner} onValueChange={(v) => set("owner", v)}>
-                          <SelectTrigger className="h-9 text-sm">
+                          <SelectTrigger className="h-9 w-full min-w-0 text-sm">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -1337,33 +1303,6 @@ function EditLeadModal({
                         </Select>
                       </div>
 
-                      <div className="flex flex-col gap-1.5">
-                        <Label className="text-xs font-medium">Buyer</Label>
-                        <Select
-                          value={form.buyer ?? ""}
-                          onValueChange={(v) => set("buyer", v)}
-                        >
-                          <SelectTrigger className="h-9 text-sm">
-                            <SelectValue placeholder="Seleccionar" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Array.from(
-                              new Set(
-                                [...ownerOptions, form.buyer]
-                                  .map((value) => value?.trim())
-                                  .filter(
-                                    (value): value is string =>
-                                      Boolean(value) && value !== "—"
-                                  )
-                              )
-                            ).map((agent) => (
-                              <SelectItem key={agent} value={agent} className="text-sm">
-                                {agent}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
                     </div>
                 </section>
               )}
@@ -1400,24 +1339,13 @@ function EditLeadModal({
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Datos del inmueble
                   </h3>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                    <div className="flex flex-col gap-1.5 md:col-span-3">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
+                    <div className="flex flex-col gap-1.5 md:col-span-2">
                       <Label className="text-xs font-medium">Domicilio</Label>
                       <Input
                         value={form.address}
                         onChange={(e) => set("address", e.target.value)}
                         className="h-9 text-sm"
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-1.5">
-                      <Label className="text-xs font-medium">Valor</Label>
-                      <Input
-                        value={form.valor}
-                        onChange={(e) => handleValorChange(e.target.value)}
-                        className="h-9 text-sm"
-                        placeholder="Ej. 450.000 €"
-                        inputMode="numeric"
                       />
                     </div>
 
@@ -1440,63 +1368,105 @@ function EditLeadModal({
                     </div>
 
                     <div className="flex flex-col gap-1.5">
-                      <Label className="flex items-center gap-1.5 text-xs font-medium">
-                        Municipio
-                        {cpAutoFilled && (
-                          <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium leading-none text-primary">
-                            <LocateFixed className="h-2.5 w-2.5" />
-                            auto
-                          </span>
-                        )}
+                      <Label htmlFor="edit-lead-occupancy" className="text-xs font-medium">
+                        Situación
                       </Label>
-                      <Input
-                        value={form.municipio}
-                        onChange={(e) => set("municipio", e.target.value)}
-                        className={cn(
-                          "h-9 text-sm",
-                          cpAutoFilled && "border-primary/40 bg-primary/5"
-                        )}
-                      />
+                      <Select
+                        value={form.occupancy || ""}
+                        onValueChange={(value) => set("occupancy", value)}
+                      >
+                        <SelectTrigger id="edit-lead-occupancy" className="h-9 w-full min-w-0 text-sm">
+                          <SelectValue placeholder="Seleccionar" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[240px] overflow-y-auto">
+                          {occupancyOptions.map((option) => (
+                            <SelectItem key={option} value={option}>
+                              {option}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div className="flex flex-col gap-1.5">
-                      <Label className="flex items-center gap-1.5 text-xs font-medium">
-                        Distrito
-                        {cpAutoFilled && (
-                          <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium leading-none text-primary">
-                            <LocateFixed className="h-2.5 w-2.5" />
-                            auto
-                          </span>
-                        )}
+                      <Label htmlFor="edit-en-venta" className="text-xs font-medium">
+                        En Venta
                       </Label>
-                      <Input
-                        value={form.distrito}
-                        onChange={(e) => handleDistritoChange(e.target.value)}
-                        className={cn(
-                          "h-9 text-sm",
-                          cpAutoFilled && "border-primary/40 bg-primary/5"
-                        )}
-                      />
+                      <Select
+                        value={form.enVenta || ""}
+                        onValueChange={(value) => set("enVenta", value)}
+                      >
+                        <SelectTrigger id="edit-en-venta" className="h-9 w-full min-w-0 text-sm">
+                          <SelectValue placeholder="Seleccionar" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {EN_VENTA_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
-                    <div className="flex flex-col gap-1.5">
-                      <Label className="flex items-center gap-1.5 text-xs font-medium">
-                        Provincia
-                        {cpAutoFilled && (
-                          <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium leading-none text-primary">
-                            <LocateFixed className="h-2.5 w-2.5" />
-                            auto
-                          </span>
-                        )}
-                      </Label>
-                      <Input
-                        value={form.provincia}
-                        onChange={(e) => set("provincia", e.target.value)}
-                        className={cn(
-                          "h-9 text-sm",
-                          cpAutoFilled && "border-primary/40 bg-primary/5"
-                        )}
-                      />
+                    <div className="col-span-full grid grid-cols-1 gap-4 md:grid-cols-3">
+                      <div className="flex flex-col gap-1.5">
+                        <Label className="flex items-center gap-1.5 text-xs font-medium">
+                          Municipio
+                          {cpAutoFilled && (
+                            <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium leading-none text-primary">
+                              <LocateFixed className="h-2.5 w-2.5" />
+                              auto
+                            </span>
+                          )}
+                        </Label>
+                        <Input
+                          value={form.municipio}
+                          readOnly
+                          className={cn(
+                            "h-9 text-sm",
+                            cpAutoFilled && "border-primary/40 bg-primary/5"
+                          )}
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <Label className="flex items-center gap-1.5 text-xs font-medium">
+                          Distrito
+                          {cpAutoFilled && (
+                            <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium leading-none text-primary">
+                              <LocateFixed className="h-2.5 w-2.5" />
+                              auto
+                            </span>
+                          )}
+                        </Label>
+                        <Input
+                          value={form.distrito}
+                          readOnly
+                          className={cn(
+                            "h-9 text-sm",
+                            cpAutoFilled && "border-primary/40 bg-primary/5"
+                          )}
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <Label className="flex items-center gap-1.5 text-xs font-medium">
+                          Provincia
+                          {cpAutoFilled && (
+                            <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium leading-none text-primary">
+                              <LocateFixed className="h-2.5 w-2.5" />
+                              auto
+                            </span>
+                          )}
+                        </Label>
+                        <Input
+                          value={form.provincia}
+                          readOnly
+                          className={cn(
+                            "h-9 text-sm",
+                            cpAutoFilled && "border-primary/40 bg-primary/5"
+                          )}
+                        />
+                      </div>
                     </div>
                   </div>
                 </section>
@@ -1533,17 +1503,77 @@ export function LeadDetailPanel({
   lead,
   onClose,
   onSaveLead,
-  readOnly = false,
+  readOnly: readOnlyOverride,
   ownerOptions = AGENT_OPTIONS,
-  plannerOptions = AGENT_OPTIONS,
   plannerProfiles = [],
 }: LeadDetailPanelProps) {
   const { userWithRole } = useUser();
+  const [occupancyOptions, setOccupancyOptions] = useState<string[]>([]);
+  const [fallbackPlannerProfiles, setFallbackPlannerProfiles] = useState<
+    Array<{ id: number; name: string; rol: string | null }>
+  >([]);
+  useEffect(() => {
+    let active = true;
+    void supabase
+      .from("lookups")
+      .select("name")
+      .eq("category", "Occupancy")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true })
+      .then(({ data, error }) => {
+        if (error) {
+          console.error("Error cargando opciones de Occupancy:", error);
+          return;
+        }
+        if (active) {
+          setOccupancyOptions(
+            (data ?? [])
+              .map((row) => row.name?.trim() || "")
+              .filter(Boolean)
+          );
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (plannerProfiles.length > 0) return;
+
+    let active = true;
+    void supabase.rpc("crm_profile_assignment_options").then(({ data, error }) => {
+      if (error) {
+        console.error("Error cargando perfiles para editar el lead:", error);
+        return;
+      }
+      if (active) {
+        setFallbackPlannerProfiles(
+          ((data ?? []) as Array<{ id: number; name: string | null; rol: string | null }>)
+            .filter((profile): profile is { id: number; name: string; rol: string | null } => Boolean(profile.name?.trim()))
+            .map((profile) => ({ ...profile, name: profile.name.trim() }))
+        );
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [lead?.id, plannerProfiles.length]);
+
+  const availablePlannerProfiles =
+    plannerProfiles.length > 0 ? plannerProfiles : fallbackPlannerProfiles;
+  const availableOwnerOptions = Array.from(
+    new Set([...ownerOptions, ...availablePlannerProfiles.map((profile) => profile.name)])
+  );
+  const readOnly =
+    readOnlyOverride ??
+    !(userWithRole?.crmUser && canEditLeads(userWithRole.crmUser));
   const [editOpen, setEditOpen] = useState(false);
+  const [editInitialTab, setEditInitialTab] = useState<EditLeadTab>("oportunidad");
   const [note, setNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
-  const [statusSaving, setStatusSaving] = useState(false);
-  const [responsibleSaving, setResponsibleSaving] = useState(false);
   const [noteError, setNoteError] = useState<string | null>(null);
   const [noteEvents, setNoteEvents] = useState<LeadHistoryEvent[]>([]);
   const [activityEvents, setActivityEvents] = useState<LeadActivityEvent[]>([]);
@@ -1813,6 +1843,11 @@ export function LeadDetailPanel({
   }
 
   const effectiveLead = localLead;
+
+  function openLeadEditor(tab: EditLeadTab) {
+    setEditInitialTab(tab);
+    setEditOpen(true);
+  }
 
   const currentUserName = useMemo(() => {
     const rawUser = userWithRole as Record<string, unknown> | null | undefined;
@@ -2140,6 +2175,99 @@ export function LeadDetailPanel({
     });
   }
 
+  async function persistLeadFromPanel(
+    previous: LeadWithDominio,
+    next: LeadWithDominio,
+    changeDetails: string[]
+  ) {
+    if (!userWithRole?.crmUser || !canEditLeads(userWithRole.crmUser)) {
+      throw new Error("No tienes permisos para editar este lead.");
+    }
+
+    const [phasesResult, sourcesResult, domainsResult, profilesResult] = await Promise.all([
+      supabase.from("phases").select("id, name"),
+      supabase.from("sources").select("id, code").eq("enabled", true),
+      supabase.from("domain").select("id, code, description").eq("enabled", true),
+      supabase.rpc("crm_profile_assignment_options"),
+    ]);
+
+    const catalogError =
+      phasesResult.error || sourcesResult.error || domainsResult.error || profilesResult.error;
+    if (catalogError) throw catalogError;
+
+    const assignmentProfiles = (profilesResult.data ?? []) as Array<{
+      id: number;
+      name: string | null;
+      rol: string | null;
+    }>;
+    const normalize = (value: string | null | undefined) => normalizeBadgeKey(value);
+    const phaseId = (phasesResult.data ?? []).find(
+      (phase) => normalize(phase.name) === normalize(PHASE_LABELS[next.phase])
+    )?.id;
+    if (!phaseId) throw new Error("No se pudo resolver la fase del lead.");
+
+    const matchedSourceId = (sourcesResult.data ?? []).find(
+      (source) => normalize(source.code) === normalize(next.source)
+    )?.id;
+    const sourceId = next.sourceId ?? matchedSourceId ?? null;
+
+    const previousDomain = (previous as LeadWithDominio).dominio;
+    const nextDomain = next.dominio;
+    const matchedDomainId = (domainsResult.data ?? []).find(
+      (domain) =>
+        normalize(domain.description) === normalize(nextDomain) ||
+        normalize(domain.code) === normalize(nextDomain)
+    )?.id;
+    const domainId = next.domainId ?? matchedDomainId ?? null;
+
+    const matchedOwnerId = assignmentProfiles.find(
+      (profile) => normalize(profile.name) === normalize(next.owner)
+    )?.id;
+    const ownerId = next.ownerId ?? matchedOwnerId ?? null;
+
+    const postalDigits = next.cp.replace(/\D/g, "").slice(0, 5);
+    const postalId = postalDigits ? Number(postalDigits) : null;
+    const { error } = await supabase
+      .from("opportunities")
+      .update({
+        propietario: next.ownerName.trim() || null,
+        domicilio: next.address.trim() || null,
+        telefono: next.phone.trim() || null,
+        tasacion: next.valor.trim() || null,
+        estado: next.status,
+        fecha: next.fechaNoticia ? next.fechaNoticia.slice(0, 10) : null,
+        memo: next.notes?.trim() || null,
+        en_venta: next.enVenta?.trim() || null,
+        occupancy: next.occupancy?.trim() || null,
+        fase_id: phaseId,
+        postal_id: postalId,
+        domain_id: domainId,
+        source_id: sourceId,
+        comercial_user_id: ownerId,
+      })
+      .eq("id", Number(next.id));
+
+    if (error) throw error;
+
+    if (changeDetails.length > 0) {
+      const actorName = userWithRole.crmUser.name?.trim() || "Usuario";
+      const { error: activityError } = await supabase
+        .from("opportunity_activities")
+        .insert({
+          opportunity_id: Number(next.id),
+          assigned_profile_id: userWithRole.crmUser.id,
+          fecha: new Date().toISOString().slice(0, 10),
+          memo: `[HISTORIAL] ${actorName}: Editó el lead: ${changeDetails.join(" · ")}`,
+          resultado: true,
+          event_type: "lead_updated",
+        });
+
+      if (activityError) {
+        console.error("Error registrando historial de edición:", activityError);
+      }
+    }
+  }
+
   async function handleSave(next: LeadWithDominio) {
     if (!effectiveLead || readOnly) return;
 
@@ -2152,41 +2280,15 @@ export function LeadDetailPanel({
         )} a ${formatFieldValue(event.field!, event.newValue || "")}`
     );
 
-    await onSaveLead(next, changeDetails);
+    if (onSaveLead) {
+      await onSaveLead(next, changeDetails);
+    } else {
+      await persistLeadFromPanel(effectiveLead, next, changeDetails);
+    }
     setLocalLead(next);
 
     if (changes.length > 0) {
       await loadObservations(next.id);
-    }
-  }
-
-  async function handleStatusChange(value: string) {
-    if (!effectiveLead || readOnly || statusSaving) return;
-    const status = STATUS_OPTIONS.find((option) => option.value === value)?.value;
-    if (!status || status === effectiveLead.status) return;
-
-    setStatusSaving(true);
-    try {
-      await handleSave({ ...effectiveLead, status });
-    } catch (error) {
-      console.error("Error actualizando estado del lead:", error);
-    } finally {
-      setStatusSaving(false);
-    }
-  }
-
-  async function handleResponsibleChange(value: string) {
-    if (!effectiveLead || readOnly || responsibleSaving) return;
-    const planner = value === "__unassigned__" ? "—" : value;
-    if (planner === effectiveLead.planner) return;
-
-    setResponsibleSaving(true);
-    try {
-      await handleSave({ ...effectiveLead, planner });
-    } catch (error) {
-      console.error("Error actualizando responsable del lead:", error);
-    } finally {
-      setResponsibleSaving(false);
     }
   }
 
@@ -2892,34 +2994,6 @@ export function LeadDetailPanel({
     };
   }).sort(compareScheduledItemsDescending);
 
-  const selectedPlannerRole =
-    plannerProfiles.find((profile) => profile.id === effectiveLead.plannerId)?.rol ??
-    plannerProfiles.find(
-      (profile) => normalizeBadgeKey(profile.name) === normalizeBadgeKey(effectiveLead.planner)
-    )?.rol;
-  const selectedPlannerName = effectiveLead.planner?.trim() || "";
-  const plannerNameOptions = Array.from(
-    new Map(
-      [...plannerOptions, selectedPlannerName].flatMap((option) => {
-        const name = option.trim();
-        if (!name || name === "—") return [];
-        return [[normalizeBadgeKey(name), name] as const];
-      })
-    ).values()
-  );
-  const responsibleFieldStyle =
-    normalizeBadgeKey(selectedPlannerRole) === "partner"
-      ? {
-          backgroundColor: "#FCE7F3",
-          color: "#9D174D",
-          borderColor: "#F9A8D4",
-        }
-      : {
-          backgroundColor: "#E0F2FE",
-          color: "#075985",
-          borderColor: "#7DD3FC",
-        };
-
   return (
     <aside className="fixed right-0 top-0 z-40 flex h-screen w-[1080px] max-w-[calc(100vw-1rem)] flex-col border-l border-border bg-background shadow-2xl">
       <div className="relative grid shrink-0 gap-5 border-b border-border px-5 py-4 md:grid-cols-3 md:items-stretch md:gap-0 md:divide-x md:divide-border md:pr-16">
@@ -2929,14 +3003,14 @@ export function LeadDetailPanel({
           </p>
           <div className="mt-1 flex items-center justify-center gap-3 md:justify-start">
             {readOnly ? (
-              <p className="text-xl font-bold leading-tight text-foreground">
+              <p className="text-xl font-bold leading-tight text-black">
                 #{effectiveLead.id.padStart(6, "0")}
               </p>
             ) : (
               <button
                 type="button"
-                onClick={() => setEditOpen(true)}
-                className="text-left text-xl font-bold leading-tight text-primary underline-offset-2 hover:underline"
+                onClick={() => openLeadEditor("oportunidad")}
+                className="text-left text-xl font-bold leading-tight text-black underline-offset-2 hover:text-primary hover:underline"
               >
                 #{effectiveLead.id.padStart(6, "0")}
               </button>
@@ -2959,9 +3033,20 @@ export function LeadDetailPanel({
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
             Inmueble
           </p>
-          <p className="mt-1 truncate text-xl font-bold leading-tight text-foreground">
-            {effectiveLead.address || "—"}
-          </p>
+          {readOnly ? (
+            <p title={effectiveLead.address || "—"} className="mt-1 w-full min-w-0 max-w-full truncate text-xl font-bold leading-tight text-black">
+              {effectiveLead.address || "—"}
+            </p>
+          ) : (
+            <button
+              type="button"
+              onClick={() => openLeadEditor("inmueble")}
+              title={effectiveLead.address || "—"}
+              className="mt-1 w-full min-w-0 max-w-full truncate text-left text-xl font-bold leading-tight text-black underline-offset-2 hover:text-primary hover:underline"
+            >
+              {effectiveLead.address || "—"}
+            </button>
+          )}
           <div className="mt-2 space-y-0.5 text-sm font-semibold leading-normal text-muted-foreground">
             <p className="truncate">{effectiveLead.distrito || "—"}</p>
             <p className="truncate">
@@ -2974,16 +3059,27 @@ export function LeadDetailPanel({
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
             Propietario
           </p>
-          <h2 className="mt-1 truncate text-xl font-bold leading-tight text-foreground">
-            {effectiveLead.ownerName}
-          </h2>
+          {readOnly ? (
+            <h2 title={effectiveLead.ownerName || "—"} className="mt-1 w-full min-w-0 max-w-full truncate text-xl font-bold leading-tight text-black">
+              {effectiveLead.ownerName}
+            </h2>
+          ) : (
+            <button
+              type="button"
+              onClick={() => openLeadEditor("propietario")}
+              title={effectiveLead.ownerName || "—"}
+              className="mt-1 w-full min-w-0 max-w-full truncate text-left text-xl font-bold leading-tight text-black underline-offset-2 hover:text-primary hover:underline"
+            >
+              {effectiveLead.ownerName}
+            </button>
+          )}
           <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-primary md:mx-0" />
 
           {effectiveLead.phone && effectiveLead.phone !== "—" && (
             <div className="mt-auto flex flex-wrap items-center justify-center gap-3 pt-3 md:justify-start">
               <a
                 href={`tel:${effectiveLead.phone.replace(/[^+\d]/g, "")}`}
-                className="text-sm font-semibold leading-normal text-primary underline-offset-2 hover:underline"
+                className="text-sm font-semibold leading-normal text-black underline-offset-2 hover:text-primary hover:underline"
               >
                 {effectiveLead.phone}
               </a>
@@ -3003,8 +3099,8 @@ export function LeadDetailPanel({
         </div>
       </div>
 
-      <div className="grid shrink-0 gap-2 border-b border-border px-4 py-2.5 md:grid-cols-3 md:items-center md:px-5 md:py-3">
-        <div className="flex flex-wrap items-center justify-center gap-1.5 md:justify-start">
+      <div className="grid shrink-0 gap-2 border-b border-border px-4 py-2.5 md:grid-cols-3 md:items-center md:gap-0 md:px-5 md:py-3">
+        <div className="flex flex-wrap items-center justify-center gap-1.5 md:col-span-2 md:justify-start">
           <Badge
             variant="outline"
             className="order-3 h-6 rounded-md px-2 text-xs font-semibold"
@@ -3020,6 +3116,29 @@ export function LeadDetailPanel({
           </Badge>
           <Badge
             variant="outline"
+            className="order-4 h-6 rounded-md px-2 text-xs font-semibold"
+            style={getStatusConfig(effectiveLead.status).badgeStyle}
+          >
+            {getStatusConfig(effectiveLead.status).label}
+          </Badge>
+          {effectiveLead.occupancy?.trim() && (
+            <Badge
+              variant="outline"
+              className="order-5 h-6 rounded-md px-2 text-xs font-semibold"
+            >
+              {effectiveLead.occupancy.trim()}
+            </Badge>
+          )}
+          {opportunityForSaleLabel(effectiveLead.enVenta) && (
+            <Badge
+              variant="outline"
+              className="order-6 h-6 rounded-md px-2 text-xs font-semibold"
+            >
+              {opportunityForSaleLabel(effectiveLead.enVenta)}
+            </Badge>
+          )}
+          <Badge
+            variant="outline"
             className="order-2 h-6 rounded-md px-2 text-xs font-semibold"
             style={getSourceBadgeStyle(effectiveLead.source)}
           >
@@ -3033,66 +3152,11 @@ export function LeadDetailPanel({
             {getLeadDominio(effectiveLead) || "Sin dominio"}
           </Badge>
         </div>
-        <div className="flex items-center justify-start md:px-6 lg:-translate-x-4">
-          <span className="mr-2 text-xs font-semibold text-muted-foreground">Estado:</span>
-          {readOnly ? (
-            <Badge
-              variant="outline"
-              className="h-6 rounded-md px-2 text-xs font-semibold"
-              style={getStatusConfig(effectiveLead.status).badgeStyle}
-            >
-              {getStatusConfig(effectiveLead.status).label}
-            </Badge>
-          ) : (
-            <Select
-              value={effectiveLead.status}
-              onValueChange={(value) => void handleStatusChange(value)}
-              disabled={statusSaving}
-            >
-              <SelectTrigger
-                aria-label="Estado del lead"
-                className="!h-6 !py-0 w-fit min-w-[132px] gap-1 rounded-md px-2 text-xs font-semibold"
-                style={getStatusConfig(effectiveLead.status).badgeStyle}
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {STATUS_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </div>
-        <div className="flex min-w-0 items-center justify-start gap-2 text-sm font-semibold leading-normal text-muted-foreground md:pl-6 lg:-translate-x-8">
+        <div className="flex min-w-0 items-center justify-start gap-2 text-sm font-semibold leading-normal text-muted-foreground md:pl-6">
           <span className="shrink-0 text-xs">Responsable:</span>
-          {readOnly ? (
-            <span className="truncate">{effectiveLead.planner || "Sin asignar"}</span>
-          ) : (
-            <Select
-              value={selectedPlannerName && selectedPlannerName !== "—" ? selectedPlannerName : "__unassigned__"}
-              onValueChange={(value) => void handleResponsibleChange(value)}
-              disabled={responsibleSaving}
-            >
-              <SelectTrigger
-                aria-label="Responsable"
-                className="!h-6 !py-0 w-fit min-w-[140px] max-w-full gap-1 rounded-md px-2 text-xs font-semibold"
-                style={responsibleFieldStyle}
-              >
-                <SelectValue placeholder="Sin asignar" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__unassigned__">Sin asignar</SelectItem>
-                {plannerNameOptions.map((option) => (
-                  <SelectItem key={normalizeBadgeKey(option)} value={option}>
-                    {option}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+          <span className="min-w-0 truncate" title={effectiveLead.planner || "Sin asignar"}>
+            {effectiveLead.planner || "Sin asignar"}
+          </span>
         </div>
       </div>
 
@@ -4716,10 +4780,11 @@ export function LeadDetailPanel({
       <EditLeadModal
         lead={effectiveLead}
         open={editOpen}
+        initialTab={editInitialTab}
+        occupancyOptions={occupancyOptions}
         onOpenChange={setEditOpen}
         onSave={handleSave}
-        ownerOptions={ownerOptions}
-        plannerOptions={plannerOptions}
+        ownerOptions={availableOwnerOptions}
       />
     </aside>
   );

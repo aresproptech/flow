@@ -1,6 +1,7 @@
 CREATE TABLE "public"."opportunities" (
   "estado"              text,
   "fecha"               text,
+  "occupancy"           text,
   "postal_id"           bigint,
   "tasacion"            text,
   "domicilio"           text,

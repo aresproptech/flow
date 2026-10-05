@@ -27,20 +27,24 @@ type CrmLeadRow = {
   domicilio: string | null;
   tasacion: string | null;
   estado: string | null;
+  occupancy: string | null;
   memo: string | null;
   fase_name: string | null;
   source_name: string | null;
   source_id: number | null;
+  comercial_user_id: number | null;
   responsable: string | null;
   cp: number | null;
   provincia: string | null;
   distrito: string | null;
   domain_name: string | null;
+  domain_id: number | null;
   en_venta: string | null;
 };
 
 type ValoracionLead = Lead & {
   dominio?: string | null;
+  domainId?: number | null;
 };
 
 type OpportunityContactRow = {
@@ -418,8 +422,10 @@ function mapCrmLeadToLead(row: CrmLeadRow, details?: CrmLeadDetails): Valoracion
     valor: normalizeValor(row.tasacion),
     phone: row.telefono?.trim() || "—",
     source: row.source_name?.trim() || "Sin origen",
+    sourceId: row.source_id,
     phase: normalizePhase(row.fase_name),
     status: normalizeStatus(row.estado),
+    occupancy: row.occupancy?.trim() || "",
     fechaNoticia: row.fecha || row.created_at || "",
     fechaContacto: normalizeDate(details?.fecha_contacto),
     fechaValoracion: normalizeDate(details?.fecha_valoracion),
@@ -428,6 +434,8 @@ function mapCrmLeadToLead(row: CrmLeadRow, details?: CrmLeadDetails): Valoracion
     planner: plannerLabel,
     dominio: dominioLabel,
     owner: ownerLabel,
+    ownerId: row.comercial_user_id,
+    domainId: row.domain_id,
     createdAt: row.created_at || "",
     assignedUser: ownerLabel,
     propertyAddress:
@@ -892,8 +900,6 @@ export default function ValoracionesPage() {
       <LeadDetailPanel
         lead={selectedLead}
         onClose={() => setSelectedLead(null)}
-        onSaveLead={async () => undefined}
-        readOnly
       />
     </>
   );

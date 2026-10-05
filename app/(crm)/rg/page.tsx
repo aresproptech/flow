@@ -19,15 +19,21 @@ type CrmLeadRow = {
   domicilio: string | null;
   tasacion: string | null;
   estado: string | null;
+  occupancy: string | null;
   memo: string | null;
   fase_name: string | null;
   source_name: string | null;
+  source_id: number | null;
+  comercial_user_id: number | null;
   responsable: string | null;
   cp: number | null;
   provincia: string | null;
   distrito: string | null;
   domain_name: string | null;
+  domain_id: number | null;
 };
+
+type RgLead = Lead & { dominio?: string | null; domainId?: number | null };
 
 function fmt(d: string) {
   if (!d) return "—";
@@ -70,7 +76,7 @@ function normalizeStatus(raw: string | null | undefined): Lead["status"] {
   return "activa";
 }
 
-function mapCrmLeadToLead(row: CrmLeadRow, details?: CrmLeadDetails): Lead {
+function mapCrmLeadToLead(row: CrmLeadRow, details?: CrmLeadDetails): RgLead {
   const ownerLabel = row.responsable?.trim() || "Sin asignar";
 
   const domicilio = row.domicilio?.trim() || "—";
@@ -89,14 +95,18 @@ function mapCrmLeadToLead(row: CrmLeadRow, details?: CrmLeadDetails): Lead {
     valor: row.tasacion?.trim() || "—",
     phone: row.telefono?.trim() || "—",
     source: row.source_name?.trim() || "Sin origen",
+    sourceId: row.source_id,
     phase: normalizePhase(row.fase_name),
     status: normalizeStatus(row.estado),
+    occupancy: row.occupancy?.trim() || "",
     fechaNoticia: row.fecha || row.created_at || "",
     fechaContacto: "",
     fechaValoracion: "",
     hora: "",
     planner: details?.contact_name?.trim() || "—",
     owner: ownerLabel,
+    ownerId: row.comercial_user_id,
+    domainId: row.domain_id,
     createdAt: row.created_at || "",
     assignedUser: ownerLabel,
     propertyAddress:
@@ -209,7 +219,7 @@ export default function RGPage() {
       }
       const detailsById = new Map(detailsResult.data.map((row) => [row.id, row]));
 
-      const leadsMap = new Map<number, Lead>();
+      const leadsMap = new Map<number, RgLead>();
       for (const row of leadRows) {
         if (
           !canSeeAllLeads &&
@@ -430,8 +440,6 @@ export default function RGPage() {
       <LeadDetailPanel
         lead={selectedLead}
         onClose={() => setSelectedLead(null)}
-        onSaveLead={async () => undefined}
-        readOnly
       />
     </>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -24,9 +24,11 @@ import {
   PHASE_OPTIONS,
   STATUS_OPTIONS,
   SOURCE_OPTIONS,
+  EN_VENTA_OPTIONS,
 } from "@/lib/crm-data";
 import { AlertTriangle, LocateFixed, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 
 export interface NewLeadFormData {
   ownerName: string;
@@ -37,6 +39,7 @@ export interface NewLeadFormData {
   cp: string;
   valor: string;
   dominio: string;
+  occupancy: string;
   phone: string;
   source: string;
   medio: string;
@@ -62,10 +65,11 @@ const EMPTY_FORM: NewLeadFormData = {
   cp: "",
   valor: "",
   dominio: "",
+  occupancy: "",
   phone: "",
   source: "",
   medio: "",
-  enVenta: "No Sabe",
+  enVenta: "",
   status: "",
   phase: "",
   fechaNoticia: "",
@@ -136,8 +140,36 @@ export function NewLeadModal({
   const [form, setForm] = useState<NewLeadFormData>(EMPTY_FORM);
   const [cpLoading, setCpLoading] = useState(false);
   const [cpAutoFilled, setCpAutoFilled] = useState(false);
+  const [occupancyOptions, setOccupancyOptions] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void supabase
+      .from("lookups")
+      .select("name")
+      .eq("category", "Occupancy")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true })
+      .then(({ data, error }) => {
+        if (error) {
+          console.error("Error cargando opciones de Occupancy:", error);
+          return;
+        }
+        if (active) {
+          setOccupancyOptions(
+            (data ?? [])
+              .map((row) => row.name?.trim() || "")
+              .filter(Boolean)
+          );
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   function handleField(field: keyof NewLeadFormData, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -315,6 +347,46 @@ export function NewLeadModal({
                   <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-primary" />
                 )}
               </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="occupancy" className="text-xs font-medium">
+                Situación
+              </Label>
+              <Select
+                value={form.occupancy}
+                onValueChange={(value) => handleField("occupancy", value)}
+              >
+                <SelectTrigger id="occupancy" className="h-8 w-full min-w-0 text-sm">
+                  <SelectValue placeholder="Seleccionar" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[240px] overflow-y-auto">
+                  {occupancyOptions.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="en-venta" className="text-xs font-medium">
+                En Venta
+              </Label>
+              <Select
+                value={form.enVenta}
+                onValueChange={(value) => handleField("enVenta", value)}
+              >
+                <SelectTrigger id="en-venta" className="h-8 w-full min-w-0 text-sm">
+                  <SelectValue placeholder="Seleccionar" />
+                </SelectTrigger>
+                <SelectContent>
+                  {EN_VENTA_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex flex-col gap-1.5">
