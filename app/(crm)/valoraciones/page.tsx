@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { loadCrmLeadDetails, type CrmLeadDetails } from "@/lib/crm-lead-details";
 import { Search, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { PHASE_LABELS, type Lead } from "@/lib/crm-data";
+import { normalizeEnVenta, PHASE_LABELS, type Lead } from "@/lib/crm-data";
 import { canViewAllLeads, useUser } from "@/lib/hooks/useUser";
 import { legacyActivityText } from "@/lib/opportunity-contact-memo";
 import { LeadDetailPanel } from "@/components/crm/lead-detail-panel";
@@ -425,6 +425,7 @@ function mapCrmLeadToLead(row: CrmLeadRow, details?: CrmLeadDetails): Valoracion
     sourceId: row.source_id,
     phase: normalizePhase(row.fase_name),
     status: normalizeStatus(row.estado),
+    enVenta: normalizeEnVenta(row.en_venta),
     occupancy: row.occupancy?.trim() || "",
     fechaNoticia: row.fecha || row.created_at || "",
     fechaContacto: normalizeDate(details?.fecha_contacto),

@@ -5,7 +5,7 @@ import { Topbar } from "@/components/crm/topbar";
 import { supabase } from "@/lib/supabase";
 import { loadCrmLeadDetails } from "@/lib/crm-lead-details";
 import { canEditLeads, canViewAllLeads, useUser } from "@/lib/hooks/useUser";
-import type { Lead } from "@/lib/crm-data";
+import { normalizeEnVenta, type Lead } from "@/lib/crm-data";
 import { LeadDetailPanel } from "@/components/crm/lead-detail-panel";
 import { Plus, RefreshCw, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -49,6 +49,7 @@ type LeadRow = {
   domicilio: string | null;
   tasacion?: string | null;
   estado: string | null;
+  en_venta: string | null;
   occupancy: string | null;
   domain_name: string | null;
   responsable: string | null;
@@ -751,6 +752,7 @@ export default function EncargosPage() {
       sourceId: row.source_id,
       phase: "encargo",
       status: "activa",
+      enVenta: normalizeEnVenta(row.en_venta),
       occupancy: row.occupancy?.trim() || "",
       fechaNoticia: row.fecha || row.created_at || "",
       fechaContacto: details?.fecha_contacto || "",

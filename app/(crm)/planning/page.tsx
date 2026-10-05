@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { loadCrmLeadDetails, type CrmLeadDetails } from "@/lib/crm-lead-details";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Lead } from "@/lib/crm-data";
+import { normalizeEnVenta, type Lead } from "@/lib/crm-data";
 import { canViewAllLeads, useUser } from "@/lib/hooks/useUser";
 import { LeadDetailPanel } from "@/components/crm/lead-detail-panel";
 
@@ -19,6 +19,7 @@ type CrmLeadRow = {
   domicilio: string | null;
   tasacion: string | null;
   estado: string | null;
+  en_venta: string | null;
   occupancy: string | null;
   memo: string | null;
   fase_name: string | null;
@@ -116,6 +117,7 @@ function mapCrmLeadToLead(row: CrmLeadRow, details?: CrmLeadDetails): PlanningLe
     sourceId: row.source_id,
     phase: normalizePhase(row.fase_name),
     status: "activa",
+    enVenta: normalizeEnVenta(row.en_venta),
     occupancy: row.occupancy?.trim() || "",
     fechaNoticia: row.fecha || row.created_at || "",
     fechaContacto: "",

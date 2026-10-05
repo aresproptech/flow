@@ -3152,7 +3152,7 @@ export function LeadDetailPanel({
             {getLeadDominio(effectiveLead) || "Sin dominio"}
           </Badge>
         </div>
-        <div className="flex min-w-0 items-center justify-start gap-2 text-sm font-semibold leading-normal text-muted-foreground md:pl-6">
+        <div className="flex min-w-0 items-center justify-start gap-2 text-sm font-semibold leading-normal text-muted-foreground md:pl-6 lg:-translate-x-7">
           <span className="shrink-0 text-xs">Responsable:</span>
           <span className="min-w-0 truncate" title={effectiveLead.planner || "Sin asignar"}>
             {effectiveLead.planner || "Sin asignar"}

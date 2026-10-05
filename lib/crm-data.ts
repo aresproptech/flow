@@ -95,9 +95,14 @@ export const STATUS_OPTIONS: { value: LeadStatus; label: string }[] = [
 ];
 
 export const EN_VENTA_OPTIONS = [
-  { value: "SI", label: "En Venta" },
-  { value: "NO", label: "No a la Venta" },
+  { value: "SI", label: "SI" },
+  { value: "NO", label: "NO" },
 ] as const;
+
+export function normalizeEnVenta(value: string | null | undefined): string {
+  const normalized = value?.trim().toUpperCase();
+  return normalized === "SI" || normalized === "NO" ? normalized : "";
+}
 
 export const AGENT_OPTIONS = [
   "Abdel",

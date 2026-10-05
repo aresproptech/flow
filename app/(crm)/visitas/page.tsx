@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Topbar } from "@/components/crm/topbar";
 import { supabase } from "@/lib/supabase";
 import { loadCrmLeadDetails } from "@/lib/crm-lead-details";
+import { normalizeEnVenta } from "@/lib/crm-data";
 import { canManageVisits, useUser } from "@/lib/hooks/useUser";
 import type { Lead } from "@/lib/crm-data";
 import { LeadDetailPanel } from "@/components/crm/lead-detail-panel";
@@ -348,6 +349,7 @@ export default function VisitasPage() {
       domainId: typeof row.domain_id === "number" ? row.domain_id : null,
       phase: "identificada",
       status: "activa",
+      enVenta: normalizeEnVenta(typeof row.en_venta === "string" ? row.en_venta : null),
       occupancy: text(row.occupancy, ""),
       fechaNoticia: text(row.fecha, ""),
       fechaContacto: text(details?.fecha_contacto, ""),

@@ -27,7 +27,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { loadCrmLeadDetails, type CrmLeadDetails } from "@/lib/crm-lead-details";
-import { type Lead, PHASE_LABELS } from "@/lib/crm-data";
+import { normalizeEnVenta, type Lead, PHASE_LABELS } from "@/lib/crm-data";
 import { canEditLeads, canViewAllLeads, useUser } from "@/lib/hooks/useUser";
 
 type LeadTableRow = Lead & {
@@ -733,7 +733,7 @@ function mapCrmLeadToLead(row: CrmLeadRow, details?: CrmLeadDetails): LeadTableR
     month: fmtMonth(fechaNoticia),
     dominio: dominioLabel,
     occupancy: row.occupancy || "",
-    enVenta: row.en_venta?.trim() || "No Sabe",
+    enVenta: normalizeEnVenta(row.en_venta),
   };
 }
 
@@ -2336,12 +2336,16 @@ export default function LeadsPage() {
                     </td>
 
                     <td className="px-3 py-2.5 hidden md:table-cell">
-                      <span
-                        className="inline-flex items-center rounded-full border px-2 py-0.5 text-sm font-medium whitespace-nowrap"
-                        style={getEnVentaBadgeStyle(lead.enVenta)}
-                      >
-                        {lead.enVenta}
-                      </span>
+                      {lead.enVenta ? (
+                        <span
+                          className="inline-flex items-center rounded-full border px-2 py-0.5 text-sm font-medium whitespace-nowrap"
+                          style={getEnVentaBadgeStyle(lead.enVenta)}
+                        >
+                          {lead.enVenta === "SI" ? "En Venta" : "No a la Venta"}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                   </tr>
                 ))}
