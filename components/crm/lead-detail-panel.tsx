@@ -3429,6 +3429,7 @@ export function LeadDetailPanel({
               >
                 {LEAD_DETAIL_TABS.map((tab) => {
                   const isActive = activeTab === tab.value;
+                  const isDisabled = tab.value === "documentacion";
                   const count =
                     tab.value === "contactos"
                       ? contactHistoryEvents.length
@@ -3446,7 +3447,9 @@ export function LeadDetailPanel({
                     <button
                       key={tab.value}
                       type="button"
+                      disabled={isDisabled}
                       onClick={(event) => {
+                        if (isDisabled) return;
                         setActiveTab(tab.value);
                         event.currentTarget.scrollIntoView({
                           behavior: "smooth",
@@ -3456,7 +3459,9 @@ export function LeadDetailPanel({
                       }}
                       className={cn(
                         "inline-flex h-10 min-w-max flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-center text-[11px] font-semibold uppercase tracking-wide transition sm:px-4 md:min-w-0 md:px-2",
-                        isActive
+                        isDisabled
+                          ? "cursor-not-allowed bg-muted/40 text-muted-foreground/50 opacity-60"
+                          : isActive
                           ? "bg-primary text-primary-foreground shadow-sm"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground"
                       )}
