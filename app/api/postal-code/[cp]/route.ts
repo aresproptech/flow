@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 
 export interface PostalCodeResult {
+  id: string;
   cp: string;
   municipio: string;
   provincia: string;
@@ -56,8 +57,9 @@ export async function GET(
   }
 
   const result: PostalCodeResult = {
-    cp: String(data.id),
-    municipio: data.provincia ?? "",
+    id: String(data.id),
+    cp: String(data.id).padStart(5, "0"),
+    municipio: "",
     provincia: data.provincia ?? "",
     distrito: data.distrito ?? null,
   };

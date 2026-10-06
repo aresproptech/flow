@@ -869,6 +869,29 @@ function opportunityForSaleLabel(value: string | null | undefined) {
   return "";
 }
 
+function opportunityForSaleBadgeStyle(value: string | null | undefined) {
+  const normalized = value?.trim().toUpperCase();
+  if (normalized === "SI") {
+    return {
+      backgroundColor: "#7A1E3A",
+      color: "#FFFFFF",
+      borderColor: "#7A1E3A",
+    };
+  }
+  if (normalized === "NO") {
+    return {
+      backgroundColor: "#288158",
+      color: "#FFFFFF",
+      borderColor: "#288158",
+    };
+  }
+  return {
+    backgroundColor: "#E5E7EB",
+    color: "#374151",
+    borderColor: "#D1D5DB",
+  };
+}
+
 function formatEuroValue(raw: string | null | undefined): string {
   const digits = raw?.replace(/\D/g, "") ?? "";
   if (!digits) return "";
@@ -1098,20 +1121,16 @@ function SmallDataCard({ label, count, children }: {
 }
 
 interface PostalCodeResult {
+  id: string;
   cp: string;
-  municipio: string;
+  municipio: string | null;
   provincia: string;
   distrito: string | null;
 }
 
-async function fetchPostalCode(cp: string): Promise<PostalCodeResult | null> {
-  try {
-    const res = await fetch(`/api/postal-code/${cp}`);
-    if (!res.ok) return null;
-    return res.json();
-  } catch {
-    return null;
-  }
+function formatPostalCode(value: string | null | undefined) {
+  const digits = value?.replace(/\D/g, "") ?? "";
+  return digits ? digits.padStart(5, "0") : "";
 }
 
 interface EditLeadModalProps {
@@ -1133,21 +1152,38 @@ function EditLeadModal({
   onSave,
   ownerOptions,
 }: EditLeadModalProps) {
+  const initialCp = formatPostalCode(lead.cp);
   const [form, setForm] = useState({
     ...lead,
+    cp: initialCp,
+    municipio: "",
     valor: formatEuroValue(lead.valor),
   });
-  const [cpLoading, setCpLoading] = useState(false);
+  const [cpSearchResults, setCpSearchResults] = useState<PostalCodeResult[]>([]);
+  const [cpSearchLoading, setCpSearchLoading] = useState(false);
+  const [cpSearchError, setCpSearchError] = useState<string | null>(null);
+  const [cpOpen, setCpOpen] = useState(false);
+  const [activeCpIndex, setActiveCpIndex] = useState(0);
+  const [selectedCp, setSelectedCp] = useState<string | null>(initialCp || null);
   const [cpAutoFilled, setCpAutoFilled] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [activeEditTab, setActiveEditTab] = useState<EditLeadTab>("oportunidad");
 
   useEffect(() => {
+    const nextCp = formatPostalCode(lead.cp);
     setForm({
       ...lead,
+      cp: nextCp,
+      municipio: "",
       valor: formatEuroValue(lead.valor),
     });
+    setSelectedCp(nextCp || null);
+    setCpSearchResults([]);
+    setCpSearchLoading(false);
+    setCpSearchError(null);
+    setCpOpen(false);
+    setActiveCpIndex(0);
     setCpAutoFilled(false);
     setSaveError(null);
     setActiveEditTab(initialTab);
@@ -1161,28 +1197,133 @@ function EditLeadModal({
     set("valor", formatEuroValue(value));
   }
 
-  const handleCpChange = useCallback(async (value: string) => {
-    const digits = value.replace(/\D/g, "").slice(0, 5);
-    set("cp", digits);
+  useEffect(() => {
+    const query = form.cp.trim().replace(/\s+/g, " ");
+    if (!open || query.length < 2 || selectedCp === query) return;
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(async () => {
+      setCpSearchLoading(true);
+      setCpSearchError(null);
+
+      try {
+        const response = await fetch(
+          `/api/postal-search?q=${encodeURIComponent(query)}`,
+          { signal: controller.signal }
+        );
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.error || "No se pudieron buscar los CP.");
+        }
+
+        setCpSearchResults(payload.results as PostalCodeResult[]);
+        setActiveCpIndex(0);
+        setCpOpen(true);
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setCpSearchResults([]);
+        setCpSearchError(
+          error instanceof Error
+            ? error.message
+            : "No se pudieron buscar los códigos postales."
+        );
+        setCpOpen(true);
+      } finally {
+        if (!controller.signal.aborted) setCpSearchLoading(false);
+      }
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [form.cp, open, selectedCp]);
+
+  function handleCpChange(value: string) {
+    const nextValue = value.slice(0, 80);
+    set("cp", nextValue);
+    setSelectedCp(null);
+    setCpSearchResults([]);
+    setCpSearchError(null);
+    setActiveCpIndex(0);
+    setCpSearchLoading(nextValue.trim().length >= 2);
+    setCpOpen(nextValue.trim().length >= 2);
     setCpAutoFilled(false);
 
-    if (digits.length !== 5) return;
+    set("municipio", "");
+    set("provincia", "");
+    set("distrito", "");
+  }
 
-    setCpLoading(true);
-    try {
-      const result = await fetchPostalCode(digits);
-      if (result) {
-        set("municipio", result.municipio);
-        set("provincia", result.provincia);
-        if (result.distrito) set("distrito", result.distrito);
-        setCpAutoFilled(true);
-      }
-    } finally {
-      setCpLoading(false);
+  function selectPostalCode(result: PostalCodeResult) {
+    const cp = String(Number(result.id)).padStart(5, "0");
+    set("cp", cp);
+    setSelectedCp(cp);
+    set("municipio", result.municipio ?? "");
+    set("provincia", result.provincia);
+    set("distrito", result.distrito ?? "");
+    setCpAutoFilled(true);
+    setCpSearchResults([]);
+    setCpSearchLoading(false);
+    setCpSearchError(null);
+    setCpOpen(false);
+  }
+
+  function clearPostalCode() {
+    set("cp", "");
+    setSelectedCp(null);
+    set("municipio", "");
+    set("provincia", "");
+    set("distrito", "");
+    setCpAutoFilled(false);
+    setCpSearchResults([]);
+    setCpSearchLoading(false);
+    setCpSearchError(null);
+    setCpOpen(false);
+  }
+
+  function handleCpKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Escape") {
+      setCpOpen(false);
+      return;
     }
-  }, []);
+
+    if (event.key === "ArrowDown" && cpSearchResults.length > 0) {
+      event.preventDefault();
+      setCpOpen(true);
+      setActiveCpIndex((index) => (index + 1) % cpSearchResults.length);
+      return;
+    }
+
+    if (event.key === "ArrowUp" && cpSearchResults.length > 0) {
+      event.preventDefault();
+      setCpOpen(true);
+      setActiveCpIndex(
+        (index) => (index - 1 + cpSearchResults.length) % cpSearchResults.length
+      );
+      return;
+    }
+
+    if (event.key === "Enter" && cpOpen) {
+      event.preventDefault();
+      const result = cpSearchResults[activeCpIndex];
+      if (result) selectPostalCode(result);
+    }
+  }
+
+  function handleCpBlur(event: React.FocusEvent<HTMLDivElement>) {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setCpOpen(false);
+    }
+  }
 
   async function handleSave() {
+    const postalCode = form.cp.trim();
+    if (postalCode && (selectedCp !== postalCode || !/^\d{5}$/.test(postalCode))) {
+      setSaveError("Selecciona un código postal de la lista antes de guardar.");
+      return;
+    }
+
     setSaving(true);
     setSaveError(null);
 
@@ -1203,8 +1344,8 @@ function EditLeadModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-3rem)] max-w-none sm:max-w-[1180px] max-h-[92vh] overflow-hidden p-0">
-        <div className="flex max-h-[92vh] flex-col">
+      <DialogContent className="grid-rows-[minmax(0,1fr)_auto] h-[calc(75dvh-0.75rem)] max-h-[calc(75dvh-0.75rem)] w-[calc(100vw-3rem)] max-w-none overflow-hidden p-0 sm:max-w-[1320px]">
+        <div className="flex min-h-0 flex-col">
           <DialogHeader className="shrink-0 border-b border-border px-6 py-5">
             <DialogTitle className="text-base font-semibold">
               Editar lead
@@ -1245,9 +1386,6 @@ function EditLeadModal({
             <div className="min-h-0 overflow-y-auto px-6 py-5">
               {activeEditTab === "oportunidad" && (
                 <section className="space-y-3">
-                    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Estado del lead
-                    </h3>
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[minmax(180px,0.7fr)_minmax(240px,1.3fr)_minmax(320px,1.7fr)]">
                       <div className="flex flex-col gap-1.5">
                         <Label className="text-xs font-medium">Estado</Label>
@@ -1310,9 +1448,6 @@ function EditLeadModal({
 
               {activeEditTab === "propietario" && (
                 <section className="space-y-3">
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Datos del propietario
-                  </h3>
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div className="flex flex-col gap-1.5">
                       <Label className="text-xs font-medium">Propietario</Label>
@@ -1337,10 +1472,7 @@ function EditLeadModal({
 
               {activeEditTab === "inmueble" && (
                 <section className="space-y-3">
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Datos del inmueble
-                  </h3>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
                     <div className="flex flex-col gap-1.5 md:col-span-2">
                       <Label className="text-xs font-medium">Domicilio</Label>
                       <Input
@@ -1351,21 +1483,22 @@ function EditLeadModal({
                     </div>
 
                     <div className="flex flex-col gap-1.5">
-                      <Label className="text-xs font-medium">CP</Label>
-                      <div className="relative">
-                        <Input
-                          value={form.cp}
-                          onChange={(e) => handleCpChange(e.target.value)}
-                          className="h-9 pr-8 text-sm font-mono"
-                          placeholder="5 dígitos"
-                          maxLength={5}
-                          inputMode="numeric"
-                          disabled={cpLoading}
-                        />
-                        {cpLoading && (
-                          <Loader2 className="absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-primary" />
-                        )}
-                      </div>
+                      <Label htmlFor="edit-en-venta" className="text-xs font-medium">
+                        En Venta
+                      </Label>
+                      <Select
+                        value={form.enVenta || ""}
+                        onValueChange={(value) => set("enVenta", value)}
+                      >
+                        <SelectTrigger id="edit-en-venta" className="h-9 w-full min-w-0 text-sm">
+                          <SelectValue placeholder="Seleccionar" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {EN_VENTA_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div className="flex flex-col gap-1.5">
@@ -1389,44 +1522,93 @@ function EditLeadModal({
                       </Select>
                     </div>
 
-                    <div className="flex flex-col gap-1.5">
-                      <Label htmlFor="edit-en-venta" className="text-xs font-medium">
-                        En Venta
-                      </Label>
-                      <Select
-                        value={form.enVenta || ""}
-                        onValueChange={(value) => set("enVenta", value)}
-                      >
-                        <SelectTrigger id="edit-en-venta" className="h-9 w-full min-w-0 text-sm">
-                          <SelectValue placeholder="Seleccionar" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {EN_VENTA_OPTIONS.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
                     <div className="col-span-full grid grid-cols-1 gap-4 md:grid-cols-3">
                       <div className="flex flex-col gap-1.5">
-                        <Label className="flex items-center gap-1.5 text-xs font-medium">
-                          Municipio
-                          {cpAutoFilled && (
-                            <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium leading-none text-primary">
-                              <LocateFixed className="h-2.5 w-2.5" />
-                              auto
-                            </span>
+                        <Label className="text-xs font-medium">CP</Label>
+                        <div className="relative" onBlur={handleCpBlur}>
+                          <Input
+                            value={form.cp}
+                            onChange={(e) => handleCpChange(e.target.value)}
+                            onKeyDown={handleCpKeyDown}
+                            onFocus={() => {
+                              if (form.cp.trim().length >= 2 && selectedCp !== form.cp.trim()) {
+                                setCpOpen(true);
+                              }
+                            }}
+                            className="h-9 pr-8 text-sm"
+                            placeholder="Buscar CP o localidad"
+                            maxLength={80}
+                            role="combobox"
+                            aria-autocomplete="list"
+                            aria-expanded={cpOpen}
+                            aria-controls="edit-lead-cp-options"
+                            aria-activedescendant={
+                              cpOpen && cpSearchResults[activeCpIndex]
+                                ? `edit-lead-cp-option-${activeCpIndex}`
+                                : undefined
+                            }
+                            aria-busy={cpSearchLoading}
+                          />
+                          {cpSearchLoading ? (
+                            <Loader2 className="absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-primary" />
+                          ) : form.cp ? (
+                            <button
+                              type="button"
+                              aria-label="Borrar código postal"
+                              onMouseDown={(event) => event.preventDefault()}
+                              onClick={clearPostalCode}
+                              className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          ) : null}
+                          {cpOpen && form.cp.trim().length >= 2 && (
+                            <div
+                              id="edit-lead-cp-options"
+                              role="listbox"
+                              aria-label="Resultados de códigos postales"
+                              className="absolute left-0 top-full z-50 mt-1 max-h-[55vh] w-[min(24rem,calc(100vw-3rem))] overflow-y-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
+                            >
+                              {cpSearchLoading ? (
+                                <div role="status" className="px-3 py-2 text-sm text-muted-foreground">
+                                  Buscando...
+                                </div>
+                              ) : cpSearchError ? (
+                                <div role="alert" className="px-3 py-2 text-sm text-destructive">
+                                  {cpSearchError}
+                                </div>
+                              ) : cpSearchResults.length === 0 ? (
+                                <div role="status" className="px-3 py-2 text-sm text-muted-foreground">
+                                  No se encontraron resultados.
+                                </div>
+                              ) : (
+                                cpSearchResults.map((result, index) => (
+                                  <button
+                                    key={result.id}
+                                    id={`edit-lead-cp-option-${index}`}
+                                    type="button"
+                                    role="option"
+                                    aria-selected={index === activeCpIndex}
+                                    tabIndex={-1}
+                                    onMouseDown={(event) => event.preventDefault()}
+                                    onMouseEnter={() => setActiveCpIndex(index)}
+                                    onClick={() => selectPostalCode(result)}
+                                    className={cn(
+                                      "w-full rounded-sm px-3 py-2 text-left text-sm outline-none",
+                                      index === activeCpIndex
+                                        ? "bg-accent text-accent-foreground"
+                                        : "hover:bg-accent/60"
+                                    )}
+                                  >
+                                    {[result.cp, result.distrito, result.provincia]
+                                      .filter(Boolean)
+                                      .join(" · ")}
+                                  </button>
+                                ))
+                              )}
+                            </div>
                           )}
-                        </Label>
-                        <Input
-                          value={form.municipio}
-                          readOnly
-                          className={cn(
-                            "h-9 text-sm",
-                            cpAutoFilled && "border-primary/40 bg-primary/5"
-                          )}
-                        />
+                        </div>
                       </div>
 
                       <div className="flex flex-col gap-1.5">
@@ -2136,7 +2318,6 @@ export function LeadDetailPanel({
       "phone",
       "address",
       "distrito",
-      "municipio",
       "provincia",
       "cp",
       "valor",
@@ -2226,8 +2407,8 @@ export function LeadDetailPanel({
     )?.id;
     const ownerId = next.ownerId ?? matchedOwnerId ?? null;
 
-    const postalDigits = next.cp.replace(/\D/g, "").slice(0, 5);
-    const postalId = postalDigits ? Number(postalDigits) : null;
+    const postalCode = next.cp.trim();
+    const postalId = /^\d{5}$/.test(postalCode) ? Number(postalCode) : null;
     const { error } = await supabase
       .from("opportunities")
       .update({
@@ -3019,14 +3200,19 @@ export function LeadDetailPanel({
           </div>
           <div className="mt-2 flex items-baseline justify-center gap-2 md:justify-start">
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Valor
+              Fecha:
+            </span>
+            <span className="text-sm font-bold text-foreground">
+              {fmtDate(effectiveLead.fechaNoticia)}
+            </span>
+          </div>
+          <div className="mt-1 flex items-baseline justify-center gap-2 md:justify-start">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Valor:
             </span>
             <span className="text-sm font-bold text-foreground">
               {formatEuroValue(effectiveLead.valor) || effectiveLead.valor || "—"}
             </span>
-          </div>
-          <div className="mt-1 flex flex-wrap items-center justify-center gap-x-2 text-sm font-semibold leading-normal text-muted-foreground md:justify-start">
-            <span>F. Noticia: {fmtDate(effectiveLead.fechaNoticia)}</span>
           </div>
         </section>
 
@@ -3125,7 +3311,7 @@ export function LeadDetailPanel({
           {effectiveLead.occupancy?.trim() && (
             <Badge
               variant="outline"
-              className="order-5 h-6 rounded-md px-2 text-xs font-semibold"
+              className="order-5 h-6 rounded-md border-gray-600 bg-gray-700 px-2 text-xs font-semibold text-white"
             >
               {effectiveLead.occupancy.trim()}
             </Badge>
@@ -3134,6 +3320,7 @@ export function LeadDetailPanel({
             <Badge
               variant="outline"
               className="order-6 h-6 rounded-md px-2 text-xs font-semibold"
+              style={opportunityForSaleBadgeStyle(effectiveLead.enVenta)}
             >
               {opportunityForSaleLabel(effectiveLead.enVenta)}
             </Badge>

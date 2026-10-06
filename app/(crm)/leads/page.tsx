@@ -482,14 +482,14 @@ const EN_VENTA_BADGE_STYLES: Record<
   { backgroundColor: string; color: string; borderColor: string }
 > = {
   si: {
-    backgroundColor: "#F3B6B6",
+    backgroundColor: "#7A1E3A",
     color: "#FFFFFF",
-    borderColor: "#F3B6B6",
+    borderColor: "#7A1E3A",
   },
   no: {
-    backgroundColor: "#D4EDBC",
-    color: "#288158",
-    borderColor: "#B7D99C",
+    backgroundColor: "#288158",
+    color: "#FFFFFF",
+    borderColor: "#288158",
   },
   "no-sabe": {
     backgroundColor: "#E5E7EB",
