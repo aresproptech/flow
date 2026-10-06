@@ -8,7 +8,6 @@ interface PipelineColumnProps {
   phase: PipelinePhase;
   label: string;
   leads: Lead[];
-  accentColor: string;
   onOpenLead: (lead: Lead) => void;
   onMoveLead?: (leadId: string, nextPhase: PipelinePhase) => void;
 }
@@ -17,7 +16,6 @@ export function PipelineColumn({
   phase,
   label,
   leads,
-  accentColor,
   onOpenLead,
   onMoveLead,
 }: PipelineColumnProps) {
@@ -41,13 +39,9 @@ export function PipelineColumn({
   };
 
   return (
-    <section className="flex min-h-0 w-[calc(100vw-3.5rem)] shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-border bg-column-bg sm:w-[320px]">
-      <div className="flex items-center justify-between border-b border-border bg-card px-3 py-2.5">
+    <section className="flex h-full min-h-0 w-[calc(100vw-3.5rem)] shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-border bg-column-bg sm:w-[320px]">
+      <div className="flex shrink-0 items-center justify-between border-b border-border bg-card px-3 py-2.5">
         <div className="flex items-center gap-2">
-          <span
-            className="h-2 w-2 shrink-0 rounded-full"
-            style={{ backgroundColor: accentColor }}
-          />
           <span className="text-xs font-semibold uppercase tracking-wide text-foreground">
             {label}
           </span>
@@ -58,7 +52,7 @@ export function PipelineColumn({
       </div>
 
       <div
-        className="flex min-h-[200px] flex-1 flex-col gap-2 overflow-y-auto p-2"
+        className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2"
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >

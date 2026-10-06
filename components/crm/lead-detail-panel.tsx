@@ -18,6 +18,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  FileDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -450,6 +451,7 @@ type VisitRow = {
   dni?: string | null;
   vende?: boolean | string | null;
   observaciones_visita?: string | null;
+  notas?: string | null;
   created_by?: string | null;
   created_at?: string | null;
 };
@@ -1766,6 +1768,8 @@ export function LeadDetailPanel({
   const [localLead, setLocalLead] = useState<LeadWithDominio | null>(lead as LeadWithDominio | null);
   const [orders, setOrders] = useState<OpportunityOrderRow[]>([]);
   const [visits, setVisits] = useState<VisitRow[]>([]);
+  const [visitReportGenerating, setVisitReportGenerating] = useState(false);
+  const [visitReportError, setVisitReportError] = useState<string | null>(null);
   const [visitModalOpen, setVisitModalOpen] = useState(false);
   const [editingVisitId, setEditingVisitId] = useState<number | string | null>(null);
   const [visitSaving, setVisitSaving] = useState(false);
@@ -1924,6 +1928,7 @@ export function LeadDetailPanel({
   async function loadRelatedData(leadId: string) {
     setRelatedLoading(true);
     setRelatedError(null);
+    setVisitReportError(null);
 
     const numericLeadId = Number(leadId);
 
@@ -2737,6 +2742,55 @@ export function LeadDetailPanel({
     }
   }
 
+  async function handleDownloadVisitReport() {
+    if (
+      !effectiveLead ||
+      relatedLoading ||
+      visits.length === 0 ||
+      visitReportGenerating
+    ) {
+      return;
+    }
+
+    setVisitReportGenerating(true);
+    setVisitReportError(null);
+
+    try {
+      const {
+        buildVisitReportFilename,
+        createVisitReportPdf,
+        fetchAresLogoDataUrl,
+        fetchVisitReportFonts,
+      } = await import("@/lib/visit-report-pdf");
+      const [logoDataUrl, fonts] = await Promise.all([
+        fetchAresLogoDataUrl(),
+        fetchVisitReportFonts(),
+      ]);
+      const report = createVisitReportPdf({
+        opportunityId: effectiveLead.id,
+        property: {
+          address: effectiveLead.address,
+          postalCode: effectiveLead.cp,
+          district: effectiveLead.distrito,
+          province: effectiveLead.provincia,
+        },
+        visits,
+        logoDataUrl,
+        fonts,
+      });
+
+      report.save(
+        buildVisitReportFilename(effectiveLead.id, effectiveLead.address)
+      );
+    } catch {
+      setVisitReportError(
+        "No se pudo generar el reporte PDF. Inténtalo de nuevo."
+      );
+    } finally {
+      setVisitReportGenerating(false);
+    }
+  }
+
   async function handleSaveVisit() {
     if (
       !effectiveLead ||
@@ -3342,9 +3396,20 @@ export function LeadDetailPanel({
         </div>
         <div className="flex min-w-0 items-center justify-start gap-2 text-sm font-semibold leading-normal text-muted-foreground md:pl-6 lg:-translate-x-7">
           <span className="shrink-0 text-xs">Responsable:</span>
-          <span className="min-w-0 truncate" title={effectiveLead.planner || "Sin asignar"}>
-            {effectiveLead.planner || "Sin asignar"}
-          </span>
+          {readOnly ? (
+            <span className="min-w-0 truncate" title={effectiveLead.owner || "Sin asignar"}>
+              {effectiveLead.owner || "Sin asignar"}
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => openLeadEditor("oportunidad")}
+              className="min-w-0 truncate text-left underline-offset-2 hover:text-primary hover:underline"
+              title={effectiveLead.owner || "Sin asignar"}
+            >
+              {effectiveLead.owner || "Sin asignar"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -4127,6 +4192,17 @@ export function LeadDetailPanel({
                       <Badge variant="secondary" className="rounded-full text-[10px]">
                         {visits.length}
                       </Badge>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1.5 text-xs"
+                        onClick={() => void handleDownloadVisitReport()}
+                        disabled={relatedLoading || visits.length === 0 || visitReportGenerating}
+                      >
+                        <FileDown className="h-3.5 w-3.5" />
+                        {visitReportGenerating ? "Generando..." : "Reporte"}
+                      </Button>
                     </div>
                     {!readOnly && (
                       <Button
@@ -4141,6 +4217,15 @@ export function LeadDetailPanel({
                       </Button>
                     )}
                   </div>
+
+                  {visitReportError && (
+                    <p
+                      role="alert"
+                      className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+                    >
+                      {visitReportError}
+                    </p>
+                  )}
 
                   {relatedLoading ? (
                     <p className="text-xs text-muted-foreground">Cargando visitas...</p>

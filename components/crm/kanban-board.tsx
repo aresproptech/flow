@@ -1,11 +1,11 @@
 import { type Lead } from "@/lib/crm-data";
 import { PipelineColumn, type PipelinePhase } from "./pipeline-column";
 
-const COLUMNS: { phase: PipelinePhase; label: string; accentColor: string }[] = [
-  { phase: "identificada", label: "Identificada", accentColor: "#94a3b8" },
-  { phase: "cualificada", label: "Cualificada", accentColor: "#60a5fa" },
-  { phase: "valorada", label: "Valorada", accentColor: "#a78bfa" },
-  { phase: "encargo", label: "Encargo", accentColor: "#10b981" },
+const COLUMNS: { phase: PipelinePhase; label: string }[] = [
+  { phase: "identificada", label: "Identificada" },
+  { phase: "cualificada", label: "Cualificada" },
+  { phase: "valorada", label: "Valorada" },
+  { phase: "encargo", label: "Encargo" },
 ];
 
 type KanbanBoardProps = {
@@ -34,14 +34,13 @@ export function KanbanBoard({
   }
 
   return (
-    <div className="flex min-h-0 snap-x snap-mandatory gap-3 overflow-x-auto pb-4">
-      {visibleColumns.map(({ phase, label, accentColor }) => (
+    <div className="flex h-full min-h-0 snap-x snap-mandatory gap-3 overflow-x-auto overflow-y-hidden">
+      {visibleColumns.map(({ phase, label }) => (
         <PipelineColumn
           key={phase}
           phase={phase}
           label={label}
           leads={leads.filter((lead) => lead.phase === phase)}
-          accentColor={accentColor}
           onOpenLead={onOpenLead}
           onMoveLead={onMoveLead}
         />

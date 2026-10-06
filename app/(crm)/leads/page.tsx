@@ -1991,38 +1991,38 @@ export default function LeadsPage() {
           <div className="shrink-0 border-b border-border bg-muted/40 px-6 py-2 text-xs text-muted-foreground">
             {loadingSearchResults
               ? "Buscando en todos los leads de Supabase..."
-              : "Cargando leads desde Supabase..."}
+              : "Cargando leads..."}
           </div>
         )}
 
         {viewMode === "table" ? (
           <div className="relative flex-1 overflow-auto">
-            <table className="w-full table-fixed border-collapse text-sm md:w-[2240px] md:[table-layout:fixed]">
+            <table className="w-full table-fixed border-separate border-spacing-0 text-sm md:w-[2003px] md:[table-layout:fixed]">
               <colgroup>
                 <col className="w-[40px] md:w-[48px]" />
                 <col className="w-[72px] md:w-[90px]" />
                 <col className="w-[200px] md:w-[230px]" />
                 <col className="w-[260px] md:w-[310px]" />
                 <col className="w-[30%] md:w-[175px]" />
-                <col style={{ width: 135 }} />
-                <col style={{ width: 105 }} />
+                <col style={{ width: 100 }} />
+                <col style={{ width: 90 }} />
+                <col style={{ width: 130 }} />
+                <col style={{ width: 155 }} />
                 <col style={{ width: 115 }} />
                 <col style={{ width: 135 }} />
-                <col style={{ width: 155 }} />
-                <col style={{ width: 155 }} />
                 <col style={{ width: 165 }} />
                 <col style={{ width: 130 }} />
                 <col style={{ width: 130 }} />
               </colgroup>
 
-              <thead className="sticky top-0 z-20 bg-card">
+              <thead className="sticky top-0 z-40 bg-card">
                 <tr className="border-b border-border bg-card/95 text-left backdrop-blur">
-                  <th className="sticky left-0 z-30 w-[40px] border-r border-border bg-card px-2 py-2.5 md:w-[48px] md:px-3">
+                  <th className="sticky left-0 top-0 z-50 w-[40px] border-r border-border bg-card px-2 py-2.5 md:w-[48px] md:px-3">
                     <span className="sr-only">Favorito</span>
                   </th>
                   <th
                     onClick={() => handleSort("id")}
-                    className="sticky left-[40px] z-30 group cursor-pointer select-none whitespace-nowrap border-r border-border bg-card px-2 py-2.5 md:left-[48px] md:px-3"
+                    className="sticky left-[40px] top-0 z-50 group cursor-pointer select-none whitespace-nowrap border-r border-border bg-card px-2 py-2.5 md:left-[48px] md:px-3"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
                       ID
@@ -2032,7 +2032,7 @@ export default function LeadsPage() {
 
                   <th
                     onClick={() => handleSort("ownerName")}
-                    className="sticky left-[112px] z-30 group cursor-pointer select-none whitespace-nowrap border-r border-border bg-card px-2 py-2.5 md:left-[138px] md:px-3"
+                    className="sticky left-[112px] top-0 z-50 group cursor-pointer select-none whitespace-nowrap border-r border-border bg-card px-2 py-2.5 md:left-[138px] md:px-3"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
                       Propietario
@@ -2046,7 +2046,7 @@ export default function LeadsPage() {
 
                   <th
                     onClick={() => handleSort("address")}
-                    className="sticky left-[312px] z-30 group cursor-pointer select-none whitespace-nowrap border-r border-border bg-card px-2 py-2.5 md:left-[368px] md:px-3"
+                    className="sticky left-[312px] top-0 z-50 group cursor-pointer select-none whitespace-nowrap border-r border-border bg-card px-2 py-2.5 md:left-[368px] md:px-3"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
                       Domicilio
@@ -2075,7 +2075,7 @@ export default function LeadsPage() {
                     className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
-                      F. Noticia
+                      Fecha
                       <SortIcon
                         col={"fechaNoticia"}
                         sortKey={sortKey}
@@ -2085,38 +2085,12 @@ export default function LeadsPage() {
                   </th>
                   <th
                     onClick={() => handleSort("month")}
-                    className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
+                    className="group cursor-pointer select-none whitespace-nowrap px-2 py-2.5 hidden md:table-cell"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
-                      Month
+                      Periodo
                       <SortIcon
                         col={"month"}
-                        sortKey={sortKey}
-                        sortDir={sortDir}
-                      />
-                    </span>
-                  </th>
-                  <th
-                    onClick={() => handleSort("phase")}
-                    className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
-                  >
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
-                      Fase
-                      <SortIcon
-                        col={"phase"}
-                        sortKey={sortKey}
-                        sortDir={sortDir}
-                      />
-                    </span>
-                  </th>
-                  <th
-                    onClick={() => handleSort("status")}
-                    className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
-                  >
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
-                      Estado
-                      <SortIcon
-                        col={"status"}
                         sortKey={sortKey}
                         sortDir={sortDir}
                       />
@@ -2143,6 +2117,32 @@ export default function LeadsPage() {
                       Origen
                       <SortIcon
                         col={"source"}
+                        sortKey={sortKey}
+                        sortDir={sortDir}
+                      />
+                    </span>
+                  </th>
+                  <th
+                    onClick={() => handleSort("phase")}
+                    className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
+                  >
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
+                      Fase
+                      <SortIcon
+                        col={"phase"}
+                        sortKey={sortKey}
+                        sortDir={sortDir}
+                      />
+                    </span>
+                  </th>
+                  <th
+                    onClick={() => handleSort("status")}
+                    className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
+                  >
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
+                      Estado
+                      <SortIcon
+                        col={"status"}
                         sortKey={sortKey}
                         sortDir={sortDir}
                       />
@@ -2207,7 +2207,11 @@ export default function LeadsPage() {
                     <td
                       className={cn(
                         "sticky left-0 z-20 border-r border-border px-2 py-2.5 md:px-3",
-                        selectedLead?.id === lead.id ? "bg-accent" : "bg-card"
+                        selectedLead?.id === lead.id
+                          ? "bg-accent"
+                          : i % 2 === 0
+                            ? "bg-card"
+                            : "bg-background"
                       )}
                     >
                       <button
@@ -2244,7 +2248,11 @@ export default function LeadsPage() {
                     <td
                       className={cn(
                         "sticky left-[40px] z-20 whitespace-nowrap overflow-hidden border-r border-border px-2 py-2.5 text-sm text-muted-foreground md:left-[48px] md:px-3",
-                        selectedLead?.id === lead.id ? "bg-accent" : "bg-card"
+                        selectedLead?.id === lead.id
+                          ? "bg-accent"
+                          : i % 2 === 0
+                            ? "bg-card"
+                            : "bg-background"
                       )}
                     >
                       {lead.id.padStart(6, "0")}
@@ -2253,7 +2261,11 @@ export default function LeadsPage() {
                     <td
                       className={cn(
                         "sticky left-[112px] z-20 truncate whitespace-nowrap overflow-hidden border-r border-border px-2 py-2.5 md:left-[138px] md:px-3",
-                        selectedLead?.id === lead.id ? "bg-accent" : "bg-card"
+                        selectedLead?.id === lead.id
+                          ? "bg-accent"
+                          : i % 2 === 0
+                            ? "bg-card"
+                            : "bg-background"
                       )}
                     >
                       <span className="font-bold text-foreground">
@@ -2264,7 +2276,11 @@ export default function LeadsPage() {
                     <td
                       className={cn(
                         "sticky left-[312px] z-20 truncate whitespace-nowrap overflow-hidden border-r border-border px-2 py-2.5 text-sm text-muted-foreground md:left-[368px] md:px-3",
-                        selectedLead?.id === lead.id ? "bg-accent" : "bg-card"
+                        selectedLead?.id === lead.id
+                          ? "bg-accent"
+                          : i % 2 === 0
+                            ? "bg-card"
+                            : "bg-background"
                       )}
                     >
                       {lead.address}
@@ -2280,6 +2296,28 @@ export default function LeadsPage() {
 
                     <td className="whitespace-nowrap px-3 py-2.5 text-sm text-muted-foreground hidden md:table-cell">
                       {lead.month}
+                    </td>
+
+                    <td className="px-3 py-2.5 hidden md:table-cell">
+                      {lead.dominio && lead.dominio !== "—" ? (
+                        <span
+                          className="inline-flex items-center rounded-full border px-2 py-0.5 text-sm font-medium whitespace-nowrap"
+                          style={getDominioBadgeStyle(lead.dominio)}
+                        >
+                          {lead.dominio}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">—</span>
+                      )}
+                    </td>
+
+                    <td className="px-3 py-2.5 hidden md:table-cell">
+                      <span
+                        className="inline-flex items-center rounded-full border px-2 py-0.5 text-sm font-medium whitespace-nowrap"
+                        style={getSourceBadgeStyle(lead.source)}
+                      >
+                        {lead.source}
+                      </span>
                     </td>
 
                     <td className="px-3 py-2.5 hidden md:table-cell">
@@ -2308,28 +2346,6 @@ export default function LeadsPage() {
                           </span>
                         );
                       })()}
-                    </td>
-
-                    <td className="px-3 py-2.5 hidden md:table-cell">
-                      {lead.dominio && lead.dominio !== "—" ? (
-                        <span
-                          className="inline-flex items-center rounded-full border px-2 py-0.5 text-sm font-medium whitespace-nowrap"
-                          style={getDominioBadgeStyle(lead.dominio)}
-                        >
-                          {lead.dominio}
-                        </span>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">—</span>
-                      )}
-                    </td>
-
-                    <td className="px-3 py-2.5 hidden md:table-cell">
-                      <span
-                        className="inline-flex items-center rounded-full border px-2 py-0.5 text-sm font-medium whitespace-nowrap"
-                        style={getSourceBadgeStyle(lead.source)}
-                      >
-                        {lead.source}
-                      </span>
                     </td>
 
                     <td className="max-w-[110px] truncate whitespace-nowrap px-3 py-2.5 text-sm text-muted-foreground hidden md:table-cell">
@@ -2372,7 +2388,7 @@ export default function LeadsPage() {
 
           </div>
         ) : (
-          <div className="flex-1 overflow-auto px-6 py-5">
+          <div className="flex min-h-0 flex-1 overflow-hidden px-6 py-5">
             {!loadingSearchResults && (
               <KanbanBoard
                 leads={visibleTableLeads.filter((lead) =>
