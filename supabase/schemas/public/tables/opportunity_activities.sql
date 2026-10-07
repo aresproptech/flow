@@ -5,6 +5,7 @@ CREATE TABLE "public"."opportunity_activities" (
   "fecha"            date,
   "hora"             time without time zone,
   "medio"            text,
+  "confirmed"        boolean                  NOT NULL DEFAULT false,
   "resultado_text"   text,
   "memo"             character varying,
   "resultado"        boolean,

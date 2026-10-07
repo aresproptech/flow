@@ -6,7 +6,6 @@ import { canEditLeads, useUser } from "@/lib/hooks/useUser";
 import {
   X,
   Phone,
-  MapPin,
   User,
   Tag,
   Pencil,
@@ -19,7 +18,9 @@ import {
   ChevronLeft,
   ChevronRight,
   FileDown,
+  Check,
 } from "lucide-react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -361,14 +362,14 @@ function isManualNoteMemo(memo: string) {
 
 type RgHistoryEvent = {
   id: string;
-  numero: number;
   fecha: string;
   hora: string;
   medio: string;
+  confirmed: boolean;
   resultado: string;
-  dominio: string;
   planner: string;
   owner: string;
+  ownerProfileId: number | null;
   memo: string;
 };
 
@@ -377,6 +378,7 @@ type ValuationHistoryEvent = {
   fecha: string;
   hora: string;
   medio: string;
+  confirmed: boolean;
   planner: string;
   owner: string;
   ownerProfileId: number | null;
@@ -401,6 +403,7 @@ type OpportunityContactRow = {
   fecha?: string | null;
   hora?: string | null;
   medio?: string | null;
+  confirmed?: boolean | null;
   resultado_text?: string | null;
   memo?: string | null;
   resultado?: boolean | null;
@@ -1344,6 +1347,24 @@ function EditLeadModal({
     }
   }
 
+  const googleMapsLocationParts = [
+    form.address,
+    form.cp,
+    form.distrito,
+    form.provincia,
+  ]
+    .map((value) => value?.trim() ?? "")
+    .filter(
+      (value) =>
+        value && !["—", "-", "null", "undefined"].includes(value.toLowerCase())
+    );
+  const googleMapsQuery = googleMapsLocationParts.length
+    ? [...googleMapsLocationParts, "España"].join(", ")
+    : "";
+  const googleMapsUrl = googleMapsQuery
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(googleMapsQuery)}`
+    : null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="grid-rows-[minmax(0,1fr)_auto] h-[calc(75dvh-0.75rem)] max-h-[calc(75dvh-0.75rem)] w-[calc(100vw-3rem)] max-w-none overflow-hidden p-0 sm:max-w-[1320px]">
@@ -1477,11 +1498,38 @@ function EditLeadModal({
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
                     <div className="flex flex-col gap-1.5 md:col-span-2">
                       <Label className="text-xs font-medium">Domicilio</Label>
-                      <Input
-                        value={form.address}
-                        onChange={(e) => set("address", e.target.value)}
-                        className="h-9 text-sm"
-                      />
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Input
+                          value={form.address}
+                          onChange={(e) => set("address", e.target.value)}
+                          className="h-9 min-w-0 flex-1 text-sm"
+                        />
+                        {googleMapsUrl && (
+                          <Button
+                            asChild
+                            variant="outline"
+                            size="icon"
+                            className="h-9 w-9 shrink-0 p-1.5"
+                          >
+                            <a
+                              href={googleMapsUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              aria-label="Ver en Google Maps"
+                              title="Ver en Google Maps"
+                            >
+                              <Image
+                                src="/google-maps-pin.svg"
+                                alt=""
+                                width={24}
+                                height={32}
+                                unoptimized
+                                className="h-full w-auto"
+                              />
+                            </a>
+                          </Button>
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex flex-col gap-1.5">
@@ -1820,8 +1868,10 @@ export function LeadDetailPanel({
     fecha: "",
     hora: "",
     medio: "",
+    confirmed: false,
     resultado: "",
     memo: "",
+    owner: "",
   });
   const [rgSaving, setRgSaving] = useState(false);
   const [rgError, setRgError] = useState<string | null>(null);
@@ -1832,6 +1882,7 @@ export function LeadDetailPanel({
     fecha: todayDateInput(),
     hora: currentQuarterTimeInput(),
     medio: "Teléfono",
+    confirmed: false,
     resultado: "",
     memo: "",
     owner: "",
@@ -2246,7 +2297,7 @@ export function LeadDetailPanel({
     const { data, error } = await supabase
       .from("opportunity_activities")
       .select(
-        "id, created_at, fecha, hora, medio, resultado_text, memo, resultado, event_type, assigned_profile_id, parent_event_id"
+        "*, profile:profiles!opportunity_activities_created_by_fkey(name), assigned_profile:profiles!opportunity_activities_assigned_profile_id_fkey(name)"
       )
       .eq("opportunity_id", Number(leadId))
       .eq("event_type", "rg")
@@ -2267,7 +2318,7 @@ export function LeadDetailPanel({
     const { data, error } = await supabase
       .from("opportunity_activities")
       .select(
-        "id, created_at, fecha, hora, medio, memo, resultado, resultado_text, event_type, created_by, profile:profiles!opportunity_activities_created_by_fkey(name), assigned_profile_id, assigned_profile:profiles!opportunity_activities_assigned_profile_id_fkey(name), parent_event_id, legacy:opportunity_activity_history_archive(legacy_payload)"
+        "*, profile:profiles!opportunity_activities_created_by_fkey(name), assigned_profile:profiles!opportunity_activities_assigned_profile_id_fkey(name), legacy:opportunity_activity_history_archive(legacy_payload)"
       )
       .eq("opportunity_id", Number(leadId))
       .eq("event_type", "valuation")
@@ -2533,7 +2584,7 @@ export function LeadDetailPanel({
   function resetRgForm() {
     setEditingRgId(null);
     setRgError(null);
-    setRgForm({ fecha: "", hora: "", medio: "", resultado: "", memo: "" });
+    setRgForm({ fecha: "", hora: "", medio: "", confirmed: false, resultado: "", memo: "", owner: "" });
   }
 
   function resetValuationForm() {
@@ -2543,6 +2594,7 @@ export function LeadDetailPanel({
       fecha: todayDateInput(),
       hora: currentQuarterTimeInput(),
       medio: "Teléfono",
+      confirmed: false,
       resultado: "",
       memo: "",
       owner: "",
@@ -2602,13 +2654,15 @@ export function LeadDetailPanel({
     setOrderModalOpen(true);
   }
 
-  function openNewRgModal() {
+  async function openNewRgModal() {
     if (!effectiveLead || effectiveLead.phase !== "encargo") return;
     resetRgForm();
     setRgModalOpen(true);
+    const { error } = await loadActiveProfiles();
+    if (error) setRgError(`No se pudieron cargar los Responsables: ${error}`);
   }
 
-  function openEditRgModal(event: RgHistoryEvent) {
+  async function openEditRgModal(event: RgHistoryEvent) {
     const rgId = persistedRowId(event.id);
     if (!rgId) return;
 
@@ -2618,10 +2672,26 @@ export function LeadDetailPanel({
       fecha: dateOnlyValue(event.fecha),
       hora: roundTimeToQuarter(event.hora || ""),
       medio: event.medio === "—" ? "" : event.medio,
+      confirmed: event.confirmed,
       resultado: event.resultado === "—" ? "" : event.resultado,
       memo: event.memo || "",
+      owner: "",
     });
     setRgModalOpen(true);
+    const { profiles, error } = await loadActiveProfiles();
+    if (error || !profiles) {
+      if (error) setRgError(`No se pudieron cargar los Responsables: ${error}`);
+      return;
+    }
+
+    const ownerName = event.owner.trim().toLowerCase();
+    const selectedOwner =
+      profiles.find((profile) => profile.id === event.ownerProfileId) ??
+      profiles.find((profile) => profile.name.toLowerCase() === ownerName);
+    setRgForm((previous) => ({
+      ...previous,
+      owner: selectedOwner ? String(selectedOwner.id) : "",
+    }));
   }
 
   async function openNewValuationModal() {
@@ -2641,6 +2711,7 @@ export function LeadDetailPanel({
       fecha: dateOnlyValue(event.fecha),
       hora: roundTimeToQuarter(event.hora || ""),
       medio: event.medio === "—" ? "" : event.medio,
+      confirmed: event.confirmed,
       resultado: event.resultado === "—" ? "" : event.resultado,
       memo: event.memo || "",
       owner: "",
@@ -2979,6 +3050,8 @@ export function LeadDetailPanel({
       : null;
 
     const resultadoLabel = rgForm.resultado || "—";
+    const responsableName =
+      activeProfileOptions.find((profile) => String(profile.id) === rgForm.owner)?.name || "—";
 
     const rgChanges = previousRg
       ? buildHistoryChangeLines([
@@ -2990,6 +3063,7 @@ export function LeadDetailPanel({
           },
           { label: "Hora", before: previousRg.hora, after: rgForm.hora },
           { label: "Medio", before: previousRg.medio, after: rgForm.medio || "—" },
+          { label: "Responsable", before: previousRg.owner, after: responsableName },
           { label: "Resultado", before: previousRg.resultado, after: resultadoLabel },
           { label: "Memo", before: previousRg.memo, after: rgForm.memo.trim() },
         ])
@@ -2999,10 +3073,12 @@ export function LeadDetailPanel({
       fecha: rgForm.fecha,
       hora: rgForm.hora || null,
       medio: rgForm.medio || null,
+      confirmed: rgForm.confirmed,
       resultado_text: resultadoLabel,
       memo: rgForm.memo.trim() || null,
       resultado: true,
       event_type: "rg",
+      assigned_profile_id: rgForm.owner ? Number(rgForm.owner) : null,
     };
     const { error } = wasEditing
       ? await supabase
@@ -3013,6 +3089,7 @@ export function LeadDetailPanel({
           .eq("event_type", "rg")
       : await supabase.from("opportunity_activities").insert({
           opportunity_id: Number(effectiveLead.id),
+          created_by: userWithRole?.crmUser.id ?? null,
           ...rgPayload,
         });
 
@@ -3071,6 +3148,7 @@ export function LeadDetailPanel({
       fecha: valuationDate,
       hora: valuationForm.hora || null,
       medio: valuationForm.medio || null,
+      confirmed: valuationForm.confirmed,
       memo: valuationForm.memo.trim() || null,
       resultado: true,
       resultado_text: valuationResult,
@@ -3162,17 +3240,23 @@ export function LeadDetailPanel({
     effectiveLead.cp && effectiveLead.cp !== "—" ? `(${effectiveLead.cp})` : "",
   ].filter((part) => part && part !== "—");
 
-  const parsedRgEntries: RgHistoryEvent[] = rgEntries.map((row, index) => {
+  const parsedRgEntries: RgHistoryEvent[] = rgEntries.map((row) => {
     return {
       id: String(row.id),
-      numero: index + 1,
       fecha: row.fecha || row.created_at || "",
       hora: row.hora || "",
       medio: row.medio || "—",
+      confirmed: row.confirmed === true,
       resultado: row.resultado_text || "—",
-      dominio: getLeadDominio(effectiveLead) || "—",
-      planner: effectiveLead.planner || "—",
-      owner: effectiveLead.owner || "—",
+      planner:
+        (Array.isArray(row.profile) ? row.profile[0] : row.profile)?.name?.trim() ||
+        "—",
+      owner:
+        (Array.isArray(row.assigned_profile)
+          ? row.assigned_profile[0]
+          : row.assigned_profile
+        )?.name?.trim() || "—",
+      ownerProfileId: row.assigned_profile_id ?? null,
       memo: row.memo?.trim() || "",
     };
   });
@@ -3188,6 +3272,7 @@ export function LeadDetailPanel({
         fecha: row.fecha || row.created_at || "",
         hora: row.hora || "",
         medio: row.medio || "—",
+        confirmed: row.confirmed === true,
         planner:
           (Array.isArray(row.profile) ? row.profile[0] : row.profile)?.name?.trim() ||
           "—",
@@ -3725,14 +3810,14 @@ export function LeadDetailPanel({
                     </div>
                   ) : (
                     <div className="max-h-[55vh] overflow-auto overscroll-contain rounded-lg border border-border bg-card">
-                      <div className="sticky top-0 z-20 grid min-w-[948px] grid-cols-[96px_56px_96px_180px_180px_104px_minmax(180px,1fr)_56px] border-b border-border bg-muted/95 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur">
+                      <div className="sticky top-0 z-20 grid min-w-[896px] grid-cols-[96px_72px_96px_112px_180px_180px_104px_56px] border-b border-border bg-muted/95 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur">
                         <span>Fecha</span>
                         <span>Hora</span>
                         <span>Medio</span>
-                        <span>Planner</span>
-                        <span>Owner</span>
+                        <span className="text-center">Confirmada</span>
+                        <span>Creado</span>
+                        <span>Responsable</span>
                         <span>Resultado</span>
-                        <span>Memo</span>
                         <span />
                       </div>
 
@@ -3748,11 +3833,25 @@ export function LeadDetailPanel({
                                   current === event.id ? null : event.id
                                 )
                               }
-                              className="grid w-full min-w-[948px] grid-cols-[96px_56px_96px_180px_180px_104px_minmax(180px,1fr)_56px] items-center px-3 py-3 text-left text-sm transition hover:bg-muted/40"
+                              className="grid w-full min-w-[896px] grid-cols-[96px_72px_96px_112px_180px_180px_104px_56px] items-center px-3 py-3 text-left text-sm transition hover:bg-muted/40"
                             >
                               <span className="text-foreground">{fmtDateDdMmYy(event.fecha)}</span>
-                              <span className="text-muted-foreground">{event.hora || "—"}</span>
+                              <span className="text-muted-foreground">
+                                {event.hora ? event.hora.slice(0, 5) : "—"}
+                              </span>
                               <span className="text-muted-foreground">{event.medio}</span>
+                              <span
+                                aria-hidden="true"
+                                title={event.confirmed ? "Confirmada" : "No confirmada"}
+                                className={cn(
+                                  "mx-auto inline-flex h-4 w-4 items-center justify-center rounded-sm border",
+                                  event.confirmed
+                                    ? "border-primary bg-primary text-primary-foreground"
+                                    : "border-input bg-background text-transparent"
+                                )}
+                              >
+                                {event.confirmed && <Check className="h-3 w-3" />}
+                              </span>
                               <span className="whitespace-nowrap text-muted-foreground">{event.planner}</span>
                               <span className="whitespace-nowrap text-muted-foreground">{event.owner}</span>
                               <span>
@@ -3762,9 +3861,6 @@ export function LeadDetailPanel({
                                 >
                                   {event.resultado}
                                 </Badge>
-                              </span>
-                              <span className="truncate pr-2 text-muted-foreground" title={event.memo}>
-                                {event.memo || "—"}
                               </span>
                               <span className="flex items-center justify-end gap-2">
                                 {!readOnly && (persistedRowId(event.id) ? (
@@ -4068,13 +4164,14 @@ export function LeadDetailPanel({
                     </p>
                   ) : (
                     <div className="max-h-[55vh] overflow-auto overscroll-contain rounded-lg border border-border bg-card">
-                      <div className="sticky top-0 z-20 grid min-w-[720px] grid-cols-[64px_1.3fr_90px_1fr_1fr_1fr_72px] border-b border-border bg-muted/95 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur">
-                        <span>R.G.</span>
+                      <div className="sticky top-0 z-20 grid min-w-[896px] grid-cols-[96px_72px_96px_112px_180px_180px_104px_56px] border-b border-border bg-muted/95 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur">
                         <span>Fecha</span>
                         <span>Hora</span>
                         <span>Medio</span>
+                        <span className="text-center">Confirmada</span>
+                        <span>Creado</span>
+                        <span>Responsable</span>
                         <span>Resultado</span>
-                        <span>Dominio</span>
                         <span />
                       </div>
 
@@ -4090,16 +4187,27 @@ export function LeadDetailPanel({
                                   current === event.id ? null : event.id
                                 )
                               }
-                              className="grid w-full min-w-[720px] grid-cols-[64px_1.3fr_90px_1fr_1fr_1fr_72px] items-center px-3 py-3 text-left text-sm transition hover:bg-muted/40"
+                              className="grid w-full min-w-[896px] grid-cols-[96px_72px_96px_112px_180px_180px_104px_56px] items-center px-3 py-3 text-left text-sm transition hover:bg-muted/40"
                             >
-                              <span className="font-semibold text-foreground">
-                                #{event.numero}
-                              </span>
-                              <span className="text-foreground">{fmtDate(event.fecha)}</span>
+                              <span className="text-foreground">{fmtDateDdMmYy(event.fecha)}</span>
                               <span className="text-muted-foreground">
-                                {event.hora || "—"}
+                                {event.hora ? event.hora.slice(0, 5) : "—"}
                               </span>
                               <span className="text-muted-foreground">{event.medio}</span>
+                              <span
+                                aria-hidden="true"
+                                title={event.confirmed ? "Confirmada" : "No confirmada"}
+                                className={cn(
+                                  "mx-auto inline-flex h-4 w-4 items-center justify-center rounded-sm border",
+                                  event.confirmed
+                                    ? "border-primary bg-primary text-primary-foreground"
+                                    : "border-input bg-background text-transparent"
+                                )}
+                              >
+                                {event.confirmed && <Check className="h-3 w-3" />}
+                              </span>
+                              <span className="whitespace-nowrap text-muted-foreground">{event.planner}</span>
+                              <span className="whitespace-nowrap text-muted-foreground">{event.owner}</span>
                               <span>
                                 <Badge
                                   className="rounded-md text-[11px]"
@@ -4108,7 +4216,6 @@ export function LeadDetailPanel({
                                   {event.resultado}
                                 </Badge>
                               </span>
-                              <span className="text-muted-foreground">{event.dominio}</span>
                               <span className="flex items-center justify-end gap-2">
                                 {!readOnly && (persistedRowId(event.id) ? (
                                   <span
@@ -4143,38 +4250,8 @@ export function LeadDetailPanel({
                             </button>
 
                             {isOpen && (
-                              <div className="border-t border-border bg-muted/20 px-4 py-4">
-                                <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-                                  <SmallDataCard label="Número R.G.">
-                                    #{event.numero}
-                                  </SmallDataCard>
-                                  <SmallDataCard label="Fecha R.G.">
-                                    {fmtDate(event.fecha)}
-                                  </SmallDataCard>
-                                  <SmallDataCard label="Hora">
-                                    {event.hora || "—"}
-                                  </SmallDataCard>
-                                  <SmallDataCard label="Medio">
-                                    {event.medio}
-                                  </SmallDataCard>
-                                  <SmallDataCard label="Resultado">
-                                    {event.resultado}
-                                  </SmallDataCard>
-                                  <SmallDataCard label="Dominio">
-                                    {event.dominio}
-                                  </SmallDataCard>
-                                  <SmallDataCard label="Planner">
-                                    {event.planner}
-                                  </SmallDataCard>
-                                  <SmallDataCard label="Owner">
-                                    {event.owner}
-                                  </SmallDataCard>
-                                </div>
-
-                                <div className="mt-3 rounded-md border border-border bg-background px-3 py-2 text-xs text-muted-foreground">
-                                  <span className="font-semibold uppercase tracking-wide text-foreground">
-                                    Memo:{" "}
-                                  </span>
+                              <div className="border-t border-border bg-muted/20 px-4 py-2">
+                                <div className="rounded-lg border border-border bg-card p-3 text-sm text-foreground whitespace-pre-wrap">
                                   {event.memo || "—"}
                                 </div>
                               </div>
@@ -4375,7 +4452,7 @@ export function LeadDetailPanel({
             </DialogTitle>
             <DialogDescription>
               {editingValuationId
-                ? "Actualiza los datos principales de la valoración del lead."
+                ? "Actualiza los datos principales de la valoración."
                 : "Carga los datos principales de la valoración del lead."}
             </DialogDescription>
           </DialogHeader>
@@ -4420,7 +4497,27 @@ export function LeadDetailPanel({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-medium">Owner</Label>
+              <Label htmlFor="valuation-confirmed" className="text-xs font-medium">
+                Confirmada
+              </Label>
+              <Select
+                value={valuationForm.confirmed ? "SI" : "NO"}
+                onValueChange={(value) =>
+                  setValuationForm((previous) => ({ ...previous, confirmed: value === "SI" }))
+                }
+              >
+                <SelectTrigger id="valuation-confirmed" className="h-9 w-full min-w-0 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="SI" className="text-sm">SI</SelectItem>
+                  <SelectItem value="NO" className="text-sm">NO</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs font-medium">Responsable</Label>
               <Select
                 value={valuationForm.owner}
                 onValueChange={(value) =>
@@ -4683,9 +4780,9 @@ export function LeadDetailPanel({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-medium">Fecha R.G.</Label>
+              <Label className="text-xs font-medium">Fecha</Label>
               <Input
                 type="date"
                 className="h-9 text-sm"
@@ -4719,6 +4816,48 @@ export function LeadDetailPanel({
             </div>
 
             <div className="flex flex-col gap-1.5">
+              <Label htmlFor="rg-confirmed" className="text-xs font-medium">
+                Confirmada
+              </Label>
+              <Select
+                value={rgForm.confirmed ? "SI" : "NO"}
+                onValueChange={(value) =>
+                  setRgForm((previous) => ({ ...previous, confirmed: value === "SI" }))
+                }
+              >
+                <SelectTrigger id="rg-confirmed" className="h-9 w-full min-w-0 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="SI" className="text-sm">SI</SelectItem>
+                  <SelectItem value="NO" className="text-sm">NO</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs font-medium">Responsable</Label>
+              <Select
+                value={rgForm.owner}
+                onValueChange={(value) => setRgForm((prev) => ({ ...prev, owner: value }))}
+                disabled={activeProfilesLoading}
+              >
+                <SelectTrigger className="h-9 w-full min-w-0 text-sm">
+                  <SelectValue
+                    placeholder={activeProfilesLoading ? "Cargando perfiles activos..." : "Seleccionar"}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeProfileOptions.map((profile) => (
+                    <SelectItem key={profile.id} value={String(profile.id)} className="text-sm">
+                      {profile.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
               <Label className="text-xs font-medium">Resultado</Label>
               <Select
                 value={rgForm.resultado}
@@ -4734,7 +4873,7 @@ export function LeadDetailPanel({
                 </SelectTrigger>
                 <SelectContent>
                   {rgForm.resultado &&
-                    !LEAD_DETAIL_RESULT_OPTIONS.includes(rgForm.resultado) && (
+                    !LEAD_DETAIL_VALUATION_RESULT_OPTIONS.includes(rgForm.resultado) && (
                       <SelectItem
                         value={rgForm.resultado}
                         className="text-sm"
@@ -4743,7 +4882,7 @@ export function LeadDetailPanel({
                         {rgForm.resultado}
                       </SelectItem>
                     )}
-                  {LEAD_DETAIL_RESULT_OPTIONS.map((result) => (
+                  {LEAD_DETAIL_VALUATION_RESULT_OPTIONS.map((result) => (
                     <SelectItem
                       key={result}
                       value={result}
@@ -4757,7 +4896,7 @@ export function LeadDetailPanel({
               </Select>
             </div>
 
-            <div className="flex flex-col gap-1.5 md:col-span-2">
+            <div className="flex flex-col gap-1.5 md:col-span-3">
               <Label className="text-xs font-medium">Memo</Label>
               <Textarea
                 placeholder="Memo de la R.G..."
@@ -4779,7 +4918,11 @@ export function LeadDetailPanel({
             >
               Cancelar
             </Button>
-            <Button type="button" onClick={handleAddRg} disabled={rgSaving}>
+            <Button
+              type="button"
+              onClick={handleAddRg}
+              disabled={rgSaving || activeProfilesLoading}
+            >
               {rgSaving
                 ? "Guardando..."
                 : editingRgId

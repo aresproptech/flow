@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 64" fill="none">
+  <defs>
+    <clipPath id="pin-shape">
+      <path d="M24 0C10.75 0 0 10.75 0 24c0 17.6 24 40 24 40s24-22.4 24-40C48 10.75 37.25 0 24 0Z"/>
+    </clipPath>
+    <clipPath id="pin-head">
+      <circle cx="24" cy="22" r="19"/>
+    </clipPath>
+  </defs>
+  <path fill="#34A853" d="M24 0C10.75 0 0 10.75 0 24c0 17.6 24 40 24 40s24-22.4 24-40C48 10.75 37.25 0 24 0Z"/>
+  <g clip-path="url(#pin-shape)">
+    <g clip-path="url(#pin-head)">
+      <path fill="#1A73E8" d="M24 22V3A19 19 0 0 0 5 14l19 8Z"/>
+      <path fill="#4285F4" d="M24 22 5 14A19 19 0 0 1 43 22H24Z"/>
+      <path fill="#EA4335" d="M24 22 5 14A19 19 0 0 0 5 30l19-8Z"/>
+      <path fill="#FBBC04" d="M24 22 5 30A19 19 0 0 0 24 41V22Z"/>
+      <path fill="#34A853" d="M24 22v19a19 19 0 0 0 19-19H24Z"/>
+    </g>
+  </g>
+  <circle cx="24" cy="22" r="7.5" fill="#fff"/>
+</svg>
