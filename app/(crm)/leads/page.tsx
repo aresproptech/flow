@@ -688,7 +688,7 @@ function cleanNullable(value: string | null | undefined): string | null {
 }
 
 function mapCrmLeadToLead(row: CrmLeadRow, details?: CrmLeadDetails): LeadTableRow {
-  const ownerLabel = row.responsable?.trim() || "Sin comercial";
+  const ownerLabel = row.responsable?.trim() || "";
   const plannerLabel = details?.contact_name?.trim() || "—";
   const buyerLabel = details?.buyer_name?.trim() || "—";
   const dominioLabel = row.domain_name?.trim() || "—";
@@ -2148,13 +2148,13 @@ export default function LeadsPage() {
                     </span>
                   </th>
                   <th
-                    onClick={() => handleSort("planner")}
+                    onClick={() => handleSort("owner")}
                     className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
                       Responsable
                       <SortIcon
-                        col={"planner"}
+                        col={"owner"}
                         sortKey={sortKey}
                         sortDir={sortDir}
                       />
@@ -2348,7 +2348,7 @@ export default function LeadsPage() {
                     </td>
 
                     <td className="max-w-[110px] truncate whitespace-nowrap px-3 py-2.5 text-sm text-muted-foreground hidden md:table-cell">
-                      {lead.planner ?? "—"}
+                      {lead.owner ?? "—"}
                     </td>
 
                     <td className="whitespace-nowrap px-3 py-2.5 text-sm text-foreground hidden md:table-cell">
