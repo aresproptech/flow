@@ -3723,7 +3723,9 @@ export function LeadDetailPanel({
                               className="grid w-full min-w-[760px] grid-cols-[96px_56px_96px_180px_104px_minmax(180px,1fr)_56px] items-center px-3 py-3 text-left text-sm transition hover:bg-muted/40"
                             >
                               <span className="text-foreground">{fmtDateDdMmYy(event.fecha)}</span>
-                              <span className="text-muted-foreground">{event.hora || "—"}</span>
+                              <span className="text-muted-foreground">
+                                {event.hora ? event.hora.slice(0, 5) : "—"}
+                              </span>
                               <span className="text-muted-foreground">{event.medio}</span>
                               <span className="whitespace-nowrap text-muted-foreground">{event.usuario}</span>
                               <span
