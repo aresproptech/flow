@@ -424,6 +424,8 @@ type ValuationOwnerOption = {
 type OpportunityOrderRow = {
   id?: number | string;
   opportunity_id?: number | string | null;
+  assigned_profile_id?: number | null;
+  assigned_profile?: { name: string | null } | { name: string | null }[] | null;
   fecha_inicio?: string | null;
   fecha_fin?: string | null;
   pvp_inicial?: string | number | null;
@@ -431,7 +433,6 @@ type OpportunityOrderRow = {
   pvp_estimado?: string | number | null;
   com_vendedor?: string | number | null;
   com_comprador?: string | number | null;
-  rebajas?: string | number | null;
   health?: string | null;
   memo?: string | null;
   created_at?: string | null;
@@ -445,9 +446,11 @@ type VisitRow = {
   dominio?: string | null;
   planner?: string | null;
   owner?: string | null;
+  assigned_profile_id?: number | null;
+  assigned_profile_name?: string | null;
+  assigned_profile?: { name: string | null } | { name: string | null }[] | null;
   fecha_visita?: string | null;
   hora?: string | null;
-  buyer?: string | null;
   nombre_apellido?: string | null;
   telefono?: string | null;
   telefono_comprador?: string | null;
@@ -463,7 +466,7 @@ type LeadDetailVisitForm = {
   fecha_visita: string;
   hora: string;
   resultado: string;
-  buyer: string;
+  assigned_profile_id: string;
   nombre_apellido: string;
   telefono: string;
   dni: string;
@@ -1068,39 +1071,17 @@ function dateOnlyValue(value: string | null | undefined) {
   return `${year}-${month}-${day}`;
 }
 
-function localTodayValue() {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const day = String(today.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-function daysBetween(start: string | null | undefined, end: string | null | undefined) {
-  const startValue = dateOnlyValue(start);
-  const endValue = dateOnlyValue(end);
-
-  if (!startValue || !endValue) return "—";
-
-  const startDate = new Date(`${startValue}T00:00:00`);
-  const endDate = new Date(`${endValue}T00:00:00`);
-
-  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return "—";
-
-  return String(
-    Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
-  );
-}
-
-function monthValue(value: string | null | undefined) {
-  const dateValue = dateOnlyValue(value);
-  return dateValue ? dateValue.slice(0, 7) : "—";
-}
-
 function percentageValue(value: unknown) {
   if (value === null || value === undefined || value === "") return "—";
-  return `${String(value).replace("%", "")} %`;
+  const normalized = String(value).trim().replace(/%/g, "").replace(",", ".");
+  const numeric = Number(normalized);
+  if (!Number.isFinite(numeric)) return `${String(value).replace(/%/g, "").trim()} %`;
+
+  const formatted = new Intl.NumberFormat("es-ES", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(numeric);
+  return `${formatted} %`;
 }
 
 function SmallDataCard({ label, count, children }: {
@@ -1826,7 +1807,7 @@ export function LeadDetailPanel({
     fecha_visita: todayDateInput(),
     hora: currentQuarterTimeInput(),
     resultado: "Agendada",
-    buyer: "",
+    assigned_profile_id: "",
     nombre_apellido: "",
     telefono: "",
     dni: "",
@@ -1854,11 +1835,11 @@ export function LeadDetailPanel({
   const [encargoForm, setEncargoForm] = useState({
     fecha_inicio: "",
     fecha_fin: "",
-    pvp_inicial: "",
     pvp_actual: "",
     pvp_estimado: "",
     com_vendedor: "",
     com_comprador: "",
+    assigned_profile_id: "",
     memo: "",
   });
   const [encargoSaving, setEncargoSaving] = useState(false);
@@ -1986,11 +1967,11 @@ export function LeadDetailPanel({
     const [ordersResponse, visitsResponse] = await Promise.all([
       supabase
         .from("opportunity_orders")
-        .select("*")
+        .select("*, assigned_profile:profiles!opportunity_orders_assigned_profile_id_fkey(name)")
         .eq("opportunity_id", numericLeadId),
       supabase
         .from("opportunity_buyers")
-        .select("*")
+        .select("*, assigned_profile:profiles!opportunity_buyers_assigned_profile_id_fkey(name)")
         .eq("opportunity_id", numericLeadId)
         .order("fecha_visita", { ascending: false, nullsFirst: false })
         .order("hora", { ascending: false, nullsFirst: false })
@@ -2017,6 +1998,11 @@ export function LeadDetailPanel({
     setVisits(
       ((visitsResponse.data ?? []) as VisitRow[]).map((visit) => ({
         ...visit,
+        assigned_profile_name:
+          (Array.isArray(visit.assigned_profile)
+            ? visit.assigned_profile[0]
+            : visit.assigned_profile
+          )?.name?.trim() || null,
         estado: effectiveLead ? statusLabel(effectiveLead.status) : null,
         dominio: effectiveLead ? getLeadDominio(effectiveLead) || null : null,
         planner: null,
@@ -2572,11 +2558,11 @@ export function LeadDetailPanel({
     setEncargoForm({
       fecha_inicio: "",
       fecha_fin: "",
-      pvp_inicial: "",
       pvp_actual: "",
       pvp_estimado: "",
       com_vendedor: "",
       com_comprador: "",
+      assigned_profile_id: "",
       memo: "",
     });
   }
@@ -2630,12 +2616,14 @@ export function LeadDetailPanel({
     setContactForm({ fecha: todayDateInput(), hora: currentQuarterTimeInput(), medio: "Teléfono", resultado: "", memo: "" });
   }
 
-  function openNewEncargoModal() {
+  async function openNewEncargoModal() {
     resetEncargoForm();
     setOrderModalOpen(true);
+    const { error } = await loadActiveProfiles();
+    if (error) setEncargoError(`No se pudieron cargar los Responsables: ${error}`);
   }
 
-  function openEditEncargoModal(order: OpportunityOrderRow) {
+  async function openEditEncargoModal(order: OpportunityOrderRow) {
     const orderId = persistedRowId(order.id);
     if (!orderId) return;
 
@@ -2644,14 +2632,16 @@ export function LeadDetailPanel({
     setEncargoForm({
       fecha_inicio: dateOnlyValue(order.fecha_inicio),
       fecha_fin: dateOnlyValue(order.fecha_fin),
-      pvp_inicial: formValue(order.pvp_inicial),
       pvp_actual: formValue(order.pvp_actual),
       pvp_estimado: formValue(order.pvp_estimado),
       com_vendedor: formValue(order.com_vendedor),
       com_comprador: formValue(order.com_comprador),
+      assigned_profile_id: order.assigned_profile_id ? String(order.assigned_profile_id) : "",
       memo: formValue(order.memo),
     });
     setOrderModalOpen(true);
+    const { error } = await loadActiveProfiles();
+    if (error) setEncargoError(`No se pudieron cargar los Responsables: ${error}`);
   }
 
   async function openNewRgModal() {
@@ -2760,7 +2750,7 @@ export function LeadDetailPanel({
       fecha_visita: todayDateInput(),
       hora: currentQuarterTimeInput(),
       resultado: "Agendada",
-      buyer: "",
+      assigned_profile_id: "",
       nombre_apellido: "",
       telefono: "",
       dni: "",
@@ -2785,7 +2775,7 @@ export function LeadDetailPanel({
       profiles.find((profile) => profile.name.toLowerCase() === sessionUserName);
     setVisitForm((previous) => ({
       ...previous,
-      buyer: sessionProfile?.name ?? "",
+      assigned_profile_id: sessionProfile ? String(sessionProfile.id) : "",
     }));
   }
 
@@ -2798,7 +2788,9 @@ export function LeadDetailPanel({
       fecha_visita: dateOnlyValue(visit.fecha_visita),
       hora: roundTimeToQuarter(visit.hora || ""),
       resultado: visit.resultado || "Agendada",
-      buyer: visit.buyer || "",
+      assigned_profile_id: visit.assigned_profile_id
+        ? String(visit.assigned_profile_id)
+        : "",
       nombre_apellido: visit.nombre_apellido || "",
       telefono: visit.telefono_comprador || visit.telefono || "",
       dni: visit.dni || "",
@@ -2845,7 +2837,10 @@ export function LeadDetailPanel({
           district: effectiveLead.distrito,
           province: effectiveLead.provincia,
         },
-        visits,
+        visits: visits.map((visit) => ({
+          ...visit,
+          buyer: visit.assigned_profile_name,
+        })),
         logoDataUrl,
         fonts,
       });
@@ -2881,7 +2876,9 @@ export function LeadDetailPanel({
       fecha_visita: visitForm.fecha_visita,
       hora: visitForm.hora || null,
       resultado: visitForm.resultado || "Agendada",
-      buyer: visitForm.buyer.trim() || actorName,
+      assigned_profile_id: visitForm.assigned_profile_id
+        ? Number(visitForm.assigned_profile_id)
+        : null,
       nombre_apellido: visitForm.nombre_apellido.trim() || null,
       telefono: visitForm.telefono.trim() || null,
       dni: visitForm.dni.trim() || null,
@@ -2927,13 +2924,14 @@ export function LeadDetailPanel({
       opportunity_id: Number(effectiveLead.id),
       fecha_inicio: encargoForm.fecha_inicio || null,
       fecha_fin: encargoForm.fecha_fin || null,
-      pvp_inicial: encargoForm.pvp_inicial ? Number(encargoForm.pvp_inicial) : null,
       pvp_actual: encargoForm.pvp_actual ? Number(encargoForm.pvp_actual) : null,
       pvp_estimado: encargoForm.pvp_estimado ? Number(encargoForm.pvp_estimado) : null,
       com_vendedor: encargoForm.com_vendedor ? Number(encargoForm.com_vendedor) : null,
       com_comprador: encargoForm.com_comprador ? Number(encargoForm.com_comprador) : null,
+      assigned_profile_id: encargoForm.assigned_profile_id
+        ? Number(encargoForm.assigned_profile_id)
+        : null,
       memo: encargoForm.memo.trim() || null,
-      rebajas: Number(previousOrder?.rebajas ?? 0),
     };
 
     const encargoChanges = previousOrder
@@ -2949,12 +2947,6 @@ export function LeadDetailPanel({
             before: previousOrder.fecha_fin,
             after: payload.fecha_fin,
             format: (value) => historyDateValue(value as string | null | undefined),
-          },
-          {
-            label: "PVP inicial",
-            before: previousOrder.pvp_inicial,
-            after: payload.pvp_inicial,
-            format: historyMoneyValue,
           },
           {
             label: "PVP actual",
@@ -2979,6 +2971,13 @@ export function LeadDetailPanel({
             before: previousOrder.com_comprador,
             after: payload.com_comprador,
             format: historyPercentValue,
+          },
+          {
+            label: "Responsable",
+            before: previousOrder.assigned_profile_id,
+            after: payload.assigned_profile_id,
+            format: (value) =>
+              availablePlannerProfiles.find((profile) => profile.id === Number(value))?.name || "—",
           },
           {
             label: "Memo",
@@ -3234,12 +3233,6 @@ export function LeadDetailPanel({
 
   if (!effectiveLead) return null;
 
-  const domicilioParts = [
-    effectiveLead.address,
-    effectiveLead.municipio,
-    effectiveLead.cp && effectiveLead.cp !== "—" ? `(${effectiveLead.cp})` : "",
-  ].filter((part) => part && part !== "—");
-
   const parsedRgEntries: RgHistoryEvent[] = rgEntries.map((row) => {
     return {
       id: String(row.id),
@@ -3262,7 +3255,6 @@ export function LeadDetailPanel({
   });
 
   const rgHistoryEvents: RgHistoryEvent[] = parsedRgEntries.sort(compareScheduledItemsDescending);
-
   const parsedValuationEntries: ValuationHistoryEvent[] = valuationEntries.map(
     (row) => {
       const memoText = row.memo?.trim() || "";
@@ -3944,13 +3936,14 @@ export function LeadDetailPanel({
                     </div>
                   ) : (
                     <div className="overflow-x-auto rounded-lg border border-border bg-card">
-                      <div className="grid min-w-[760px] grid-cols-[84px_1.2fr_1.2fr_1fr_1fr_1fr_72px] border-b border-border bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        <span>Encargo</span>
-                        <span>Inicio</span>
-                        <span>Fin</span>
-                        <span>PVP inicial</span>
-                        <span>PVP actual</span>
-                        <span>Health</span>
+                      <div className="grid min-w-[876px] grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_1fr_72px] border-b border-border bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        <span>F.INICIO</span>
+                        <span>F.FIN</span>
+                        <span>PVP Acordado</span>
+                        <span>PVP Estimado</span>
+                        <span className="text-center">% Vendedor</span>
+                        <span className="text-center">% Comprador</span>
+                        <span>Responsable</span>
                         <span />
                       </div>
 
@@ -3959,8 +3952,9 @@ export function LeadDetailPanel({
                         const isOpen = openOrderRowId === rowId;
                         const inicio = order.fecha_inicio || "";
                         const fin = order.fecha_fin || "";
-                        const diasGestion = daysBetween(inicio, localTodayValue());
-                        const diasRestantes = daysBetween(localTodayValue(), fin);
+                        const assignedProfileName = availablePlannerProfiles.find(
+                          (profile) => profile.id === order.assigned_profile_id
+                        )?.name || "—";
 
                         return (
                           <div key={rowId} className="border-b border-border last:border-b-0">
@@ -3971,23 +3965,24 @@ export function LeadDetailPanel({
                                   current === rowId ? null : rowId
                                 )
                               }
-                              className="grid w-full min-w-[760px] grid-cols-[84px_1.2fr_1.2fr_1fr_1fr_1fr_72px] items-center px-3 py-3 text-left text-sm transition hover:bg-muted/40"
+                              className="grid w-full min-w-[876px] grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_1fr_72px] items-center px-3 py-3 text-left text-sm transition hover:bg-muted/40"
                             >
-                              <span className="font-semibold text-foreground">
-                                #{index + 1}
-                              </span>
                               <span className="text-foreground">{fmtDate(inicio)}</span>
                               <span className="text-foreground">{fmtDate(fin)}</span>
                               <span className="text-muted-foreground">
-                                {displayMoney(order.pvp_inicial)}
-                              </span>
-                              <span className="text-muted-foreground">
                                 {displayMoney(order.pvp_actual)}
                               </span>
-                              <span>
-                                <Badge variant="outline" className="rounded-md text-[11px]">
-                                  {displayValue(order.health || "0,0")}
-                                </Badge>
+                              <span className="text-muted-foreground">
+                                {displayMoney(order.pvp_estimado)}
+                              </span>
+                              <span className="text-center text-muted-foreground">
+                                {percentageValue(order.com_vendedor)}
+                              </span>
+                              <span className="text-center text-muted-foreground">
+                                {percentageValue(order.com_comprador)}
+                              </span>
+                              <span className="truncate text-muted-foreground" title={assignedProfileName}>
+                                {assignedProfileName}
                               </span>
                               <span className="flex items-center justify-end gap-2">
                                 {!readOnly && (persistedRowId(order.id) ? (
@@ -4023,105 +4018,10 @@ export function LeadDetailPanel({
                             </button>
 
                             {isOpen && (
-                              <div className="border-t border-border bg-muted/20 px-4 py-4">
-                                <section className="space-y-3">
-                                  <h5 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                    Datos del encargo #{index + 1}
-                                  </h5>
-                                  <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-                                    <SmallDataCard label="Health">
-                                      {displayValue(order.health || "0,0")}
-                                    </SmallDataCard>
-                                    <SmallDataCard label="Estado">
-                                      {statusLabel(effectiveLead.status)}
-                                    </SmallDataCard>
-                                    <SmallDataCard label="Dominio">
-                                      {getLeadDominio(effectiveLead) || "—"}
-                                    </SmallDataCard>
-                                    <SmallDataCard label="Origen">
-                                      {effectiveLead.source || "—"}
-                                    </SmallDataCard>
-                                    <SmallDataCard label="Inicio">
-                                      {fmtDate(inicio)}
-                                    </SmallDataCard>
-                                    <SmallDataCard label="Fin">
-                                      {fmtDate(fin)}
-                                    </SmallDataCard>
-                                    <SmallDataCard label="Días gestión">
-                                      {diasGestion}
-                                    </SmallDataCard>
-                                    <SmallDataCard label="Días rest.">
-                                      {diasRestantes}
-                                    </SmallDataCard>
-                                    <SmallDataCard label="In month">
-                                      {monthValue(inicio)}
-                                    </SmallDataCard>
-                                    <SmallDataCard label="Out month">
-                                      {monthValue(fin)}
-                                    </SmallDataCard>
-                                  </div>
-                                </section>
-
-                                <section className="mt-5 space-y-3 border-t border-border pt-4">
-                                  <h5 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                    Inmueble y responsables
-                                  </h5>
-                                  <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-                                    <SmallDataCard label="Domicilio">
-                                      {domicilioParts.length > 0 ? domicilioParts.join(", ") : "—"}
-                                    </SmallDataCard>
-                                    <SmallDataCard label="Propietario">
-                                      {effectiveLead.ownerName || "—"}
-                                    </SmallDataCard>
-                                    <SmallDataCard label="Planner">
-                                      {effectiveLead.planner || "—"}
-                                    </SmallDataCard>
-                                    <SmallDataCard label="Owner">
-                                      {effectiveLead.owner || "—"}
-                                    </SmallDataCard>
-                                  </div>
-                                </section>
-
-                                <section className="mt-5 space-y-3 border-t border-border pt-4">
-                                  <h5 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                    Comisiones y PVP
-                                  </h5>
-                                  <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-                                    <SmallDataCard label="% vendedor">
-                                      {percentageValue(order.com_vendedor)}
-                                    </SmallDataCard>
-                                    <SmallDataCard label="% comprador">
-                                      {percentageValue(order.com_comprador)}
-                                    </SmallDataCard>
-                                    <SmallDataCard label="PVP inicial">
-                                      {displayMoney(order.pvp_inicial)}
-                                    </SmallDataCard>
-                                    <SmallDataCard label="PVP actual">
-                                      {displayMoney(order.pvp_actual)}
-                                    </SmallDataCard>
-                                    <SmallDataCard label="PVP estimado">
-                                      {displayMoney(order.pvp_estimado)}
-                                    </SmallDataCard>
-                                    <SmallDataCard label="Rebajas">
-                                      {displayValue(order.rebajas)}
-                                    </SmallDataCard>
-                                    <SmallDataCard label="PVP desvío">
-                                      —
-                                    </SmallDataCard>
-                                    <SmallDataCard label="% desvío">
-                                      —
-                                    </SmallDataCard>
-                                  </div>
-                                </section>
-
-                                <section className="mt-5 border-t border-border pt-4">
-                                  <h5 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                    Memo
-                                  </h5>
-                                  <div className="rounded-md border border-border bg-background px-3 py-2 text-xs text-muted-foreground">
-                                    {order.memo || "—"}
-                                  </div>
-                                </section>
+                              <div className="border-t border-border bg-muted/20 px-4 py-2">
+                                <div className="rounded-lg border border-border bg-card p-3 text-sm text-foreground whitespace-pre-wrap">
+                                  {order.memo || "—"}
+                                </div>
                               </div>
                             )}
                           </div>
@@ -4322,7 +4222,7 @@ export function LeadDetailPanel({
                       <div className="sticky top-0 z-20 grid min-w-[900px] grid-cols-[100px_72px_1fr_1.2fr_1fr_0.8fr_1fr_64px] border-b border-border bg-muted/95 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur">
                         <span>Fecha</span>
                         <span>Hora</span>
-                        <span>Buyer</span>
+                        <span>Responsable</span>
                         <span>Comprador</span>
                         <span>Teléfono</span>
                         <span>Vende?</span>
@@ -4352,7 +4252,7 @@ export function LeadDetailPanel({
                                 {visit.hora ? visit.hora.slice(0, 5) : "—"}
                               </span>
                               <span className="text-muted-foreground">
-                                {displayValue(visit.buyer)}
+                                {displayValue(visit.assigned_profile_name)}
                               </span>
                               <span className="text-muted-foreground">
                                 {displayValue(visit.nombre_apellido)}
@@ -4636,8 +4536,8 @@ export function LeadDetailPanel({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
+          <div className="grid -translate-x-2 grid-cols-1 gap-4 md:grid-cols-4">
+            <div className="flex flex-col gap-1.5 md:col-span-2">
               <Label className="text-xs font-medium">Fecha inicio</Label>
               <Input
                 type="date"
@@ -4649,7 +4549,7 @@ export function LeadDetailPanel({
               />
             </div>
 
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1.5 md:col-span-2">
               <Label className="text-xs font-medium">Fecha fin</Label>
               <Input
                 type="date"
@@ -4661,20 +4561,7 @@ export function LeadDetailPanel({
               />
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-medium">PVP inicial</Label>
-              <Input
-                className="h-9 text-sm"
-                placeholder="Ej. 450.000 €"
-                inputMode="numeric"
-                value={encargoForm.pvp_inicial}
-                onChange={(e) =>
-                  setEncargoForm((prev) => ({ ...prev, pvp_inicial: e.target.value }))
-                }
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1.5 md:col-span-2">
               <Label className="text-xs font-medium">PVP actual</Label>
               <Input
                 className="h-9 text-sm"
@@ -4687,7 +4574,7 @@ export function LeadDetailPanel({
               />
             </div>
 
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1.5 md:col-span-2">
               <Label className="text-xs font-medium">PVP estimado</Label>
               <Input
                 className="h-9 text-sm"
@@ -4727,6 +4614,46 @@ export function LeadDetailPanel({
             </div>
 
             <div className="flex flex-col gap-1.5 md:col-span-2">
+              <Label className="text-xs font-medium">Responsable</Label>
+              <Select
+                value={encargoForm.assigned_profile_id}
+                onValueChange={(value) =>
+                  setEncargoForm((previous) => ({ ...previous, assigned_profile_id: value }))
+                }
+                disabled={activeProfilesLoading}
+              >
+                <SelectTrigger className="h-9 w-full min-w-0 text-sm">
+                  <SelectValue
+                    placeholder={activeProfilesLoading ? "Cargando perfiles activos..." : "Seleccionar"}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {encargoForm.assigned_profile_id &&
+                    !activeProfileOptions.some(
+                      (profile) => String(profile.id) === encargoForm.assigned_profile_id
+                    ) && (
+                      <SelectItem value={encargoForm.assigned_profile_id} className="text-sm">
+                        {(() => {
+                          const order = orders.find(
+                            (item) => String(item.id) === String(editingOrderId)
+                          );
+                          const assignedProfile = Array.isArray(order?.assigned_profile)
+                            ? order.assigned_profile[0]
+                            : order?.assigned_profile;
+                          return assignedProfile?.name || "Responsable asignado";
+                        })()}
+                      </SelectItem>
+                    )}
+                  {activeProfileOptions.map((profile) => (
+                    <SelectItem key={profile.id} value={String(profile.id)} className="text-sm">
+                      {profile.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-1.5 md:col-span-4">
               <Label className="text-xs font-medium">Memo</Label>
               <Textarea
                 placeholder="Memo del encargo..."
@@ -5074,11 +5001,11 @@ export function LeadDetailPanel({
             </div>
 
             <div className="flex flex-col gap-1.5 md:col-span-2">
-              <Label className="text-xs font-medium">Buyer (visitador)</Label>
+              <Label className="text-xs font-medium">Responsable (visitador)</Label>
               <Select
-                value={visitForm.buyer}
-                onValueChange={(buyer) =>
-                  setVisitForm((previous) => ({ ...previous, buyer }))
+                value={visitForm.assigned_profile_id}
+                onValueChange={(assignedProfileId) =>
+                  setVisitForm((previous) => ({ ...previous, assigned_profile_id: assignedProfileId }))
                 }
                 disabled={activeProfilesLoading}
               >
@@ -5088,14 +5015,16 @@ export function LeadDetailPanel({
                   />
                 </SelectTrigger>
                 <SelectContent>
-                  {visitForm.buyer &&
-                    !activeProfileOptions.some((profile) => profile.name === visitForm.buyer) && (
-                      <SelectItem value={visitForm.buyer} className="text-sm">
-                        {visitForm.buyer}
+                  {visitForm.assigned_profile_id &&
+                    !activeProfileOptions.some(
+                      (profile) => String(profile.id) === visitForm.assigned_profile_id
+                    ) && (
+                      <SelectItem value={visitForm.assigned_profile_id} className="text-sm">
+                        {visits.find((visit) => String(visit.id) === String(editingVisitId))?.assigned_profile_name || "Perfil asignado"}
                       </SelectItem>
                     )}
                   {activeProfileOptions.map((profile) => (
-                    <SelectItem key={profile.id} value={profile.name} className="text-sm">
+                    <SelectItem key={profile.id} value={String(profile.id)} className="text-sm">
                       {profile.name}
                     </SelectItem>
                   ))}

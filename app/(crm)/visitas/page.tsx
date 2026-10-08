@@ -5,7 +5,7 @@ import { Topbar } from "@/components/crm/topbar";
 import { supabase } from "@/lib/supabase";
 import { loadCrmLeadDetails } from "@/lib/crm-lead-details";
 import { normalizeEnVenta } from "@/lib/crm-data";
-import { canManageVisits, useUser } from "@/lib/hooks/useUser";
+import { useUser } from "@/lib/hooks/useUser";
 import type { Lead } from "@/lib/crm-data";
 import { LeadDetailPanel } from "@/components/crm/lead-detail-panel";
 import { Check, Copy, Search, Plus } from "lucide-react";
@@ -31,8 +31,6 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-const DEFAULT_VISIT_BUYER = "Gonzalo";
-
 type Visita = {
   id: number;
   opportunity_id: number | null;
@@ -42,7 +40,9 @@ type Visita = {
   owner: string | null;
   fecha_visita: string | null;
   hora: string | null;
-  buyer: string | null;
+  assigned_profile_id: number | null;
+  assigned_profile_name: string | null;
+  assigned_profile?: { name: string | null } | { name: string | null }[] | null;
   nombre_apellido: string | null;
   telefono: string | null;
   dni: string | null;
@@ -73,7 +73,7 @@ type VisitaForm = {
   owner: string;
   fecha_visita: string;
   hora: string;
-  buyer: string;
+  assigned_profile_id: string;
   nombre_apellido: string;
   telefono: string;
   dni: string;
@@ -89,7 +89,7 @@ const EMPTY_FORM: VisitaForm = {
   owner: "",
   fecha_visita: "",
   hora: "",
-  buyer: "",
+  assigned_profile_id: "",
   nombre_apellido: "",
   telefono: "",
   dni: "",
@@ -136,7 +136,7 @@ function visitaToForm(v: Visita): VisitaForm {
     owner: v.owner || "",
     fecha_visita: v.fecha_visita || "",
     hora: v.hora || "",
-    buyer: v.buyer || "",
+    assigned_profile_id: v.assigned_profile_id ? String(v.assigned_profile_id) : "",
     nombre_apellido: v.nombre_apellido || "",
     telefono: v.telefono || "",
     dni: v.dni || "",
@@ -156,7 +156,7 @@ function buildVisitChangeLines(previous: VisitaForm, next: VisitaForm) {
   const tracked: Array<{ field: keyof VisitaForm; label: string }> = [
     { field: "fecha_visita", label: "Fecha" },
     { field: "hora", label: "Hora" },
-    { field: "buyer", label: "Buyer" },
+    { field: "assigned_profile_id", label: "Responsable" },
     { field: "nombre_apellido", label: "Nombre y apellido" },
     { field: "telefono", label: "Teléfono" },
     { field: "dni", label: "DNI" },
@@ -213,7 +213,7 @@ export default function VisitasPage() {
 
     const { data, error } = await supabase
       .from("opportunity_buyers")
-      .select("*")
+      .select("*, assigned_profile:profiles!opportunity_buyers_assigned_profile_id_fkey(name)")
       .order("fecha_visita", { ascending: false });
     if (error) {
       console.error("Error cargando visitas:", error);
@@ -221,7 +221,9 @@ export default function VisitasPage() {
       setLoading(false);
       return;
     }
-    const visitRows = (data ?? []) as Omit<Visita, "estado" | "dominio" | "planner" | "owner">[];
+    const visitRows = (data ?? []) as Array<
+      Omit<Visita, "estado" | "dominio" | "planner" | "owner" | "assigned_profile_name">
+    >;
     const opportunityIds = Array.from(
       new Set(
         visitRows
@@ -246,8 +248,12 @@ export default function VisitasPage() {
     setVisitas(
       visitRows.map((visit) => {
         const lead = visit.opportunity_id ? leadById.get(visit.opportunity_id) : null;
+        const assignedProfile = Array.isArray(visit.assigned_profile)
+          ? visit.assigned_profile[0]
+          : visit.assigned_profile;
         return {
           ...visit,
+          assigned_profile_name: assignedProfile?.name?.trim() || null,
           estado: lead?.estado ?? null,
           dominio: lead?.domain_name ?? null,
           planner: null,
@@ -303,9 +309,9 @@ export default function VisitasPage() {
       owner: inmueble?.owner || "",
       nombre_apellido: "",
       telefono: "",
-      buyer: userWithRole?.crmUser && canManageVisits(userWithRole.crmUser)
-        ? userWithRole.crmUser.name ?? ""
-        : DEFAULT_VISIT_BUYER,
+      assigned_profile_id: userWithRole?.crmUser
+        ? String(userWithRole.crmUser.id)
+        : "",
     }));
   }
 
@@ -379,7 +385,9 @@ export default function VisitasPage() {
       opportunity_id: opportunityId,
       fecha_visita: form.fecha_visita || null,
       hora: form.hora || null,
-      buyer: form.buyer || null,
+      assigned_profile_id: form.assigned_profile_id
+        ? Number(form.assigned_profile_id)
+        : null,
       nombre_apellido: form.nombre_apellido || null,
       telefono: form.telefono || null,
       dni: form.dni || null,
@@ -413,7 +421,9 @@ export default function VisitasPage() {
         hora: editForm.hora || null,
         nombre_apellido: editForm.nombre_apellido || null,
         telefono: editForm.telefono || null,
-        buyer: editForm.buyer || null,
+        assigned_profile_id: editForm.assigned_profile_id
+          ? Number(editForm.assigned_profile_id)
+          : null,
         dni: editForm.dni || null,
         vende: editForm.vende === "si" ? true : editForm.vende === "no" ? false : null,
         observaciones_visita: editForm.observaciones_visita || null,
@@ -453,7 +463,7 @@ export default function VisitasPage() {
   const filteredVisitas = visitas.filter((v) => {
     const q = searchTerm.trim().toLowerCase();
     if (!q) return true;
-    return [v.estado, v.dominio, v.planner, v.owner, v.buyer,
+    return [v.estado, v.dominio, v.planner, v.owner, v.assigned_profile_name,
       v.nombre_apellido, v.telefono, v.dni, v.observaciones_visita]
       .join(" ").toLowerCase().includes(q);
   });
@@ -496,7 +506,7 @@ export default function VisitasPage() {
   }
 
   const columns = ["Estado", "Dominio", "Planner", "Owner", "Inmueble",
-    "Fecha", "Hora", "Buyer", "Nombre y Apellido", "Teléfono", "DNI", "Vende?", "Memo"];
+    "Fecha", "Hora", "Responsable", "Nombre y Apellido", "Teléfono", "DNI", "Vende?", "Memo"];
 
   return (
     <>
@@ -603,7 +613,7 @@ export default function VisitasPage() {
                       </td>
                       <td className="px-3 py-2.5 text-sm text-muted-foreground">{fmt(v.fecha_visita)}</td>
                       <td className="px-3 py-2.5 text-sm text-muted-foreground">{v.hora || "—"}</td>
-                      <td className="px-3 py-2.5 text-sm text-muted-foreground">{v.buyer || "—"}</td>
+                      <td className="px-3 py-2.5 text-sm text-muted-foreground">{v.assigned_profile_name || "—"}</td>
                       <td className="px-3 py-2.5 text-sm font-bold text-foreground">{v.nombre_apellido || "—"}</td>
                       <td
                         className="select-text px-3 py-2.5 font-mono text-sm text-muted-foreground"
@@ -727,8 +737,8 @@ export default function VisitasPage() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-medium">Buyer (Visitador)</Label>
-              <Input value={form.buyer} readOnly className="h-8 text-sm bg-muted/40" placeholder="Auto" />
+              <Label className="text-xs font-medium">Responsable</Label>
+              <Input value={userWithRole?.crmUser?.name || "—"} readOnly className="h-8 text-sm bg-muted/40" placeholder="Auto" />
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -807,8 +817,8 @@ export default function VisitasPage() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-medium">Buyer (Visitador)</Label>
-              <Input value={editForm.buyer} readOnly className="h-8 text-sm bg-muted/40" />
+              <Label className="text-xs font-medium">Responsable</Label>
+              <Input value={selectedVisita?.assigned_profile_name || "—"} readOnly className="h-8 text-sm bg-muted/40" />
             </div>
 
             <div className="flex flex-col gap-1.5">

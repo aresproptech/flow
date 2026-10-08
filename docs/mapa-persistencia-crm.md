@@ -89,23 +89,22 @@ Resultado y Hora se guardan en `metadata`.
 | Accion en front | Tabla / vista | Operacion | Columnas usadas | Persistencia | Archivo |
 |---|---|---|---|---|---|
 | Cargar encargos del panel | `opportunity_orders` | `select` | `*` por `opportunity_id` | Solo lectura | `components/crm/lead-detail-panel.tsx` |
-| Agregar encargo desde panel | `opportunity_orders` | `insert` | `opportunity_id`, `fecha_inicio`, `fecha_fin`, `pvp_inicial`, `pvp_actual`, `pvp_estimado`, `com_vendedor`, `com_comprador`, `memo` | Guarda | `components/crm/lead-detail-panel.tsx` |
+| Agregar encargo desde panel | `opportunity_orders` | `insert` | `opportunity_id`, `fecha_inicio`, `fecha_fin`, `pvp_actual`, `pvp_estimado`, `com_vendedor`, `com_comprador`, `memo` | Guarda | `components/crm/lead-detail-panel.tsx` |
 | Editar encargo desde panel | `opportunity_orders` | `update` | mismas columnas por `id` | Guarda | `components/crm/lead-detail-panel.tsx` |
 | Registrar historial encargo | `opportunity_activities` | `insert` | `opportunity_id`, `fecha`, `memo`, `resultado` | Guarda | `components/crm/lead-detail-panel.tsx` |
 | Listar pagina Encargos | `crm_leads_view` + `opportunity_orders` | `select` | leads en fase Encargo + `opportunity_orders.*` | Solo lectura | `app/(crm)/encargos/page.tsx` |
-| Crear/editar encargo desde pagina Encargos | `opportunity_orders` | `insert` / `update` | `opportunity_id`, fechas, PVPs, comisiones, `memo`, `rebajas` | Guarda | `app/(crm)/encargos/page.tsx` |
-| Calcular rebajas | `opportunity_orders` | calculo antes de guardar | `pvp_actual`, `rebajas` | Guarda solo `rebajas` final | Incrementa si baja PVP actual |
+| Crear/editar encargo desde pagina Encargos | `opportunity_orders` | `insert` / `update` | `opportunity_id`, fechas, PVP actual/estimado, comisiones, `memo` | Guarda | `app/(crm)/encargos/page.tsx` |
 | Health / actividad reciente | `opportunity_activities`, `opportunity_buyers` | `select` | R.G. ultimos 15 dias, visitas ultimos 30 dias | Solo lectura | `app/(crm)/encargos/page.tsx` |
 
 ## Visitas
 
 | Accion en front | Tabla / vista | Operacion | Columnas usadas | Persistencia | Archivo |
 |---|---|---|---|---|---|
-| Listar visitas | `opportunity_buyers` | `select` | `*` | Solo lectura | `app/(crm)/visitas/page.tsx` |
+| Listar visitas | `opportunity_buyers` | `select` | `*`, `assigned_profile_id` relacionado con `profiles.id` | Solo lectura | `app/(crm)/visitas/page.tsx` |
 | Filtrar visitas para Comercial | `opportunity_buyers` | `select` con filtro | `owner`, `planner` | Solo lectura | `app/(crm)/visitas/page.tsx` |
 | Cargar inmuebles para visita | RPC `crm_visit_property_options` | DTO seguro | `id`, `propietario`, `domicilio`, `owner`, `planner`, `estado`, `dominio` | Solo lectura | El gestor de visitas no obtiene acceso a `crm_leads_view` |
-| Agregar visita | `opportunity_buyers` | `insert` directo | `opportunity_id`, datos de visita y autor | Guarda | RLS exige oportunidad activa en Encargo |
-| Editar visita | `opportunity_buyers` | `update` directo | datos editables por `id`; no reasigna el inmueble | Guarda | `app/(crm)/visitas/page.tsx` |
+| Agregar visita | `opportunity_buyers` | `insert` directo | `opportunity_id`, `assigned_profile_id`, datos de visita y autor | Guarda | RLS exige oportunidad activa en Encargo |
+| Editar visita | `opportunity_buyers` | `update` directo | datos editables por `id`, incluido `assigned_profile_id`; no reasigna el inmueble | Guarda | `app/(crm)/visitas/page.tsx` |
 | Registrar historial de visita | `opportunity_activities` | `insert` directo | evento tipado, detalle y actor | Guarda | Se registra después de guardar la visita |
 | Copiar telefonos seleccionados | Clipboard navegador | N/A | `telefono` | No guarda | Solo portapapeles |
 | Click telefono / WhatsApp | Navegacion externa | N/A | `telefono` | No guarda | Abre WhatsApp/telefono segun implementacion |

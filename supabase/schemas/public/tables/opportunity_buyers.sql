@@ -5,7 +5,7 @@ CREATE TABLE "public"."opportunity_buyers" (
   "hora"                 time without time zone,
   "medio"                text                     DEFAULT 'Presencial'::text,
   "resultado"            text,
-  "buyer"                text,
+  "assigned_profile_id" bigint,
   "created_by"           text                     NOT NULL DEFAULT 'Sistema'::text,
   "created_at"           timestamp with time zone NOT NULL DEFAULT now(),
   "updated_at"           timestamp with time zone NOT NULL DEFAULT now(),
@@ -15,6 +15,7 @@ CREATE TABLE "public"."opportunity_buyers" (
   "vende"                boolean,
   "observaciones_visita" text,
   CONSTRAINT "visitas_opportunity_id_fkey" FOREIGN KEY (opportunity_id) REFERENCES public.opportunities(id),
+  CONSTRAINT "opportunity_buyers_assigned_profile_id_fkey" FOREIGN KEY (assigned_profile_id) REFERENCES public.profiles(id) ON DELETE SET NULL,
   CONSTRAINT "visitas_pkey" PRIMARY KEY (id)
 );
 

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Topbar } from "@/components/crm/topbar";
 import { supabase } from "@/lib/supabase";
 import { loadCrmLeadDetails } from "@/lib/crm-lead-details";
+import { calculateEncargoHealth, formatHealthScore, type EncargoHealthBreakdown } from "@/lib/encargo-health";
 import { canEditLeads, canViewAllLeads, useUser } from "@/lib/hooks/useUser";
 import { normalizeEnVenta, type Lead } from "@/lib/crm-data";
 import { LeadDetailPanel } from "@/components/crm/lead-detail-panel";
@@ -28,12 +29,10 @@ type OpportunityOrderRow = {
   fecha_fin: string | null;
   com_vendedor: number | null;
   com_comprador: number | null;
-  pvp_inicial: number | null;
   pvp_actual: number | null;
   pvp_estimado: number | null;
   memo: string | null;
   health: number | null;
-  rebajas: number | null;
   created_at?: string | null;
 };
 
@@ -74,12 +73,10 @@ type EncargoItem = {
   origen: string;
   fecha_inicio: string;
   fecha_fin: string;
-  pvp_inicial: number | null;
   pvp_actual: number | null;
   pvp_estimado: number | null;
   com_vendedor: number | null;
   com_comprador: number | null;
-  rebajas: number;
   rg_15d: number;
   visitas_30d: number;
   memo: string;
@@ -110,13 +107,11 @@ function buildEncargoChangeLines(
   next: {
     fecha_inicio: string | null;
     fecha_fin: string | null;
-    pvp_inicial: number | null;
     pvp_actual: number | null;
     pvp_estimado: number | null;
     com_vendedor: number | null;
     com_comprador: number | null;
     memo: string | null;
-    rebajas: number;
   }
 ) {
   const changes: string[] = [];
@@ -132,7 +127,6 @@ function buildEncargoChangeLines(
     encargoDateValue
   );
   addChange("Fecha fin", previous.fecha_fin || null, next.fecha_fin, encargoDateValue);
-  addChange("PVP inicial", previous.pvp_inicial, next.pvp_inicial, encargoMoneyValue);
   addChange("PVP actual", previous.pvp_actual, next.pvp_actual, encargoMoneyValue);
   addChange("PVP estimado", previous.pvp_estimado, next.pvp_estimado, encargoMoneyValue);
   addChange(
@@ -148,8 +142,6 @@ function buildEncargoChangeLines(
     encargoPercentValue
   );
   addChange("Memo", previous.memo || null, next.memo, (value) => value || "—");
-  addChange("Rebajas", previous.rebajas, next.rebajas, String);
-
   return changes;
 }
 
@@ -161,10 +153,7 @@ function getHealthConfig(health: number | null): { label: string; className: str
     };
   }
 
-  const label = new Intl.NumberFormat("es-ES", {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  }).format(health);
+  const label = formatHealthScore(health);
 
   if (health <= 4) {
     return { label, className: "bg-red-100 text-red-700 border-red-300 shadow-sm" };
@@ -260,131 +249,25 @@ function calcDesvioPct(pvpActual: number | null, pvpEstimado: number | null): nu
   return (pvpDesvio / pvpActual) * 100;
 }
 
-type HealthBreakdown = {
-  health: number | null;
-  scoreAvance: number;
-  scoreDesvio: number;
-  scoreRG: number;
-  scoreVisitas: number;
-};
-
-function calcHealthBreakdown({
-  diasRestantes,
-  avancePct,
-  desvioPct,
-  rg15d,
-  visitas30d,
-}: {
-  diasRestantes: number | null;
-  avancePct: number | null;
-  desvioPct: number | null;
-  rg15d: number;
-  visitas30d: number;
-}): HealthBreakdown {
-  if (diasRestantes === null || diasRestantes <= 0) {
-    return {
-      health: 0,
-      scoreAvance: 0,
-      scoreDesvio: 0,
-      scoreRG: 0,
-      scoreVisitas: 0,
-    };
-  }
-
-  const scoreAvance =
-    avancePct === null ? 0 :
-    avancePct <= 50 ? 2 :
-    avancePct <= 70 ? 1 :
-    0;
-
-  const scoreDesvio =
-    desvioPct === null ? 0 :
-    desvioPct <= 7.5 ? 4 :
-    desvioPct <= 10 ? 3 :
-    avancePct !== null && avancePct < 25 ? 3 :
-    0;
-
-  const scoreRG = rg15d > 1 ? 2 : rg15d > 0 ? 1 : 0;
-  const scoreVisitas = visitas30d === 0 ? 0 : visitas30d <= 4 ? 1 : 2;
-
-  return {
-    health: scoreAvance + scoreDesvio + scoreRG + scoreVisitas,
-    scoreAvance,
-    scoreDesvio,
-    scoreRG,
-    scoreVisitas,
-  };
-}
-
-function calcHealthBySheetRule({
-  diasRestantes,
-  avancePct,
-  desvioPct,
-  rg15d,
-  visitas30d,
-}: {
-  diasRestantes: number | null;
-  avancePct: number | null;
-  desvioPct: number | null;
-  rg15d: number;
-  visitas30d: number;
-}): number | null {
-  return calcHealthBreakdown({
-    diasRestantes,
-    avancePct,
-    desvioPct,
-    rg15d,
-    visitas30d,
-  }).health;
-}
-
-function getRebajasColor(rebajas: number): string {
-  if (rebajas === 0) return "text-red-600";
-  if (rebajas === 1) return "text-amber-600";
-  return "text-emerald-600";
-}
-
 function getActivityColor(value: number): string {
   if (value === 0) return "text-red-600";
   if (value === 1) return "text-amber-600";
   return "text-emerald-600";
 }
 
-function buildHealthTitle({
-  health,
-  avancePct,
-  desvioPct,
-  rg15d,
-  visitas30d,
-}: {
-  health: number | null;
-  avancePct: number | null;
-  desvioPct: number | null;
-  rg15d: number;
-  visitas30d: number;
-}): string {
+function buildHealthTitle(breakdown: EncargoHealthBreakdown): string {
+  const { health, scoreAvance, scoreDesvio, scoreRG, scoreVisitas } = breakdown;
   if (health === null) return "Health no calculado";
 
-  const breakdown = calcHealthBreakdown({
-    diasRestantes: 1,
-    avancePct,
-    desvioPct,
-    rg15d,
-    visitas30d,
-  });
-
-  return `Health ${fmtPct(health).replace("%", "")} · Avance +${breakdown.scoreAvance} · Desvío +${breakdown.scoreDesvio} · RG +${breakdown.scoreRG} · Visitas +${breakdown.scoreVisitas}`;
+  return `Health ${fmtPct(health).replace("%", "")} · Avance +${scoreAvance} · Desvío +${scoreDesvio} · RG +${scoreRG} · Visitas +${scoreVisitas}`;
 }
 
 function HealthBreakdownCard({ item }: { item: EncargoItem }) {
-  const hoy = new Date().toISOString().slice(0, 10);
-  const diasRestantes = calcDias(hoy, item.fecha_fin);
-  const avancePct = calcAvance(item.fecha_inicio, item.fecha_fin);
-  const desvioPct = calcDesvioPct(item.pvp_actual, item.pvp_estimado);
-  const breakdown = calcHealthBreakdown({
-    diasRestantes,
-    avancePct,
-    desvioPct,
+  const breakdown = calculateEncargoHealth({
+    fechaInicio: item.fecha_inicio,
+    fechaFin: item.fecha_fin,
+    pvpActual: item.pvp_actual,
+    pvpEstimado: item.pvp_estimado,
     rg15d: item.rg_15d,
     visitas30d: item.visitas_30d,
   });
@@ -393,12 +276,12 @@ function HealthBreakdownCard({ item }: { item: EncargoItem }) {
   const rows = [
     {
       label: "% Avance",
-      value: avancePct !== null ? `${avancePct}%` : "—",
+      value: breakdown.avancePct !== null ? `${breakdown.avancePct}%` : "—",
       score: breakdown.scoreAvance,
     },
     {
       label: "% Desvío",
-      value: fmtPct(desvioPct),
+      value: fmtPct(breakdown.desvioPct),
       score: breakdown.scoreDesvio,
     },
     {
@@ -462,7 +345,6 @@ export default function EncargosPage() {
   const [editForm, setEditForm] = useState({
     fecha_inicio: "",
     fecha_fin: "",
-    pvp_inicial: "",
     pvp_actual: "",
     pvp_estimado: "",
     com_vendedor: "",
@@ -474,7 +356,6 @@ export default function EncargosPage() {
     setEditForm({
       fecha_inicio: "",
       fecha_fin: "",
-      pvp_inicial: "",
       pvp_actual: "",
       pvp_estimado: "",
       com_vendedor: "",
@@ -496,7 +377,6 @@ export default function EncargosPage() {
     }
 
     const numericFields = [
-      { label: "PVP inicial", value: editForm.pvp_inicial },
       { label: "PVP actual", value: editForm.pvp_actual },
       { label: "PVP estimado", value: editForm.pvp_estimado },
       { label: "% vendedor", value: editForm.com_vendedor },
@@ -678,12 +558,10 @@ export default function EncargosPage() {
             ...baseFields,
             fecha_inicio: "",
             fecha_fin: "",
-            pvp_inicial: null,
             pvp_actual: null,
             pvp_estimado: null,
             com_vendedor: null,
             com_comprador: null,
-            rebajas: 0,
             memo: "",
           },
         ];
@@ -696,12 +574,10 @@ export default function EncargosPage() {
         ...baseFields,
         fecha_inicio: order.fecha_inicio ?? "",
         fecha_fin: order.fecha_fin ?? "",
-        pvp_inicial: order.pvp_inicial ?? null,
         pvp_actual: order.pvp_actual ?? null,
         pvp_estimado: order.pvp_estimado ?? null,
         com_vendedor: order.com_vendedor ?? null,
         com_comprador: order.com_comprador ?? null,
-        rebajas: order.rebajas ?? 0,
         memo: order.memo?.trim() ?? "",
       }));
     });
@@ -792,23 +668,15 @@ export default function EncargosPage() {
     }
 
     const nextPvpActual = editForm.pvp_actual ? Number(editForm.pvp_actual) : null;
-    const shouldIncrementRebajas =
-      activeItem.pvp_actual !== null &&
-      nextPvpActual !== null &&
-      nextPvpActual < activeItem.pvp_actual;
-    const nextRebajas = activeItem.rebajas + (shouldIncrementRebajas ? 1 : 0);
-
     const payload = {
       opportunity_id: activeItem.leadId,
       fecha_inicio: editForm.fecha_inicio || null,
       fecha_fin: editForm.fecha_fin || null,
-      pvp_inicial: editForm.pvp_inicial ? Number(editForm.pvp_inicial) : null,
       pvp_actual: nextPvpActual,
       pvp_estimado: editForm.pvp_estimado ? Number(editForm.pvp_estimado) : null,
       com_vendedor: editForm.com_vendedor ? Number(editForm.com_vendedor) : null,
       com_comprador: editForm.com_comprador ? Number(editForm.com_comprador) : null,
       memo: editForm.memo.trim() || null,
-      rebajas: nextRebajas,
     };
     const isEditing = Boolean(selected && selected.orderId !== null);
     const changes = isEditing ? buildEncargoChangeLines(activeItem, payload) : [];
@@ -884,8 +752,8 @@ export default function EncargosPage() {
     "Health", "Domicilio", "Propietario", "Estado", "Dominio",
     "Planner", "Owner", "Origen", "Inicio", "Fin",
     "Días Gestión", "Días Rest.", "IN Month", "OUT Month",
-    "% Vendedor", "% Comprador", "PVP Inicial", "PVP Actual", "PVP Estimado", "PVP Desvío", "% Desvío",
-    "% Avance", "Rebajas", "R.G. 15d", "Visitas 30d"
+    "% Vendedor", "% Comprador", "PVP Actual", "PVP Estimado", "PVP Desvío", "% Desvío",
+    "% Avance", "R.G. 15d", "Visitas 30d"
   ];
 
   return (
@@ -978,21 +846,17 @@ export default function EncargosPage() {
                   const pvpDesvio = calcPvpDesvio(item.pvp_actual, item.pvp_estimado);
                   const avance = calcAvance(item.fecha_inicio, item.fecha_fin);
                   const desvioPct = calcDesvioPct(item.pvp_actual, item.pvp_estimado);
-                  const calculatedHealth = calcHealthBySheetRule({
-                    diasRestantes,
-                    avancePct: avance,
-                    desvioPct,
+                  const healthBreakdown = calculateEncargoHealth({
+                    fechaInicio: item.fecha_inicio,
+                    fechaFin: item.fecha_fin,
+                    pvpActual: item.pvp_actual,
+                    pvpEstimado: item.pvp_estimado,
                     rg15d: item.rg_15d,
                     visitas30d: item.visitas_30d,
                   });
+                  const calculatedHealth = healthBreakdown.health;
                   const healthCfg = getHealthConfig(calculatedHealth);
-                  const healthTitle = buildHealthTitle({
-                    health: calculatedHealth,
-                    avancePct: avance,
-                    desvioPct,
-                    rg15d: item.rg_15d,
-                    visitas30d: item.visitas_30d,
-                  });
+                  const healthTitle = buildHealthTitle(healthBreakdown);
 
                   return (
                     <tr
@@ -1030,7 +894,6 @@ export default function EncargosPage() {
                       <td className="px-3 py-2.5 text-sm text-muted-foreground">{fmtMonth(item.fecha_fin)}</td>
                       <td className="px-3 py-2.5 text-sm text-muted-foreground">{item.com_vendedor !== null ? `${item.com_vendedor}%` : "—"}</td>
                       <td className="px-3 py-2.5 text-sm text-muted-foreground">{item.com_comprador !== null ? `${item.com_comprador}%` : "—"}</td>
-                      <td className="px-3 py-2.5 text-sm text-muted-foreground">{fmtEuro(item.pvp_inicial)}</td>
                       <td className="px-3 py-2.5 text-sm text-muted-foreground">{fmtEuro(item.pvp_actual)}</td>
                       <td className="px-3 py-2.5 text-sm text-muted-foreground">{fmtEuro(item.pvp_estimado)}</td>
                       <td className="px-3 py-2.5 text-sm text-muted-foreground">{fmtEuro(pvpDesvio)}</td>
@@ -1039,9 +902,6 @@ export default function EncargosPage() {
                       </td>
                       <td className={cn("px-3 py-2.5 text-sm font-medium", getAvanceColor(avance))}>
                         {avance !== null ? `${avance}%` : "—"}
-                      </td>
-                      <td className={cn("px-3 py-2.5 text-sm font-medium", getRebajasColor(item.rebajas))}>
-                        {item.rebajas}
                       </td>
                       <td className={cn("px-3 py-2.5 text-sm font-medium", getActivityColor(item.rg_15d))}>{item.rg_15d}</td>
                       <td className={cn("px-3 py-2.5 text-sm font-medium", getActivityColor(item.visitas_30d))}>{item.visitas_30d}</td>
@@ -1165,17 +1025,6 @@ export default function EncargosPage() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-medium">PVP Inicial</Label>
-              <Input
-                value={editForm.pvp_inicial}
-                onChange={(e) => setField("pvp_inicial", e.target.value)}
-                className="h-10 text-sm sm:h-8"
-                placeholder="Ej: 250000"
-                type="number"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
               <Label className="text-xs font-medium">PVP Actual</Label>
               <Input
                 value={editForm.pvp_actual}
@@ -1184,13 +1033,6 @@ export default function EncargosPage() {
                 placeholder="Ej: 240000"
                 type="number"
               />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-medium">Rebajas acumuladas</Label>
-              <div className="flex h-10 items-center rounded-md border border-border bg-muted/40 px-3 text-sm text-muted-foreground sm:h-8">
-                {(selected ?? items.find((item) => String(item.leadId) === createLeadId))?.rebajas ?? 0}
-              </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
