@@ -10,6 +10,7 @@ import { normalizeEnVenta, PHASE_LABELS, type Lead } from "@/lib/crm-data";
 import { canViewAllLeads, useUser } from "@/lib/hooks/useUser";
 import { legacyActivityText } from "@/lib/opportunity-contact-memo";
 import { LeadDetailPanel } from "@/components/crm/lead-detail-panel";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -53,6 +54,7 @@ type OpportunityContactRow = {
   fecha: string | null;
   hora: string | null;
   medio: string | null;
+  confirmed: boolean | null;
   resultado_text: string | null;
   memo: string | null;
   created_at: string | null;
@@ -68,6 +70,7 @@ type ValoracionEntry = {
   registeredAt: string;
   hora: string;
   medio: string;
+  confirmed: boolean;
   createdBy: string;
   notes: string;
   ownerName: string;
@@ -474,10 +477,13 @@ export default function ValoracionesPage() {
         supabase
           .from("opportunity_activities")
           .select(
-            "id, opportunity_id, fecha, hora, medio, resultado_text, memo, created_at, event_type, created_by, profile:profiles!opportunity_activities_created_by_fkey(name), legacy:opportunity_activity_history_archive(legacy_payload)"
+            "id, opportunity_id, fecha, hora, medio, confirmed, resultado_text, memo, created_at, event_type, created_by, profile:profiles!opportunity_activities_created_by_fkey(name), legacy:opportunity_activity_history_archive(legacy_payload)"
           )
           .eq("event_type", "valuation")
-          .order("fecha", { ascending: false }),
+          .is("deleted_at", null)
+          .order("fecha", { ascending: true, nullsFirst: false })
+          .order("hora", { ascending: true, nullsFirst: false })
+          .order("created_at", { ascending: false }),
         supabase.from("crm_leads_view").select("*").order("created_at", { ascending: false }),
       ]);
 
@@ -515,18 +521,20 @@ export default function ValoracionesPage() {
 
       const entries: ValoracionEntry[] = contactRows.map((row) => {
         const lead = leadsMap.get(row.opportunity_id);
+        const createdByProfileName =
+          (Array.isArray(row.profile) ? row.profile[0] : row.profile)?.name?.trim() || "";
         const createdBy =
           legacyActivityText(row.legacy, "actor_name") ||
-          (Array.isArray(row.profile) ? row.profile[0] : row.profile)?.name?.trim() ||
-          "";
+          createdByProfileName;
 
         return {
           id: String(row.id),
           leadId: String(row.opportunity_id),
           fecha: normalizeDate(row.fecha || row.created_at || ""),
           registeredAt: row.created_at || "",
-          hora: row.hora || "",
+          hora: row.hora ? row.hora.slice(0, 5) : "",
           medio: row.medio || "",
+          confirmed: row.confirmed === true,
           createdBy,
           notes: row.memo?.trim() || "",
           ownerName: lead?.ownerName || "—",
@@ -539,53 +547,13 @@ export default function ValoracionesPage() {
           source: lead?.source || "Sin origen",
           dominio: lead?.dominio || "—",
           phase: lead?.phase || "identificada",
-          planner: lead?.planner || "—",
+          planner: createdByProfileName || "—",
           owner: lead?.owner || "—",
           lead,
         };
       });
 
-      const leadIdsWithRealEntries = new Set(contactRows.map((row) => row.opportunity_id));
-
-      const legacyEntries: ValoracionEntry[] = [];
-      for (const lead of leadsMap.values()) {
-        const leadIdNum = Number(lead.id);
-        const isCualificadaOValorada =
-          lead.phase === "cualificada" || lead.phase === "valorada";
-
-        if (
-          !isCualificadaOValorada ||
-          leadIdsWithRealEntries.has(leadIdNum) ||
-          !lead.fechaValoracion
-        ) {
-          continue;
-        }
-
-        legacyEntries.push({
-          id: `legacy-${lead.id}`,
-          leadId: lead.id,
-          fecha: lead.fechaValoracion,
-          registeredAt: lead.createdAt,
-          hora: lead.hora || "",
-          medio: lead.medio && lead.medio !== "—" ? lead.medio : "",
-          createdBy: "",
-          notes: "",
-          ownerName: lead.ownerName,
-          address: lead.address,
-          district: lead.distrito,
-          province: lead.provincia,
-          postalCode: lead.cp,
-          valuationValue: lead.valor,
-          phone: lead.phone,
-          source: lead.source,
-          dominio: lead.dominio || "—",
-          phase: lead.phase,
-          planner: lead.planner || "—",
-          owner: lead.owner,
-        });
-      }
-
-      setItems([...entries, ...legacyEntries]);
+      setItems(entries);
       setLoading(false);
     }
 
@@ -666,6 +634,9 @@ export default function ValoracionesPage() {
                 <th className="px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Medio
                 </th>
+                <th className="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Confirmada
+                </th>
                 <th className="px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Dominio
                 </th>
@@ -745,6 +716,13 @@ export default function ValoracionesPage() {
                     ) : (
                       <span className="text-sm text-muted-foreground">—</span>
                     )}
+                  </td>
+                  <td className="px-3 py-2.5 text-center">
+                    <Checkbox
+                      checked={item.confirmed}
+                      disabled
+                      aria-label={item.confirmed ? "Confirmada" : "No confirmada"}
+                    />
                   </td>
                   <td className="px-3 py-2.5">
                     {item.dominio && item.dominio !== "—" ? (
