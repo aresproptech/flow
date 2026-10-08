@@ -80,7 +80,6 @@ const LEAD_SEARCH_COLUMNS = [
   "tasacion",
   "estado",
   "en_venta",
-  "medio",
   "fase_name",
   "source_name",
   "responsable",
