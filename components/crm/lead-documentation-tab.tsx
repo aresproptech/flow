@@ -451,13 +451,13 @@ export function LeadDocumentationTab({
       return;
     }
 
-    const { data: storagePath, error: auditError } = await supabase.rpc(
+    const { data: storagePath, error: viewError } = await supabase.rpc(
       "crm_record_document_view",
       { p_file_id: file.id }
     );
-    if (auditError || !storagePath) {
+    if (viewError || !storagePath) {
       setError(
-        `No se pudo registrar la apertura del documento: ${auditError?.message || "ruta no disponible"}`
+        `No se pudo abrir el documento: ${viewError?.message || "ruta no disponible"}`
       );
       return;
     }

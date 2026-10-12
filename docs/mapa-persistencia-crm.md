@@ -25,13 +25,13 @@ Documento auditado desde el front actual. Indica que acciones leen o escriben da
 | Accion en front | Tabla / vista | Operacion | Columnas usadas | Persistencia | Archivo |
 |---|---|---|---|---|---|
 | Listar leads | `crm_leads_view` | `select` | `*` | Solo lectura | `app/(crm)/leads/page.tsx` |
-| Importar CSV | `opportunities` + `opportunity_activities` | RPC transaccional | Campos del lead + evento `lead_imported`; incluye fechas de contacto, valoración y hora | Guarda todo o revierte todo el archivo | `app/(crm)/leads/page.tsx` |
-| Crear lead manual | `opportunities` + `opportunity_activities` | RPC transaccional | Campos del lead + evento `lead_created` con autor real | Guarda todo o revierte todo | `app/(crm)/leads/page.tsx` |
+| Importar CSV | `opportunities` | `insert` directo | Campos del lead; incluye fechas de contacto, valoración y hora | Guarda | `app/(crm)/leads/page.tsx` |
+| Crear lead manual | `opportunities` | `insert` directo | Campos del lead | Guarda | `app/(crm)/leads/page.tsx` |
 | Editar lead | `opportunities` + `opportunity_activities` | RPC transaccional | Campos del lead + evento `lead_updated` con detalle, `before` y `after` | Guarda todo o revierte todo | `app/(crm)/leads/page.tsx` |
 | Leer lead actualizado | `crm_leads_view` | `select` | `*` por `id` | Solo lectura | `app/(crm)/leads/page.tsx` |
-| Mover en Kanban / cambiar fase | `opportunities` + `opportunity_activities` | RPC transaccional | `fase_id` + evento `phase_changed` | Guarda | `app/(crm)/leads/page.tsx` |
+| Mover en Kanban / cambiar fase | `opportunities` | `update` directo | `fase_id` | Guarda | `app/(crm)/leads/page.tsx` |
 | Marcar favorito | `opportunities` | `update` | `is_favorite` | Guarda | `app/(crm)/leads/page.tsx` |
-| Eliminar seleccionados | `opportunities` + `opportunity_activities` | RPC transaccional | `deleted_at` + evento `lead_deleted` | Guarda | `app/(crm)/leads/page.tsx` |
+| Eliminar seleccionados | `opportunities` | Borrado lógico | `deleted_at` | Guarda | No crea un evento auxiliar |
 | Resolver fase | `phases` | `select` | `id`, `name` | Solo lectura | `app/(crm)/leads/page.tsx` |
 | Filtros, busqueda, orden, seleccion | Estado React local | N/A | No aplica | No guarda | `app/(crm)/leads/page.tsx` |
 
@@ -52,16 +52,16 @@ Documento auditado desde el front actual. Indica que acciones leen o escriben da
 |---|---|---|---|---|
 | Configurar expediente | `opportunity_documentation_cases` | `upsert` por `opportunity_id` | Guarda | Define propietarios y requisitos condicionales |
 | Adjuntar archivo | Storage + `opportunity_documentation_files` + `opportunity_activities` | Carga física y RPC `crm_register_document_upload` | Conserva archivo; metadatos y auditoría se guardan atómicamente | Evento `document_uploaded` con autor y fecha |
-| Abrir archivo | `opportunity_activities` + Storage | RPC `crm_record_document_view` y URL firmada de 60 segundos | Guarda auditoría antes de abrir | Evento `document_viewed` con autor y fecha |
+| Abrir archivo | Storage | RPC `crm_record_document_view` y URL firmada de 60 segundos | Solo lectura | Valida acceso y existencia antes de devolver la ruta |
 | Eliminar o modificar un archivo | No disponible | N/A | No elimina ni altera | Los usuarios normales sólo leen metadatos y no pueden borrar ni reemplazar objetos documentales |
-| Eliminar lead desde el listado | `opportunities` + `opportunity_activities` | RPC `crm_soft_delete_leads` | Borrado lógico | Conserva la fila, relaciones, documentos e historial |
+| Eliminar lead mediante RPC | `opportunities` | RPC `crm_soft_delete_leads` | Borrado lógico | Conserva la fila, relaciones y documentos sin crear un evento auxiliar |
 
 ## Valoraciones
 
 | Accion en front | Tabla / vista | Operacion | Columnas usadas | Persistencia | Archivo |
 |---|---|---|---|---|---|
 | Agregar valoracion desde panel | `opportunity_activities` | `insert` directo | tipo `valuation`, fecha efectiva, actor y `metadata` | Guarda | `components/crm/lead-detail-panel.tsx` |
-| Editar valoracion desde panel | `opportunity_activities` | `update` + `insert` directos | actualiza `valuation` y agrega `valuation_updated` | Guarda | Conserva el detalle del cambio |
+| Editar valoracion desde panel | `opportunity_activities` | `update` directo | actualiza el registro `valuation` existente | Guarda | No crea un evento secundario |
 | Listar historial de valoraciones en panel | `opportunity_activities` | `select` | campos estructurados con tipo `valuation` | Solo lectura | `components/crm/lead-detail-panel.tsx` |
 | Listar pagina Valoraciones | `opportunity_activities` | `select` | `event_type = valuation` | Solo lectura | `app/(crm)/valoraciones/page.tsx` |
 | Enriquecer pagina Valoraciones | `crm_leads_view` | `select` | `*` | Solo lectura | `app/(crm)/valoraciones/page.tsx` |
@@ -75,7 +75,7 @@ estructurados de la valoración se guardan en `metadata`.
 | Accion en front | Tabla / vista | Operacion | Columnas usadas | Persistencia | Archivo |
 |---|---|---|---|---|---|
 | Agregar R.G. desde panel | `opportunity_activities` | `insert` directo | tipo `rg`, fecha efectiva, actor y `metadata` | Guarda | `components/crm/lead-detail-panel.tsx` |
-| Editar R.G. desde panel | `opportunity_activities` | `update` + `insert` directos | actualiza `rg` y agrega `rg_updated` | Guarda | Conserva el detalle del cambio |
+| Editar R.G. desde panel | `opportunity_activities` | `update` directo | actualiza el registro `rg` existente | Guarda | No crea un evento secundario |
 | Listar historial R.G. en panel | `opportunity_activities` | `select` | campos estructurados con tipo `rg` | Solo lectura | `components/crm/lead-detail-panel.tsx` |
 | Listar pagina R.G. | `opportunity_activities` | `select` | `event_type = rg` | Solo lectura | `app/(crm)/rg/page.tsx` |
 | Enriquecer pagina R.G. | `crm_leads_view` | `select` | `*` | Solo lectura | `app/(crm)/rg/page.tsx` |
@@ -91,7 +91,6 @@ Resultado y Hora se guardan en `metadata`.
 | Cargar encargos del panel | `opportunity_orders` | `select` | `*` por `opportunity_id` | Solo lectura | `components/crm/lead-detail-panel.tsx` |
 | Agregar encargo desde panel | `opportunity_orders` | `insert` | `opportunity_id`, `fecha_inicio`, `fecha_fin`, `pvp_actual`, `pvp_estimado`, `com_vendedor`, `com_comprador`, `memo` | Guarda | `components/crm/lead-detail-panel.tsx` |
 | Editar encargo desde panel | `opportunity_orders` | `update` | mismas columnas por `id` | Guarda | `components/crm/lead-detail-panel.tsx` |
-| Registrar historial encargo | `opportunity_activities` | `insert` | `opportunity_id`, `fecha`, `memo`, `resultado` | Guarda | `components/crm/lead-detail-panel.tsx` |
 | Listar pagina Encargos | `crm_leads_view` + `opportunity_orders` | `select` | leads en fase Encargo + `opportunity_orders.*` | Solo lectura | `app/(crm)/encargos/page.tsx` |
 | Crear/editar encargo desde pagina Encargos | `opportunity_orders` | `insert` / `update` | `opportunity_id`, fechas, PVP actual/estimado, comisiones, `memo` | Guarda | `app/(crm)/encargos/page.tsx` |
 | Health / actividad reciente | `opportunity_activities`, `opportunity_buyers` | `select` | R.G. ultimos 15 dias, visitas ultimos 30 dias | Solo lectura | `app/(crm)/encargos/page.tsx` |
@@ -105,7 +104,6 @@ Resultado y Hora se guardan en `metadata`.
 | Cargar inmuebles para visita | RPC `crm_visit_property_options` | DTO seguro | `id`, `propietario`, `domicilio`, `owner`, `planner`, `estado`, `dominio` | Solo lectura | El gestor de visitas no obtiene acceso a `crm_leads_view` |
 | Agregar visita | `opportunity_buyers` | `insert` directo | `opportunity_id`, `assigned_profile_id`, datos de visita y autor | Guarda | RLS exige oportunidad activa en Encargo |
 | Editar visita | `opportunity_buyers` | `update` directo | datos editables por `id`, incluido `assigned_profile_id`; no reasigna el inmueble | Guarda | `app/(crm)/visitas/page.tsx` |
-| Registrar historial de visita | `opportunity_activities` | `insert` directo | evento tipado, detalle y actor | Guarda | Se registra después de guardar la visita |
 | Copiar telefonos seleccionados | Clipboard navegador | N/A | `telefono` | No guarda | Solo portapapeles |
 | Click telefono / WhatsApp | Navegacion externa | N/A | `telefono` | No guarda | Abre WhatsApp/telefono segun implementacion |
 | Impacto dashboard comercial | `opportunity_buyers` | lectura/calculo | `opportunity_id`, `fecha_visita`, `created_at` | No guarda metrica | Cuenta visitas por fecha |
@@ -117,7 +115,7 @@ Resultado y Hora se guardan en `metadata`.
 | Metricas generales | `crm_leads_view` | `select` | `*` | No | Calcula fases, estados, origen, comercial |
 | Actividad comerciales | `crm_leads_view` | `select` | `id`, fechas, fase, estado, comercial, dominio, origen | No | Base para atribuir acciones |
 | Valoraciones/R.G. dashboard | `opportunity_activities` | `select` | `id`, `opportunity_id`, `fecha`, `event_type`, `created_at` | No | Cuenta actividades por tipo |
-| Encargos dashboard | `opportunity_activities` | `select` | eventos `order_created` por `event_type` y fecha efectiva | No | Cuenta el alta auditada del encargo; `opportunity_orders` no tiene `created_at` |
+| Encargos dashboard | `opportunity_orders` | `select` | `opportunity_id`, `fecha_inicio` | No | Cuenta encargos por su fecha de inicio, sin crear eventos auxiliares |
 | Visitas dashboard | `opportunity_buyers` | `select` | `id`, `opportunity_id`, `fecha_visita`, `created_at` | No | Cuenta por fecha de visita/creacion |
 | Periodos del dashboard | Estado React local | N/A | `period`, `customFrom`, `customTo` | No | Solo filtro visual |
 | Promedio, proyectado, gap, ratios | Calculo frontend | N/A | Datos leidos | No | No persiste resultados |
@@ -173,7 +171,7 @@ Pendiente de confirmar en backend:
 | Riesgo | Motivo | Recomendacion |
 |---|---|---|
 | Auditoria de autor en registros antiguos | Algunos memos antiguos no guardaban nombre real | Migrar o aceptar fallback visual |
-| Registros históricos en texto libre | Se mantienen como `legacy` | Conservar el parser sólo como compatibilidad |
+| Registros históricos archivados | Se conservan fuera de `event_type` | Mantener el parser sólo mientras existan datos archivados |
 | Dashboard no guarda snapshots | Todo se recalcula al abrir | Si se necesita historico fijo, crear tabla de snapshots |
 | Seguridad depende de RLS | El front filtra, pero no alcanza como seguridad fuerte | Auditar policies Supabase |
 | Campos `_desc` vs IDs relacionales | El front inserta muchos IDs como null y guarda descripciones | Confirmar triggers/vista o normalizar |

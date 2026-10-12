@@ -35,7 +35,7 @@ Las acciones principales del negocio si tienen respaldo en backend:
 - Las R.G. se guardan como contactos tipo R.G. en `opportunity_activities`.
 - Los encargos se guardan en `opportunity_orders`.
 - Las visitas se guardan en `opportunity_buyers`.
-- El dashboard calcula metricas desde datos reales de `opportunities`, `opportunity_activities` y `opportunity_buyers`; las altas de encargos se cuentan mediante eventos `order_created`.
+- El dashboard calcula metricas desde datos reales de `opportunities`, `opportunity_activities`, `opportunity_orders` y `opportunity_buyers`; los encargos se cuentan por `opportunity_orders.fecha_inicio`.
 
 En resumen: las acciones operativas importantes no quedan solo en el front. La mayoria se escriben o se leen desde Supabase.
 
@@ -123,7 +123,6 @@ Clasificación de los 55 registros existentes al aplicar la migración:
 
 Reglas vigentes:
 
-- `event_type = note` se muestra en Observaciones.
 - Los tipos de auditoria se muestran en Historial.
 - `event_type = valuation` alimenta Valoraciones, Historial, Planning y metricas.
 - `event_type = rg` alimenta R.G., Historial, Planning y metricas.
@@ -131,8 +130,8 @@ Reglas vigentes:
 
 Correcciones realizadas:
 
-- Todos los registros tienen un tipo estructurado; los 27 textos libres antiguos
-  se mantienen como `legacy`.
+- Todos los registros activos tienen un tipo estructurado vigente; los textos
+  históricos archivados no se representan mediante un `event_type` especial.
 - Valoraciones y R.G. guardan campos operativos en `metadata` y conservan el
   formato antiguo como respaldo legible.
 - Planning lee valoraciones, R.G. y visitas realmente persistidas, en lugar de inferirlas desde la fase actual del lead.

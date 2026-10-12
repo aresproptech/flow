@@ -1,4 +1,4 @@
--- Prueba la auditoría documental y el bloqueo de borrado. No conserva escrituras.
+-- Prueba la auditoría de carga documental, la apertura y el bloqueo de borrado. No conserva escrituras.
 begin;
 
 do $$
@@ -89,15 +89,8 @@ begin
   select public.crm_record_document_view(test_file_id)
   into returned_path;
 
-  if returned_path is distinct from test_object_name or not exists (
-    select 1
-    from public.opportunity_activities c
-    where c.opportunity_id = target_opportunity_id
-      and c.event_type = 'document_viewed'
-      and c.assigned_profile_id = writer_profile.id
-      and c.metadata ->> 'document_id' = test_file_id::text
-  ) then
-    raise exception 'La apertura no quedó auditada correctamente';
+  if returned_path is distinct from test_object_name then
+    raise exception 'La apertura no devolvió la ruta esperada';
   end if;
 
   begin
@@ -202,6 +195,6 @@ begin
 end
 $$;
 
-select 'PASS: carga y apertura auditadas; documentos y leads sin borrado físico; todo revertido' as result;
+select 'PASS: carga auditada y apertura validada; documentos y leads sin borrado físico; todo revertido' as result;
 
 rollback;

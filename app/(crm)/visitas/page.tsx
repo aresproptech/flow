@@ -127,54 +127,6 @@ function getWhatsAppUrl(phone: string | null | undefined) {
   return `https://wa.me/${normalized}`;
 }
 
-function visitaToForm(v: Visita): VisitaForm {
-  return {
-    opportunity_id: v.opportunity_id ? String(v.opportunity_id) : "",
-    estado: v.estado || "",
-    dominio: v.dominio || "",
-    planner: v.planner || "",
-    owner: v.owner || "",
-    fecha_visita: v.fecha_visita || "",
-    hora: v.hora || "",
-    assigned_profile_id: v.assigned_profile_id ? String(v.assigned_profile_id) : "",
-    nombre_apellido: v.nombre_apellido || "",
-    telefono: v.telefono || "",
-    dni: v.dni || "",
-    vende: v.vende === true ? "si" : v.vende === false ? "no" : "",
-    observaciones_visita: v.observaciones_visita || "",
-  };
-}
-
-function visitHistoryValue(field: keyof VisitaForm, value: string) {
-  if (!value) return "—";
-  if (field === "vende") return value === "si" ? "Sí" : value === "no" ? "No" : "—";
-  if (field === "fecha_visita") return fmt(value);
-  return value;
-}
-
-function buildVisitChangeLines(previous: VisitaForm, next: VisitaForm) {
-  const tracked: Array<{ field: keyof VisitaForm; label: string }> = [
-    { field: "fecha_visita", label: "Fecha" },
-    { field: "hora", label: "Hora" },
-    { field: "assigned_profile_id", label: "Responsable" },
-    { field: "nombre_apellido", label: "Nombre y apellido" },
-    { field: "telefono", label: "Teléfono" },
-    { field: "dni", label: "DNI" },
-    { field: "vende", label: "Vende" },
-    { field: "observaciones_visita", label: "Memo" },
-  ];
-
-  return tracked.flatMap(({ field, label }) => {
-    const before = previous[field].trim();
-    const after = next[field].trim();
-    if (before === after) return [];
-
-    return [
-      `${label}: de ${visitHistoryValue(field, before)} a ${visitHistoryValue(field, after)}`,
-    ];
-  });
-}
-
 export default function VisitasPage() {
   const { userWithRole } = useUser();
   const [visitas, setVisitas] = useState<Visita[]>([]);
@@ -412,7 +364,6 @@ export default function VisitasPage() {
     if (!selectedVisita) return;
     setSaving(true);
     setFormError(null);
-    const changes = buildVisitChangeLines(visitaToForm(selectedVisita), editForm);
 
     const { error } = await supabase
       .from("opportunity_buyers")
@@ -436,23 +387,6 @@ export default function VisitasPage() {
       console.error("Error actualizando visita:", error);
       setFormError("No se pudieron guardar los cambios. Intentá nuevamente.");
       return;
-    }
-
-    const actorName = userWithRole?.crmUser?.name?.trim() || "Usuario";
-    const activityText = `Editó una visita${
-      changes.length ? `:\n${changes.join("\n")}` : " sin cambios visibles"
-    }`;
-    const { error: activityError } = await supabase.from("opportunity_activities").insert({
-      opportunity_id: selectedVisita.opportunity_id,
-      assigned_profile_id: userWithRole?.crmUser.id ?? null,
-      fecha: editForm.fecha_visita || new Date().toISOString().slice(0, 10),
-      memo: `[HISTORIAL] ${actorName}: ${activityText}`,
-      resultado: true,
-      event_type: "visit_updated",
-    });
-
-    if (activityError) {
-      console.error("Error registrando historial de visita:", activityError);
     }
 
     setEditModalOpen(false);

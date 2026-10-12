@@ -1007,44 +1007,6 @@ function persistedRowId(value: number | string | null | undefined) {
   return value;
 }
 
-function historyDisplayValue(value: unknown) {
-  const displayed = displayValue(value);
-  return displayed === "—" ? "sin dato" : displayed;
-}
-
-function historyDateValue(value: string | null | undefined) {
-  const formatted = fmtDate(dateOnlyValue(value));
-  return formatted === "—" ? "sin fecha" : formatted;
-}
-
-function historyMoneyValue(value: unknown) {
-  const displayed = displayMoney(value);
-  return displayed === "—" ? "sin dato" : displayed;
-}
-
-function historyPercentValue(value: unknown) {
-  const displayed = percentageValue(value);
-  return displayed === "—" ? "sin dato" : displayed;
-}
-
-function buildHistoryChangeLines(
-  changes: Array<{
-    label: string;
-    before: unknown;
-    after: unknown;
-    format?: (value: unknown) => string;
-  }>
-) {
-  return changes.flatMap((change) => {
-    const formatter = change.format ?? historyDisplayValue;
-    const before = formatter(change.before);
-    const after = formatter(change.after);
-    if (before === after) return [];
-    return [`${change.label} cambió de ${before} a ${after}`];
-  });
-}
-
-
 function getPlanningLabel(dateValue: string | null | undefined) {
   if (!dateValue) return "Sin fecha";
 
@@ -2133,16 +2095,7 @@ export function LeadDetailPanel({
           Boolean(legacyActivityText(row.legacy, "text")) ||
           Boolean(legacyActivityText(row.legacy, "notes"))
       )
-      .filter((row) =>
-        matchesOpportunityContactEvent(
-          row.event_type,
-          row.memo,
-          "note",
-          NOTE_PREFIX
-        ) ||
-        ((!row.event_type || row.event_type === "legacy") &&
-          isManualNoteMemo(row.memo || ""))
-      )
+      .filter((row) => !row.event_type && isManualNoteMemo(row.memo || ""))
       .map((row) => ({
         id: String(row.id),
         leadId,
@@ -2169,7 +2122,7 @@ export function LeadDetailPanel({
         const memo = row.memo?.trim() || "";
         const parsed = parseStoredMemo(memo);
         const createdAt = row.created_at || toHistoryCreatedAt(row.fecha || "");
-        const eventType = row.event_type || "legacy";
+        const eventType = row.event_type || "unknown";
         const actorName =
           legacyActivityText(row.legacy, "actor_name") ||
           (Array.isArray(row.assigned_profile) ? row.assigned_profile[0] : row.assigned_profile)?.name?.trim() ||
@@ -2177,8 +2130,6 @@ export function LeadDetailPanel({
           parsed.createdBy;
 
         if (
-          eventType !== "legacy" &&
-          eventType !== "note" &&
           eventType !== "valuation" &&
           eventType !== "rg"
         ) {
@@ -2916,9 +2867,6 @@ export function LeadDetailPanel({
     setEncargoSaving(true);
     setEncargoError(null);
     const wasEditing = Boolean(editingOrderId);
-    const previousOrder = wasEditing
-      ? orders.find((order) => String(persistedRowId(order.id)) === String(editingOrderId))
-      : null;
 
     const payload = {
       opportunity_id: Number(effectiveLead.id),
@@ -2934,59 +2882,6 @@ export function LeadDetailPanel({
       memo: encargoForm.memo.trim() || null,
     };
 
-    const encargoChanges = previousOrder
-      ? buildHistoryChangeLines([
-          {
-            label: "Fecha inicio",
-            before: previousOrder.fecha_inicio,
-            after: payload.fecha_inicio,
-            format: (value) => historyDateValue(value as string | null | undefined),
-          },
-          {
-            label: "Fecha fin",
-            before: previousOrder.fecha_fin,
-            after: payload.fecha_fin,
-            format: (value) => historyDateValue(value as string | null | undefined),
-          },
-          {
-            label: "PVP actual",
-            before: previousOrder.pvp_actual,
-            after: payload.pvp_actual,
-            format: historyMoneyValue,
-          },
-          {
-            label: "PVP estimado",
-            before: previousOrder.pvp_estimado,
-            after: payload.pvp_estimado,
-            format: historyMoneyValue,
-          },
-          {
-            label: "Comisión vendedor",
-            before: previousOrder.com_vendedor,
-            after: payload.com_vendedor,
-            format: historyPercentValue,
-          },
-          {
-            label: "Comisión comprador",
-            before: previousOrder.com_comprador,
-            after: payload.com_comprador,
-            format: historyPercentValue,
-          },
-          {
-            label: "Responsable",
-            before: previousOrder.assigned_profile_id,
-            after: payload.assigned_profile_id,
-            format: (value) =>
-              availablePlannerProfiles.find((profile) => profile.id === Number(value))?.name || "—",
-          },
-          {
-            label: "Memo",
-            before: previousOrder.memo,
-            after: payload.memo,
-          },
-        ])
-      : [];
-
     const { error } = wasEditing
       ? await supabase
           .from("opportunity_orders")
@@ -3001,26 +2896,6 @@ export function LeadDetailPanel({
       console.error("Error guardando encargo:", error);
       setEncargoError(`No se pudo guardar el encargo: ${error.message}`);
       return;
-    }
-
-    const orderActivityText = wasEditing
-      ? `Editó un encargo${
-          encargoChanges.length ? `:\n${encargoChanges.join("\n")}` : " sin cambios visibles"
-        }`
-      : "Agregó un encargo";
-    const { error: orderActivityError } = await supabase
-      .from("opportunity_activities")
-      .insert({
-        opportunity_id: Number(effectiveLead.id),
-        assigned_profile_id: userWithRole?.crmUser.id ?? null,
-        fecha: new Date().toISOString().slice(0, 10),
-        memo: `[HISTORIAL] ${currentUserName}: ${orderActivityText}`,
-        resultado: true,
-        event_type: wasEditing ? "order_updated" : "order_created",
-      });
-
-    if (orderActivityError) {
-      console.error("Error registrando historial del encargo:", orderActivityError);
     }
 
     resetEncargoForm();
@@ -3044,29 +2919,8 @@ export function LeadDetailPanel({
     setRgSaving(true);
     setRgError(null);
     const wasEditing = Boolean(editingRgId);
-    const previousRg = wasEditing
-      ? rgHistoryEvents.find((event) => String(persistedRowId(event.id)) === String(editingRgId))
-      : null;
 
     const resultadoLabel = rgForm.resultado || "—";
-    const responsableName =
-      activeProfileOptions.find((profile) => String(profile.id) === rgForm.owner)?.name || "—";
-
-    const rgChanges = previousRg
-      ? buildHistoryChangeLines([
-          {
-            label: "Fecha",
-            before: previousRg.fecha,
-            after: rgForm.fecha,
-            format: (value) => historyDateValue(value as string | null | undefined),
-          },
-          { label: "Hora", before: previousRg.hora, after: rgForm.hora },
-          { label: "Medio", before: previousRg.medio, after: rgForm.medio || "—" },
-          { label: "Responsable", before: previousRg.owner, after: responsableName },
-          { label: "Resultado", before: previousRg.resultado, after: resultadoLabel },
-          { label: "Memo", before: previousRg.memo, after: rgForm.memo.trim() },
-        ])
-      : [];
 
     const rgPayload = {
       fecha: rgForm.fecha,
@@ -3098,27 +2952,6 @@ export function LeadDetailPanel({
       console.error("Error guardando R.G.:", error);
       setRgError(`No se pudo guardar la R.G.: ${error.message}`);
       return;
-    }
-
-    if (wasEditing) {
-      const activityText = `Editó una R.G.${buildEventDateLabel(rgForm.fecha)}${
-        rgChanges.length ? `:\n${rgChanges.join("\n")}` : " sin cambios visibles"
-      }`;
-      const { error: activityError } = await supabase
-        .from("opportunity_activities")
-        .insert({
-          opportunity_id: Number(effectiveLead.id),
-          assigned_profile_id: userWithRole?.crmUser.id ?? null,
-          fecha: new Date().toISOString().slice(0, 10),
-          memo: `[HISTORIAL] ${currentUserName}: ${activityText}`,
-          resultado: true,
-          event_type: "rg_updated",
-          parent_event_id: editingRgId,
-        });
-
-      if (activityError) {
-        console.error("Error registrando historial de R.G.:", activityError);
-      }
     }
 
     resetRgForm();

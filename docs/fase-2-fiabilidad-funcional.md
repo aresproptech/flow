@@ -25,14 +25,14 @@ datos del formulario ante un fallo y hacer visibles los errores operativos.
   proceso y permanece abierto con el CSV intacto si Supabase devuelve un error.
 - El resultado de la persistencia se devuelve explícitamente al diálogo en lugar
   de depender de un error que sólo aparecía en la consola.
-- La importación inserta los leads y sus eventos de historial directamente bajo
-  las políticas RLS del usuario autenticado.
+- La importación inserta los leads directamente bajo las políticas RLS del
+  usuario autenticado, sin crear eventos auxiliares.
 - Las fechas de contacto, valoración y hora del CSV se conservan en la nueva
   operación; antes se validaban en el frontend pero no se enviaban a la tabla.
 
 ### Leads e historial atómicos
 
-- El alta manual inserta el lead y su evento `lead_created` directamente.
+- El alta manual inserta el lead directamente, sin crear un evento auxiliar.
 - La edición general actualiza el lead y registra un evento `lead_updated` con
   el detalle legible en `metadata`.
 - Una edición sin diferencias no genera ruido en el historial.
@@ -53,7 +53,7 @@ datos del formulario ante un fallo y hacer visibles los errores operativos.
   y el evento `document_uploaded`, después de comprobar que el objeto existe en
   el bucket privado.
 - Antes de generar la URL temporal, `crm_record_document_view` comprueba el
-  acceso y registra quién abrió el archivo y cuándo mediante `document_viewed`.
+  acceso y la existencia del archivo sin crear una actividad de apertura.
 - Los usuarios normales ya no tienen permisos de borrado físico sobre leads,
   expedientes, archivos ni historial, ni de actualización o borrado de objetos
   del bucket documental. El ocultamiento de leads continúa siendo lógico con
@@ -80,9 +80,8 @@ datos del formulario ante un fallo y hacer visibles los errores operativos.
 - `opportunity_activities` continúa siendo la fuente única, pero ahora incluye
   `event_type`, `actor_profile_id`, `effective_at`, `metadata`,
   `parent_event_id` y `updated_at`.
-- Los registros existentes se clasificaron sin modificar ni eliminar su `memo`.
-  Los textos libres antiguos permanecen como `legacy` y siguen apareciendo como
-  observaciones.
+- Los registros funcionales se clasifican mediante los tipos vigentes; el
+  contenido histórico archivado permanece separado de `event_type`.
 - Valoraciones, R.G., Planning, Dashboard y la salud de Encargos consultan ahora
   `event_type`; ya no clasifican registros leyendo prefijos de texto.
 - Las nuevas llamadas y actividades se escriben directamente en

@@ -14,6 +14,7 @@ CREATE TABLE "public"."opportunity_buyers" (
   "dni"                  text,
   "vende"                boolean,
   "observaciones_visita" text,
+  "event_type"           text,
   CONSTRAINT "visitas_opportunity_id_fkey" FOREIGN KEY (opportunity_id) REFERENCES public.opportunities(id),
   CONSTRAINT "opportunity_buyers_assigned_profile_id_fkey" FOREIGN KEY (assigned_profile_id) REFERENCES public.profiles(id) ON DELETE SET NULL,
   CONSTRAINT "visitas_pkey" PRIMARY KEY (id)

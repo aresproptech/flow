@@ -143,6 +143,12 @@ type VisitActivityRow = {
   created_at: string | null;
 };
 
+type OpportunityOrderActivityRow = {
+  id: number;
+  opportunity_id: number;
+  fecha_inicio: string | null;
+};
+
 type CommercialPerformance = {
   name: string;
   total: number;
@@ -739,6 +745,7 @@ export default function DashboardPage() {
   const [crmLeads, setCrmLeads] = useState<CrmLeadRow[]>([]);
   const [contacts, setContacts] = useState<OpportunityContactRow[]>([]);
   const [visits, setVisits] = useState<VisitActivityRow[]>([]);
+  const [orders, setOrders] = useState<OpportunityOrderActivityRow[]>([]);
   const [visitadorKeys, setVisitadorKeys] = useState<Set<string>>(new Set());
   const [crmLeadsLoading, setCrmLeadsLoading] = useState(true);
 
@@ -782,11 +789,12 @@ export default function DashboardPage() {
     async function fetchActivityData() {
       if (userLoading || !userWithRole?.crmUser) return;
 
-      const [contactsResponse, visitsResponse] = await Promise.all([
+      const [contactsResponse, visitsResponse, ordersResponse] = await Promise.all([
         supabase
           .from("opportunity_activities")
           .select("id, opportunity_id, fecha, memo, created_at, event_type"),
         supabase.from("opportunity_buyers").select("id, opportunity_id, fecha_visita, created_at"),
+        supabase.from("opportunity_orders").select("id, opportunity_id, fecha_inicio"),
       ]);
 
       if (contactsResponse.error) {
@@ -799,6 +807,12 @@ export default function DashboardPage() {
         console.error("Supabase visits activity error:", visitsResponse.error);
       } else {
         setVisits((visitsResponse.data ?? []) as VisitActivityRow[]);
+      }
+
+      if (ordersResponse.error) {
+        console.error("Supabase orders activity error:", ordersResponse.error);
+      } else {
+        setOrders((ordersResponse.data ?? []) as OpportunityOrderActivityRow[]);
       }
     }
 
@@ -1200,7 +1214,11 @@ export default function DashboardPage() {
         if (eventDate !== targetDate) return;
         if (contact.event_type === "valuation") add(lead, "valoraciones");
         if (contact.event_type === "rg") add(lead, "rg");
-        if (contact.event_type === "order_created") add(lead, "encargos");
+      });
+
+      orders.forEach((order) => {
+        const lead = leadById.get(String(order.opportunity_id));
+        if (dateKey(order.fecha_inicio) === targetDate) add(lead, "encargos");
       });
 
       visits.forEach((visit) => {
@@ -1221,6 +1239,7 @@ export default function DashboardPage() {
     contacts,
     excludedManagerKey,
     leadById,
+    orders,
     visits,
     visitadorKeys,
   ]);

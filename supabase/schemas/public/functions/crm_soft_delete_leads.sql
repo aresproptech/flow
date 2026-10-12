@@ -8,8 +8,6 @@ CREATE OR REPLACE FUNCTION public.crm_soft_delete_leads (
   AS $function$
 declare
   target_id bigint;
-  actor_id bigint := public.crm_current_profile_id();
-  actor_name text := coalesce(nullif(public.crm_current_name(), ''), 'Usuario');
 begin
   if auth.uid() is null or public.crm_current_role() is null then
     raise exception 'Sesión no válida' using errcode = '42501';
@@ -36,18 +34,6 @@ begin
   set deleted_at = now()
   where id = any(lead_ids);
 
-  foreach target_id in array lead_ids loop
-    insert into public.opportunity_activities (
-      opportunity_id, fecha, memo, resultado, event_type, assigned_profile_id
-    ) values (
-      target_id,
-      current_date,
-      '[HISTORIAL] ' || actor_name || ': Eliminó el lead',
-      true,
-      'lead_deleted',
-      actor_id
-    );
-  end loop;
 end
 $function$;
 
