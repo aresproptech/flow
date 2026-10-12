@@ -82,69 +82,6 @@ type EncargoItem = {
   memo: string;
 };
 
-function encargoDateValue(value: string | null) {
-  if (!value) return "—";
-  const parsed = new Date(`${value.slice(0, 10)}T00:00:00`);
-  if (isNaN(parsed.getTime())) return value;
-  return parsed.toLocaleDateString("es-ES");
-}
-
-function encargoMoneyValue(value: number | null) {
-  if (value === null) return "—";
-  return new Intl.NumberFormat("es-ES", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-function encargoPercentValue(value: number | null) {
-  return value === null ? "—" : `${value}%`;
-}
-
-function buildEncargoChangeLines(
-  previous: EncargoItem,
-  next: {
-    fecha_inicio: string | null;
-    fecha_fin: string | null;
-    pvp_actual: number | null;
-    pvp_estimado: number | null;
-    com_vendedor: number | null;
-    com_comprador: number | null;
-    memo: string | null;
-  }
-) {
-  const changes: string[] = [];
-  const addChange = <T,>(label: string, before: T, after: T, format: (value: T) => string) => {
-    if (before === after) return;
-    changes.push(`${label}: de ${format(before)} a ${format(after)}`);
-  };
-
-  addChange(
-    "Fecha inicio",
-    previous.fecha_inicio || null,
-    next.fecha_inicio,
-    encargoDateValue
-  );
-  addChange("Fecha fin", previous.fecha_fin || null, next.fecha_fin, encargoDateValue);
-  addChange("PVP actual", previous.pvp_actual, next.pvp_actual, encargoMoneyValue);
-  addChange("PVP estimado", previous.pvp_estimado, next.pvp_estimado, encargoMoneyValue);
-  addChange(
-    "Comisión vendedor",
-    previous.com_vendedor,
-    next.com_vendedor,
-    encargoPercentValue
-  );
-  addChange(
-    "Comisión comprador",
-    previous.com_comprador,
-    next.com_comprador,
-    encargoPercentValue
-  );
-  addChange("Memo", previous.memo || null, next.memo, (value) => value || "—");
-  return changes;
-}
-
 function getHealthConfig(health: number | null): { label: string; className: string } {
   if (health === null) {
     return {
@@ -679,8 +616,6 @@ export default function EncargosPage() {
       memo: editForm.memo.trim() || null,
     };
     const isEditing = Boolean(selected && selected.orderId !== null);
-    const changes = isEditing ? buildEncargoChangeLines(activeItem, payload) : [];
-
     const { error } = isEditing
       ? await supabase
           .from("opportunity_orders")
@@ -695,25 +630,6 @@ export default function EncargosPage() {
       console.error("Error guardando encargo:", error);
       setFormError("No se pudo guardar el encargo. Revisá los datos e intentá nuevamente.");
       return;
-    }
-
-    const actorName = userWithRole?.crmUser.name?.trim() || "Usuario";
-    const activityText = isEditing
-      ? `Editó un encargo${changes.length ? `:\n${changes.join("\n")}` : " sin cambios visibles"}`
-      : "Agregó un encargo";
-    const { error: activityError } = await supabase
-      .from("opportunity_activities")
-      .insert({
-        opportunity_id: activeItem.leadId,
-        assigned_profile_id: userWithRole?.crmUser.id ?? null,
-        fecha: new Date().toISOString().slice(0, 10),
-        memo: `[HISTORIAL] ${actorName}: ${activityText}`,
-        resultado: true,
-        event_type: isEditing ? "order_updated" : "order_created",
-      });
-
-    if (activityError) {
-      console.error("Error registrando historial del encargo:", activityError);
     }
 
     setEditOpen(false);

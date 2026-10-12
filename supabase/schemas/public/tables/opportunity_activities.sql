@@ -9,7 +9,7 @@ CREATE TABLE "public"."opportunity_activities" (
   "resultado_text"   text,
   "memo"             character varying,
   "resultado"        boolean,
-  "event_type"       text                     NOT NULL DEFAULT 'legacy'::text,
+  "event_type"       text                     NOT NULL,
   "assigned_profile_id" bigint,
   "created_by"       bigint,
   "parent_event_id"  bigint,
@@ -17,7 +17,7 @@ CREATE TABLE "public"."opportunity_activities" (
   CONSTRAINT "oportunity_contacts_oportunity_id_fkey" FOREIGN KEY (opportunity_id) REFERENCES public.opportunities(id),
   CONSTRAINT "opportunity_contacts_event_type_check"
     CHECK
-    ((event_type = ANY (ARRAY['contact'::text, 'valuation'::text, 'rg'::text,'visit'::text, 'order'::text ]))),
+    ((event_type = ANY (ARRAY['call'::text, 'contact'::text, 'valuation'::text, 'rg'::text, 'visit'::text, 'order'::text, 'lead_updated'::text, 'document_uploaded'::text]))),
   CONSTRAINT "order_contacts_pkey" PRIMARY KEY (id),
   CONSTRAINT "opportunity_contacts_parent_event_id_fkey" FOREIGN KEY (parent_event_id) REFERENCES public.opportunity_activities(id) ON DELETE SET NULL,
   CONSTRAINT "opportunity_activities_assigned_profile_id_fkey" FOREIGN KEY (assigned_profile_id) REFERENCES public.profiles(id) ON DELETE SET NULL,

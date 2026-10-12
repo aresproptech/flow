@@ -1045,24 +1045,6 @@ export default function LeadsPage() {
       return message;
     }
 
-    const actorName = userWithRole?.crmUser.name?.trim() || "Usuario";
-    const { error: activityError } = await supabase
-      .from("opportunity_activities")
-      .insert(
-        insertedRows.map(({ id }) => ({
-          opportunity_id: id,
-          assigned_profile_id: userWithRole?.crmUser.id ?? null,
-          fecha: new Date().toISOString().slice(0, 10),
-          memo: `[HISTORIAL] ${actorName}: Importó el lead por CSV`,
-          resultado: true,
-          event_type: "lead_imported",
-        }))
-      );
-
-    if (activityError) {
-      console.error("Error registrando historial de importación:", activityError);
-    }
-
     await loadLeadsFromSupabase({ page: 1 });
     setSearchRefreshKey((value) => value + 1);
     return null;
@@ -1110,22 +1092,6 @@ export default function LeadsPage() {
       console.error(message, { insertedLead });
       setPageError(message);
       return message;
-    }
-
-    const actorName = userWithRole?.crmUser.name?.trim() || "Usuario";
-    const { error: activityError } = await supabase
-      .from("opportunity_activities")
-      .insert({
-        opportunity_id: insertedLead.id,
-        assigned_profile_id: userWithRole?.crmUser.id ?? null,
-        fecha: new Date().toISOString().slice(0, 10),
-        memo: `[HISTORIAL] ${actorName}: Creó el lead`,
-        resultado: true,
-        event_type: "lead_created",
-      });
-
-    if (activityError) {
-      console.error("Error registrando historial de alta:", activityError);
     }
 
     await loadLeadsFromSupabase({ page: 1 });
@@ -1274,23 +1240,6 @@ export default function LeadsPage() {
       setLeads(previousLeads);
       setSearchResults(previousSearchResults);
       return;
-    }
-
-    const actorName = userWithRole?.crmUser.name?.trim() || "Usuario";
-    const text = `Cambió fase de ${PHASE_LABELS[currentLead.phase]} a ${PHASE_LABELS[nextPhase]}`;
-    const { error: activityError } = await supabase
-      .from("opportunity_activities")
-      .insert({
-        opportunity_id: Number(leadId),
-        assigned_profile_id: userWithRole?.crmUser.id ?? null,
-        fecha: new Date().toISOString().slice(0, 10),
-        memo: `[HISTORIAL] ${actorName}: ${text}`,
-        resultado: true,
-        event_type: "phase_changed",
-      });
-
-    if (activityError) {
-      console.error("Error registrando cambio de fase:", activityError);
     }
 
   }

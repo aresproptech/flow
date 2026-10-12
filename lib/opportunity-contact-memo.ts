@@ -20,11 +20,11 @@ export function matchesOpportunityContactEvent(
   eventType: string | null | undefined,
   memo: string | null | undefined,
   expectedType: string,
-  legacyPrefix: string
+  memoPrefix: string
 ) {
   if (eventType === expectedType) return true;
-  if (eventType && eventType !== "legacy") return false;
-  return (memo || "").trim().startsWith(legacyPrefix);
+  if (eventType) return false;
+  return (memo || "").trim().startsWith(memoPrefix);
 }
 
 export function legacyActivityText(value: unknown, key: string) {
