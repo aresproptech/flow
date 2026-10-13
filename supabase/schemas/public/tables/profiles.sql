@@ -14,6 +14,10 @@ CREATE TABLE "public"."profiles" (
 ALTER TABLE "public"."profiles"
   ENABLE ROW LEVEL SECURITY;
 
+CREATE UNIQUE INDEX idx_profiles_auth_id
+  ON public.profiles USING btree (auth_id)
+  WHERE auth_id IS NOT NULL;
+
 CREATE POLICY "profiles_delete_by_manager" ON "public"."profiles"
   FOR DELETE
   TO "authenticated"
@@ -27,7 +31,13 @@ CREATE POLICY "profiles_insert_by_manager" ON "public"."profiles"
 CREATE POLICY "profiles_select_by_role" ON "public"."profiles"
   FOR SELECT
   TO "authenticated"
-  USING (((auth_id = auth.uid()) OR (public.crm_current_role() = ANY (ARRAY['admin'::text, 'coordinador'::text]))));
+  USING (
+    auth_id = (SELECT auth.uid())
+    OR (
+      (SELECT public.crm_current_role())
+      = ANY (ARRAY['admin'::text, 'coordinador'::text])
+    )
+  );
 
 CREATE POLICY "profiles_update_by_manager" ON "public"."profiles"
   FOR UPDATE

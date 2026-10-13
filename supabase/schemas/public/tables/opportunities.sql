@@ -50,7 +50,20 @@ CREATE POLICY "opportunities_insert_by_role" ON "public"."opportunities"
 CREATE POLICY "opportunities_select_by_role" ON "public"."opportunities"
   FOR SELECT
   TO "authenticated"
-  USING (public.crm_can_read_opportunity(id));
+  USING (
+    deleted_at IS NULL
+    AND (
+      (SELECT public.crm_current_role())
+        = ANY (ARRAY['admin'::text, 'coordinador'::text])
+      OR (
+        (SELECT public.crm_current_role()) = 'comercial'::text
+        AND NOT (SELECT public.crm_can_manage_visits())
+        AND responsible_user_id = (
+          SELECT public.crm_current_profile_id()
+        )
+      )
+    )
+  );
 
 CREATE POLICY "opportunities_update_by_role" ON "public"."opportunities"
   FOR UPDATE
