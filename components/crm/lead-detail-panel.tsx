@@ -54,7 +54,6 @@ import {
   normalizeOpportunityText,
 } from "@/lib/crm-data";
 import {
-  legacyActivityText,
   matchesOpportunityContactEvent,
   parseOpportunityContactMemo,
 } from "@/lib/opportunity-contact-memo";
@@ -412,7 +411,6 @@ type OpportunityContactRow = {
   assigned_profile_id?: number | null;
   profile?: { name: string | null } | { name: string | null }[] | null;
   assigned_profile?: { name: string | null } | { name: string | null }[] | null;
-  legacy?: { legacy_payload?: unknown } | { legacy_payload?: unknown }[] | null;
   parent_event_id?: number | string | null;
 };
 
@@ -2073,7 +2071,7 @@ export function LeadDetailPanel({
     const { data, error } = await supabase
       .from("opportunity_activities")
       .select(
-        "id, created_at, fecha, hora, medio, resultado_text, memo, resultado, event_type, created_by, profile:profiles!opportunity_activities_created_by_fkey(name), assigned_profile_id, assigned_profile:profiles!opportunity_activities_assigned_profile_id_fkey(name), parent_event_id, legacy:opportunity_activity_history_archive(legacy_payload)"
+        "id, created_at, fecha, hora, medio, resultado_text, memo, resultado, event_type, created_by, profile:profiles!opportunity_activities_created_by_fkey(name), assigned_profile_id, assigned_profile:profiles!opportunity_activities_assigned_profile_id_fkey(name), parent_event_id"
       )
       .eq("opportunity_id", Number(leadId))
       .order("created_at", { ascending: false });
@@ -2089,12 +2087,7 @@ export function LeadDetailPanel({
     const rows = (data ?? []) as OpportunityContactRow[];
 
     const notes: LeadHistoryEvent[] = rows
-      .filter(
-        (row) =>
-          Boolean(row.memo?.trim()) ||
-          Boolean(legacyActivityText(row.legacy, "text")) ||
-          Boolean(legacyActivityText(row.legacy, "notes"))
-      )
+      .filter((row) => Boolean(row.memo?.trim()))
       .filter((row) => !row.event_type && isManualNoteMemo(row.memo || ""))
       .map((row) => ({
         id: String(row.id),
@@ -2102,29 +2095,20 @@ export function LeadDetailPanel({
         type: "note",
         createdAt: row.created_at || toHistoryCreatedAt(row.fecha || ""),
         createdBy:
-          legacyActivityText(row.legacy, "actor_name") ||
           (Array.isArray(row.assigned_profile) ? row.assigned_profile[0] : row.assigned_profile)?.name?.trim() ||
           (Array.isArray(row.profile) ? row.profile[0] : row.profile)?.name?.trim() ||
           parseStoredMemo(row.memo || "").createdBy,
-        noteText:
-          legacyActivityText(row.legacy, "text") ||
-          parseStoredMemo(row.memo || "").text,
+        noteText: parseStoredMemo(row.memo || "").text,
       }));
 
     const activities: LeadActivityEvent[] = rows
-      .filter(
-        (row) =>
-          Boolean(row.memo?.trim()) ||
-          Boolean(legacyActivityText(row.legacy, "text")) ||
-          Boolean(legacyActivityText(row.legacy, "notes"))
-      )
+      .filter((row) => Boolean(row.memo?.trim()))
       .flatMap((row) => {
         const memo = row.memo?.trim() || "";
         const parsed = parseStoredMemo(memo);
         const createdAt = row.created_at || toHistoryCreatedAt(row.fecha || "");
         const eventType = row.event_type || "unknown";
         const actorName =
-          legacyActivityText(row.legacy, "actor_name") ||
           (Array.isArray(row.assigned_profile) ? row.assigned_profile[0] : row.assigned_profile)?.name?.trim() ||
           (Array.isArray(row.profile) ? row.profile[0] : row.profile)?.name?.trim() ||
           parsed.createdBy;
@@ -2140,9 +2124,7 @@ export function LeadDetailPanel({
               createdAt,
               createdBy: actorName,
               eventType,
-              text:
-                legacyActivityText(row.legacy, "text") ||
-                parsed.text,
+              text: parsed.text,
             },
           ];
         }
@@ -2166,7 +2148,6 @@ export function LeadDetailPanel({
               createdAt,
               createdBy:
                 detail.createdBy ||
-                legacyActivityText(row.legacy, "actor_name") ||
                 (Array.isArray(row.profile) ? row.profile[0] : row.profile)?.name?.trim() ||
                 parsed.createdBy,
               eventType: "valuation",
@@ -2255,7 +2236,7 @@ export function LeadDetailPanel({
     const { data, error } = await supabase
       .from("opportunity_activities")
       .select(
-        "*, profile:profiles!opportunity_activities_created_by_fkey(name), assigned_profile:profiles!opportunity_activities_assigned_profile_id_fkey(name), legacy:opportunity_activity_history_archive(legacy_payload)"
+        "*, profile:profiles!opportunity_activities_created_by_fkey(name), assigned_profile:profiles!opportunity_activities_assigned_profile_id_fkey(name)"
       )
       .eq("opportunity_id", Number(leadId))
       .eq("event_type", "valuation")
@@ -2273,7 +2254,7 @@ export function LeadDetailPanel({
   async function loadContactEntries(leadId: string) {
     const { data, error } = await supabase
       .from("opportunity_activities")
-        .select("id, created_at, fecha, hora, medio, memo, resultado, resultado_text, event_type, created_by, profile:profiles!opportunity_activities_created_by_fkey(name), assigned_profile:profiles!opportunity_activities_assigned_profile_id_fkey(name), assigned_profile_id, parent_event_id, legacy:opportunity_activity_history_archive(legacy_payload)")
+        .select("id, created_at, fecha, hora, medio, memo, resultado, resultado_text, event_type, created_by, profile:profiles!opportunity_activities_created_by_fkey(name), assigned_profile:profiles!opportunity_activities_assigned_profile_id_fkey(name), assigned_profile_id, parent_event_id")
       .eq("opportunity_id", Number(leadId))
       .eq("event_type", "contact")
       .order("fecha", { ascending: false, nullsFirst: false })
@@ -3131,12 +3112,8 @@ export function LeadDetailPanel({
       hora: row.hora || "",
       medio: row.medio || "—",
       resultado: row.resultado_text || "—",
-      usuario:
-        assignedProfileName ||
-        profileName ||
-        legacyActivityText(row.legacy, "actor_name") ||
-        "—",
-      memo: legacyActivityText(row.legacy, "notes") || memoText,
+      usuario: assignedProfileName || profileName || "—",
+      memo: memoText,
     };
   }).sort(compareScheduledItemsDescending);
 

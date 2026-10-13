@@ -8,7 +8,6 @@ import { Search, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { normalizeEnVenta, PHASE_LABELS, type Lead } from "@/lib/crm-data";
 import { canViewAllLeads, useUser } from "@/lib/hooks/useUser";
-import { legacyActivityText } from "@/lib/opportunity-contact-memo";
 import { LeadDetailPanel } from "@/components/crm/lead-detail-panel";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -60,7 +59,6 @@ type OpportunityContactRow = {
   created_at: string | null;
   event_type: string | null;
   profile?: { name: string | null } | { name: string | null }[] | null;
-  legacy?: { legacy_payload?: unknown } | { legacy_payload?: unknown }[] | null;
 };
 
 type ValoracionEntry = {
@@ -477,7 +475,7 @@ export default function ValoracionesPage() {
         supabase
           .from("opportunity_activities")
           .select(
-            "id, opportunity_id, fecha, hora, medio, confirmed, resultado_text, memo, created_at, event_type, created_by, profile:profiles!opportunity_activities_created_by_fkey(name), legacy:opportunity_activity_history_archive(legacy_payload)"
+            "id, opportunity_id, fecha, hora, medio, confirmed, resultado_text, memo, created_at, event_type, created_by, profile:profiles!opportunity_activities_created_by_fkey(name)"
           )
           .eq("event_type", "valuation")
           .is("deleted_at", null)
@@ -523,9 +521,7 @@ export default function ValoracionesPage() {
         const lead = leadsMap.get(row.opportunity_id);
         const createdByProfileName =
           (Array.isArray(row.profile) ? row.profile[0] : row.profile)?.name?.trim() || "";
-        const createdBy =
-          legacyActivityText(row.legacy, "actor_name") ||
-          createdByProfileName;
+        const createdBy = createdByProfileName || "—";
 
         return {
           id: String(row.id),

@@ -27,17 +27,6 @@ export function matchesOpportunityContactEvent(
   return (memo || "").trim().startsWith(memoPrefix);
 }
 
-export function legacyActivityText(value: unknown, key: string) {
-  const archive = Array.isArray(value) ? value[0] : value;
-  if (!archive || typeof archive !== "object") return "";
-
-  const payload = (archive as { legacy_payload?: unknown }).legacy_payload;
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return "";
-
-  const field = (payload as Record<string, unknown>)[key];
-  return typeof field === "string" ? field.trim() : "";
-}
-
 export function parseOpportunityContactMemo(
   memo: string | null | undefined,
   prefix: "[VALORACION]" | "[R.G.]"
