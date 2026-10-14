@@ -27,7 +27,10 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { loadCrmLeadDetails, type CrmLeadDetails } from "@/lib/crm-lead-details";
-import { mapCsvRowsToOpportunityLoader } from "@/lib/leads-csv-import";
+import {
+  mapCsvRowsToOpportunityLoader,
+  type OpportunityLoaderRow,
+} from "@/lib/leads-csv-import";
 import {
   normalizeEnVenta,
   normalizeOpportunityText,
@@ -1000,7 +1003,7 @@ export default function LeadsPage() {
 
   async function handleLoadOpportunityRows(
     csvRows: Record<string, string>[]
-  ): Promise<string | null> {
+  ): Promise<OpportunityLoaderRow[] | string> {
     if (!isAdmin) return "Solo un administrador puede cargar este archivo.";
     if (csvRows.length === 0) return "El CSV no contiene filas para cargar.";
 
@@ -1012,7 +1015,7 @@ export default function LeadsPage() {
     const { data, error } = await supabase
       .from("opportunity_loader")
       .insert(rows)
-      .select("id");
+      .select("*");
 
     if (error) {
       console.error("Error cargando opportunity_loader:", error.code);
@@ -1023,7 +1026,7 @@ export default function LeadsPage() {
       return "La base no confirmó todas las filas del CSV.";
     }
 
-    return null;
+    return data as OpportunityLoaderRow[];
   }
 
   async function handleImportCsv(importedLeads: Lead[]): Promise<string | null> {

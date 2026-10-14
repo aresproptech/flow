@@ -104,6 +104,9 @@ export const OPPORTUNITY_LOADER_COLUMNS = [
 ] as const;
 
 export type OpportunityLoaderColumn = (typeof OPPORTUNITY_LOADER_COLUMNS)[number];
+export type OpportunityLoaderRow = Partial<
+  Record<OpportunityLoaderColumn, string | null>
+>;
 
 const OPPORTUNITY_LOADER_COLUMN_SET: ReadonlySet<string> = new Set(
   OPPORTUNITY_LOADER_COLUMNS
@@ -140,6 +143,38 @@ export function mapCsvRowsToOpportunityLoader(rows: Record<string, string>[]) {
   });
 
   return { matchedColumns: headerMappings.length, rows: mappedRows };
+}
+
+export function mapOpportunityLoaderRowsToTargets(
+  rows: OpportunityLoaderRow[],
+  headers: string[],
+  mapping: ColumnMapping
+) {
+  const targetColumns = Object.entries(mapping).flatMap(([target, header]) => {
+    if (!header) return [];
+    const column = normalizeOpportunityLoaderHeader(header);
+    return OPPORTUNITY_LOADER_COLUMN_SET.has(column)
+      ? [{ target: target as ImportTargetField, column: column as OpportunityLoaderColumn }]
+      : [];
+  });
+
+  const missingColumns = targetColumns
+    .filter(({ column }) => !headers.some((header) => normalizeOpportunityLoaderHeader(header) === column))
+    .map(({ column }) => column);
+
+  if (missingColumns.length > 0) {
+    throw new Error(
+      `No se encontraron estas columnas del CSV en opportunity_loader: ${missingColumns.join(", ")}.`
+    );
+  }
+
+  return rows.map((row) => {
+    const mapped: Partial<Record<ImportTargetField, string>> = {};
+    for (const { target, column } of targetColumns) {
+      mapped[target] = row[column] ?? "";
+    }
+    return mapped;
+  });
 }
 
 function norm(s: string) {

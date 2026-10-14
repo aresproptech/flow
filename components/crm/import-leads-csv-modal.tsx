@@ -15,23 +15,17 @@ import { parseCsvText } from "@/lib/csv";
 import {
   IMPORT_TARGET_FIELDS,
   suggestMapping,
-  type ColumnMapping,
   type ImportTargetField,
   mapCsvRowToTargets,
+  mapOpportunityLoaderRowsToTargets,
+  type OpportunityLoaderRow,
   validateMappedRow,
   buildLeadFromMapped,
 } from "@/lib/leads-csv-import";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { AlertTriangle, FileUp, Loader2, Table2 } from "lucide-react";
+import { AlertTriangle, FileUp, Loader2 } from "lucide-react";
 import type { Lead } from "@/lib/crm-data";
 
-type Step = 1 | 2 | 3;
+type Step = 1 | 2;
 type PreviewFilter = "all" | "valid" | "invalid";
 type MappedCsvLeadRow = ReturnType<typeof mapCsvRowToTargets>;
 
@@ -40,8 +34,6 @@ function stepLabel(step: Step) {
     case 1:
       return "Subir archivo";
     case 2:
-      return "Mapear columnas";
-    case 3:
       return "Previsualizar";
   }
 }
@@ -66,29 +58,24 @@ export function ImportLeadsCsvModal({
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  onLoadOpportunityRows: (rows: Record<string, string>[]) => Promise<string | null>;
+  onLoadOpportunityRows: (
+    rows: Record<string, string>[]
+  ) => Promise<OpportunityLoaderRow[] | string>;
   onImport: (leads: Lead[]) => Promise<string | null>;
 }) {
   const [step, setStep] = React.useState<Step>(1);
   const [file, setFile] = React.useState<File | null>(null);
   const [rawText, setRawText] = React.useState("");
-  const [headers, setHeaders] = React.useState<string[]>([]);
-  const [rows, setRows] = React.useState<Record<string, string>[]>([]);
-  const [mapping, setMapping] = React.useState<ColumnMapping>({});
   const [editedRows, setEditedRows] = React.useState<MappedCsvLeadRow[]>([]);
   const [previewFilter, setPreviewFilter] = React.useState<PreviewFilter>("all");
   const [error, setError] = React.useState<string | null>(null);
   const [isImporting, setIsImporting] = React.useState(false);
   const [loaderLoadedForCurrentFile, setLoaderLoadedForCurrentFile] = React.useState(false);
+  const [loaderRows, setLoaderRows] = React.useState<OpportunityLoaderRow[]>([]);
   const [loaderLoadedCount, setLoaderLoadedCount] = React.useState(0);
 
-  const mappedRows = React.useMemo(() => {
-    if (editedRows.length > 0) return editedRows;
-    return rows.map((r) => mapCsvRowToTargets(r, mapping));
-  }, [editedRows, rows, mapping]);
-
   const validation = React.useMemo(() => {
-    const results = mappedRows.map((mapped, index) => {
+    const results = editedRows.map((mapped, index) => {
       const v = validateMappedRow(mapped);
       return {
         index,
@@ -106,7 +93,7 @@ export function ImportLeadsCsvModal({
       invalid: results.length - valid,
       results,
     };
-  }, [mappedRows]);
+  }, [editedRows]);
 
   const visiblePreviewRows = React.useMemo(() => {
     if (previewFilter === "valid") {
@@ -124,13 +111,11 @@ export function ImportLeadsCsvModal({
     setStep(1);
     setFile(null);
     setRawText("");
-    setHeaders([]);
-    setRows([]);
-    setMapping({});
     setEditedRows([]);
     setPreviewFilter("all");
     setError(null);
     setLoaderLoadedForCurrentFile(false);
+    setLoaderRows([]);
     setLoaderLoadedCount(0);
   }
 
@@ -143,12 +128,10 @@ export function ImportLeadsCsvModal({
     setError(null);
     setFile(f);
     setRawText("");
-    setHeaders([]);
-    setRows([]);
-    setMapping({});
     setEditedRows([]);
     setPreviewFilter("all");
     setLoaderLoadedForCurrentFile(false);
+    setLoaderRows([]);
     setLoaderLoadedCount(0);
 
     if (!f) return;
@@ -180,21 +163,28 @@ export function ImportLeadsCsvModal({
     try {
       setError(null);
       const parsed = parseCsvText(rawText);
+      let persistedRows = loaderRows;
       if (!loaderLoadedForCurrentFile) {
-        const loadError = await onLoadOpportunityRows(parsed.rows);
-        if (loadError) {
-          setError(loadError);
+        const loadResult = await onLoadOpportunityRows(parsed.rows);
+        if (typeof loadResult === "string") {
+          setError(loadResult);
           return;
         }
 
+        persistedRows = loadResult;
         setLoaderLoadedForCurrentFile(true);
-        setLoaderLoadedCount(parsed.rows.length);
+        setLoaderRows(persistedRows);
+        setLoaderLoadedCount(persistedRows.length);
       }
 
-      setHeaders(parsed.headers);
-      setRows(parsed.rows);
-      setMapping(suggestMapping(parsed.headers));
-      setEditedRows([]);
+      const autoMapping = suggestMapping(parsed.headers);
+      setEditedRows(
+        mapOpportunityLoaderRowsToTargets(
+          persistedRows,
+          parsed.headers,
+          autoMapping
+        )
+      );
       setPreviewFilter("all");
       setStep(2);
     } catch (e) {
@@ -202,25 +192,6 @@ export function ImportLeadsCsvModal({
     } finally {
       setIsImporting(false);
     }
-  }
-
-  function setMap(target: ImportTargetField, header: string | undefined) {
-    setMapping((prev) => {
-      const next = { ...prev };
-      if (!header) {
-        delete next[target];
-      } else {
-        next[target] = header;
-      }
-      return next;
-    });
-    setEditedRows([]);
-  }
-
-  function preparePreview() {
-    setEditedRows(rows.map((r) => mapCsvRowToTargets(r, mapping)));
-    setPreviewFilter("all");
-    setStep(3);
   }
 
   function updatePreviewCell(rowIndex: number, field: ImportTargetField, value: string) {
@@ -247,10 +218,6 @@ export function ImportLeadsCsvModal({
 
     setEditedRows((prev) => prev.filter((_, index) => !invalidIndexes.has(index)));
     setPreviewFilter("all");
-  }
-
-  function canGoPreview() {
-    return true;
   }
 
   async function doImport() {
@@ -290,12 +257,12 @@ export function ImportLeadsCsvModal({
           <DialogHeader className="shrink-0 border-b border-border px-5 py-4">
             <DialogTitle className="text-base font-semibold">Importar CSV</DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Importa leads desde un archivo CSV y asigna columnas a los campos del CRM.
+              Importa leads desde CSV con asignación automática de columnas y revisión previa.
             </DialogDescription>
 
             <div className="mt-2 flex items-center justify-between gap-3">
               <div className="text-[11px] text-muted-foreground">
-                Paso {step} de 3 · <span className="font-medium">{stepLabel(step)}</span>
+                Paso {step} de 2 · <span className="font-medium">{stepLabel(step)}</span>
               </div>
               {file && (
                 <div className="max-w-[60%] truncate text-[11px] text-muted-foreground">
@@ -334,74 +301,6 @@ export function ImportLeadsCsvModal({
             )}
 
             {step === 2 && (
-              <div className="grid min-h-0 gap-4 xl:grid-cols-[420px_1fr]">
-                <div className="min-h-0 rounded-lg border border-border bg-card p-3">
-                  <div className="text-xs font-semibold text-foreground">Columnas detectadas</div>
-                  <div className="mt-2 max-h-[54vh] overflow-y-auto rounded-md border border-border/60 bg-background/50 p-2">
-                    <div className="flex flex-wrap gap-1.5">
-                      {headers.map((h) => (
-                        <span
-                          key={h}
-                          className="inline-flex items-center rounded-full border border-border bg-muted/60 px-2 py-0.5 text-[11px] text-muted-foreground"
-                        >
-                          {h}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="mt-2 text-[11px] text-muted-foreground">
-                    Filas: <span className="font-medium text-foreground">{rows.length}</span>
-                  </div>
-                  {loaderLoadedForCurrentFile && (
-                    <div className="mt-2 text-[11px] text-emerald-700">
-                      Cargadas en opportunity_loader: {loaderLoadedCount}
-                    </div>
-                  )}
-                </div>
-
-                <div className="min-w-0 rounded-lg border border-border bg-card p-3">
-                  <div className="text-xs font-semibold text-foreground">Asignación de columnas</div>
-                  <div className="mt-3 grid max-h-[62vh] gap-2 overflow-y-auto pr-1 xl:grid-cols-2">
-                    {IMPORT_TARGET_FIELDS.map((f) => (
-                      <div key={f.key} className="grid grid-cols-[minmax(150px,1fr)_240px] items-start gap-3 rounded-md border border-border/60 bg-background/60 p-2">
-                        <div className="min-w-0">
-                          <div className="text-xs font-medium text-foreground">
-                            {f.label}
-                            {f.required && <span className="text-destructive"> *</span>}
-                          </div>
-                          {f.key === "planner" && (
-                            <div className="text-[11px] text-muted-foreground">
-                              Campo legacy. Se ignorará en el modelo actual.
-                            </div>
-                          )}
-                        </div>
-                        <Select
-                          value={mapping[f.key] ?? "__none__"}
-                          onValueChange={(v) => setMap(f.key, v === "__none__" ? undefined : v)}
-                        >
-                          <SelectTrigger className="h-8 w-full text-xs">
-                            <SelectValue placeholder="Sin asignar" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__none__">Sin asignar</SelectItem>
-                            {headers.map((h) => (
-                              <SelectItem key={h} value={h}>
-                                {h}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-3 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
-                    Puedes dejar campos sin asignar. La validez de cada fila se calculará en la previsualización.
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {step === 3 && (
               <div className="flex h-full min-h-0 flex-col gap-3">
                 <div className="shrink-0 rounded-lg border border-border bg-card px-3 py-2">
                   <div className="flex flex-col gap-2">
@@ -417,6 +316,11 @@ export function ImportLeadsCsvModal({
                     </div>
 
                     <div className="flex flex-col gap-2">
+                      {loaderLoadedForCurrentFile && (
+                        <div className="text-[11px] text-emerald-700">
+                          Cargadas en opportunity_loader: {loaderLoadedCount}
+                        </div>
+                      )}
                       <div className="flex flex-wrap items-center gap-2">
                         <div className="flex items-center gap-1.5 rounded-md border border-border bg-background p-1">
                           {([
@@ -624,18 +528,6 @@ export function ImportLeadsCsvModal({
               )}
 
               {step === 2 && (
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={!canGoPreview()}
-                  onClick={preparePreview}
-                >
-                  <Table2 className="h-3.5 w-3.5" />
-                  Ver previsualización
-                </Button>
-              )}
-
-              {step === 3 && (
                 <Button
                   type="button"
                   size="sm"

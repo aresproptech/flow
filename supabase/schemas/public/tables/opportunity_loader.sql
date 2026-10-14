@@ -52,7 +52,8 @@ CREATE TABLE "public"."opportunity_loader" (
   "nota_2" text,
   "nota_3" text,
   "nota_4" text,
-  "nota_5" text
+  "nota_5" text,
+  CONSTRAINT "opportunity_loader_pkey" PRIMARY KEY ("id")
 );
 
 ALTER TABLE "public"."opportunity_loader"
