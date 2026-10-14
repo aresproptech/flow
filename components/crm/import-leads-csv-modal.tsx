@@ -31,7 +31,7 @@ import {
 import { AlertTriangle, FileUp, Loader2, Table2 } from "lucide-react";
 import type { Lead } from "@/lib/crm-data";
 
-type Step = 1 | 2 | 3 | 4;
+type Step = 1 | 2 | 3;
 type PreviewFilter = "all" | "valid" | "invalid";
 type MappedCsvLeadRow = ReturnType<typeof mapCsvRowToTargets>;
 
@@ -40,10 +40,8 @@ function stepLabel(step: Step) {
     case 1:
       return "Subir archivo";
     case 2:
-      return "Parsear CSV";
-    case 3:
       return "Mapear columnas";
-    case 4:
+    case 3:
       return "Previsualizar";
   }
 }
@@ -63,10 +61,12 @@ function getValidationErrors(result: ReturnType<typeof validateMappedRow>) {
 export function ImportLeadsCsvModal({
   open,
   onOpenChange,
+  onLoadOpportunityRows,
   onImport,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  onLoadOpportunityRows: (rows: Record<string, string>[]) => Promise<string | null>;
   onImport: (leads: Lead[]) => Promise<string | null>;
 }) {
   const [step, setStep] = React.useState<Step>(1);
@@ -79,6 +79,8 @@ export function ImportLeadsCsvModal({
   const [previewFilter, setPreviewFilter] = React.useState<PreviewFilter>("all");
   const [error, setError] = React.useState<string | null>(null);
   const [isImporting, setIsImporting] = React.useState(false);
+  const [loaderLoadedForCurrentFile, setLoaderLoadedForCurrentFile] = React.useState(false);
+  const [loaderLoadedCount, setLoaderLoadedCount] = React.useState(0);
 
   const mappedRows = React.useMemo(() => {
     if (editedRows.length > 0) return editedRows;
@@ -128,6 +130,8 @@ export function ImportLeadsCsvModal({
     setEditedRows([]);
     setPreviewFilter("all");
     setError(null);
+    setLoaderLoadedForCurrentFile(false);
+    setLoaderLoadedCount(0);
   }
 
   React.useEffect(() => {
@@ -144,6 +148,8 @@ export function ImportLeadsCsvModal({
     setMapping({});
     setEditedRows([]);
     setPreviewFilter("all");
+    setLoaderLoadedForCurrentFile(false);
+    setLoaderLoadedCount(0);
 
     if (!f) return;
 
@@ -167,18 +173,34 @@ export function ImportLeadsCsvModal({
     setRawText(text);
   }
 
-  function parseNow() {
+  async function continueFromUpload() {
+    if (isImporting || !rawText.trim()) return;
+
+    setIsImporting(true);
     try {
       setError(null);
       const parsed = parseCsvText(rawText);
+      if (!loaderLoadedForCurrentFile) {
+        const loadError = await onLoadOpportunityRows(parsed.rows);
+        if (loadError) {
+          setError(loadError);
+          return;
+        }
+
+        setLoaderLoadedForCurrentFile(true);
+        setLoaderLoadedCount(parsed.rows.length);
+      }
+
       setHeaders(parsed.headers);
       setRows(parsed.rows);
       setMapping(suggestMapping(parsed.headers));
       setEditedRows([]);
       setPreviewFilter("all");
-      setStep(3);
+      setStep(2);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo parsear el CSV.");
+    } finally {
+      setIsImporting(false);
     }
   }
 
@@ -198,7 +220,7 @@ export function ImportLeadsCsvModal({
   function preparePreview() {
     setEditedRows(rows.map((r) => mapCsvRowToTargets(r, mapping)));
     setPreviewFilter("all");
-    setStep(4);
+    setStep(3);
   }
 
   function updatePreviewCell(rowIndex: number, field: ImportTargetField, value: string) {
@@ -273,7 +295,7 @@ export function ImportLeadsCsvModal({
 
             <div className="mt-2 flex items-center justify-between gap-3">
               <div className="text-[11px] text-muted-foreground">
-                Paso {step} de 4 · <span className="font-medium">{stepLabel(step)}</span>
+                Paso {step} de 3 · <span className="font-medium">{stepLabel(step)}</span>
               </div>
               {file && (
                 <div className="max-w-[60%] truncate text-[11px] text-muted-foreground">
@@ -312,15 +334,6 @@ export function ImportLeadsCsvModal({
             )}
 
             {step === 2 && (
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Table2 className="h-4 w-4" />
-                  Listo para parsear el archivo y detectar columnas.
-                </div>
-              </div>
-            )}
-
-            {step === 3 && (
               <div className="grid min-h-0 gap-4 xl:grid-cols-[420px_1fr]">
                 <div className="min-h-0 rounded-lg border border-border bg-card p-3">
                   <div className="text-xs font-semibold text-foreground">Columnas detectadas</div>
@@ -339,6 +352,11 @@ export function ImportLeadsCsvModal({
                   <div className="mt-2 text-[11px] text-muted-foreground">
                     Filas: <span className="font-medium text-foreground">{rows.length}</span>
                   </div>
+                  {loaderLoadedForCurrentFile && (
+                    <div className="mt-2 text-[11px] text-emerald-700">
+                      Cargadas en opportunity_loader: {loaderLoadedCount}
+                    </div>
+                  )}
                 </div>
 
                 <div className="min-w-0 rounded-lg border border-border bg-card p-3">
@@ -383,7 +401,7 @@ export function ImportLeadsCsvModal({
               </div>
             )}
 
-            {step === 4 && (
+            {step === 3 && (
               <div className="flex h-full min-h-0 flex-col gap-3">
                 <div className="shrink-0 rounded-lg border border-border bg-card px-3 py-2">
                   <div className="flex flex-col gap-2">
@@ -588,11 +606,20 @@ export function ImportLeadsCsvModal({
                   type="button"
                   size="sm"
                   className="gap-1.5"
-                  disabled={!file || !rawText.trim()}
-                  onClick={() => setStep(2)}
+                  disabled={!file || !rawText.trim() || isImporting}
+                  onClick={() => void continueFromUpload()}
                 >
-                  <FileUp className="h-3.5 w-3.5" />
-                  Continuar
+                  {isImporting ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Cargando...
+                    </>
+                  ) : (
+                    <>
+                      <FileUp className="h-3.5 w-3.5" />
+                      Continuar
+                    </>
+                  )}
                 </Button>
               )}
 
@@ -600,27 +627,15 @@ export function ImportLeadsCsvModal({
                 <Button
                   type="button"
                   size="sm"
-                  className="gap-1.5"
-                  disabled={!rawText.trim()}
-                  onClick={parseNow}
-                >
-                  <Table2 className="h-3.5 w-3.5" />
-                  Parsear CSV
-                </Button>
-              )}
-
-              {step === 3 && (
-                <Button
-                  type="button"
-                  size="sm"
                   disabled={!canGoPreview()}
                   onClick={preparePreview}
                 >
+                  <Table2 className="h-3.5 w-3.5" />
                   Ver previsualización
                 </Button>
               )}
 
-              {step === 4 && (
+              {step === 3 && (
                 <Button
                   type="button"
                   size="sm"
