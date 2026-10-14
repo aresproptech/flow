@@ -46,6 +46,102 @@ export const IMPORT_TARGET_FIELDS: { key: ImportTargetField; label: string; requ
 
 export type ColumnMapping = Partial<Record<ImportTargetField, string>>; // target -> csv header
 
+export const OPPORTUNITY_LOADER_COLUMNS = [
+  "id",
+  "nombre_del_lead",
+  "compania",
+  "contacto_principal",
+  "compania_del_lead",
+  "responsable",
+  "estatus_del_lead",
+  "embudo_de_ventas",
+  "presupuesto",
+  "fecha_de_creacion",
+  "creado_por",
+  "ultima_modificacion_el",
+  "modificado_por",
+  "etiquetas_del_lead",
+  "tareas_proximas",
+  "cerrado_el",
+  "fecha",
+  "catastro",
+  "origen",
+  "intencion",
+  "ubicacion",
+  "tipo",
+  "domicilio",
+  "complemento",
+  "codigo_postal",
+  "metros",
+  "reforma",
+  "objetivo",
+  "utm_content",
+  "utm_medium",
+  "utm_campaign",
+  "utm_source",
+  "utm_term",
+  "utm_referrer",
+  "referrer",
+  "gclientid",
+  "gclid",
+  "fbclid",
+  "cargo_contacto",
+  "correo_contacto",
+  "email_priv_contacto",
+  "otro_email_contacto",
+  "telefono_oficina_contacto",
+  "telefono_oficina_directo_contacto",
+  "telefono_celular_contacto",
+  "fax_contacto",
+  "telefono_de_casa_contacto",
+  "otro_telefono_contacto",
+  "terminos_y_condiciones_contacto",
+  "nota_1",
+  "nota_2",
+  "nota_3",
+  "nota_4",
+  "nota_5",
+] as const;
+
+export type OpportunityLoaderColumn = (typeof OPPORTUNITY_LOADER_COLUMNS)[number];
+
+const OPPORTUNITY_LOADER_COLUMN_SET: ReadonlySet<string> = new Set(
+  OPPORTUNITY_LOADER_COLUMNS
+);
+
+function normalizeOpportunityLoaderHeader(value: string) {
+  const normalized = value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "");
+
+  return normalized === "e_mail_priv_contacto"
+    ? "email_priv_contacto"
+    : normalized;
+}
+
+export function mapCsvRowsToOpportunityLoader(rows: Record<string, string>[]) {
+  const headerMappings = Object.keys(rows[0] ?? {}).flatMap((header) => {
+    const column = normalizeOpportunityLoaderHeader(header);
+    return OPPORTUNITY_LOADER_COLUMN_SET.has(column)
+      ? [{ header, column: column as OpportunityLoaderColumn }]
+      : [];
+  });
+
+  const mappedRows = rows.map((row) => {
+    const mapped: Partial<Record<OpportunityLoaderColumn, string>> = {};
+    for (const { header, column } of headerMappings) {
+      mapped[column] = row[header] ?? "";
+    }
+    return mapped;
+  });
+
+  return { matchedColumns: headerMappings.length, rows: mappedRows };
+}
+
 function norm(s: string) {
   return (s ?? "")
     .trim()

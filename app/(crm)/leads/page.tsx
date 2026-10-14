@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { loadCrmLeadDetails, type CrmLeadDetails } from "@/lib/crm-lead-details";
+import { mapCsvRowsToOpportunityLoader } from "@/lib/leads-csv-import";
 import {
   normalizeEnVenta,
   normalizeOpportunityText,
@@ -745,6 +746,7 @@ export default function LeadsPage() {
   const { userWithRole, loading: userLoading } = useUser();
   const canEdit = Boolean(userWithRole?.crmUser && canEditLeads(userWithRole.crmUser));
   const currentRole = String(userWithRole?.crmUser.rol || "").trim().toLowerCase();
+  const isAdmin = currentRole === "admin";
   const [phaseIdMap, setPhaseIdMap] =
     useState<Partial<Record<Lead["phase"], number>>>({});
   const [profileIdByName, setProfileIdByName] = useState<Map<string, number>>(
@@ -996,8 +998,36 @@ export default function LeadsPage() {
     setLoadingLeads(false);
   }
 
+  async function handleLoadOpportunityRows(
+    csvRows: Record<string, string>[]
+  ): Promise<string | null> {
+    if (!isAdmin) return "Solo un administrador puede cargar este archivo.";
+    if (csvRows.length === 0) return "El CSV no contiene filas para cargar.";
+
+    const { matchedColumns, rows } = mapCsvRowsToOpportunityLoader(csvRows);
+    if (matchedColumns === 0) {
+      return "No se encontraron encabezados que coincidan con opportunity_loader.";
+    }
+
+    const { data, error } = await supabase
+      .from("opportunity_loader")
+      .insert(rows)
+      .select("id");
+
+    if (error) {
+      console.error("Error cargando opportunity_loader:", error.code);
+      return "No se pudo cargar el archivo. Verificá que la migración esté aplicada e intentá nuevamente.";
+    }
+
+    if (!data || data.length !== rows.length) {
+      return "La base no confirmó todas las filas del CSV.";
+    }
+
+    return null;
+  }
+
   async function handleImportCsv(importedLeads: Lead[]): Promise<string | null> {
-    if (!canEdit) return "No tenés permisos para importar leads.";
+    if (!isAdmin) return "Solo un administrador puede importar leads.";
     setPageError(null);
     if (importedLeads.length === 0) return "No hay filas válidas para importar.";
 
@@ -1871,7 +1901,7 @@ export default function LeadsPage() {
               />
             </Button>
 
-            {canEdit && (
+            {isAdmin && (
               <Button
                 size="sm"
                 variant="outline"
@@ -2402,11 +2432,14 @@ export default function LeadsPage() {
         domainOptions={domainOptions}
       />
 
-      <ImportLeadsCsvModal
-        open={importOpen}
-        onOpenChange={setImportOpen}
-        onImport={handleImportCsv}
-      />
+      {isAdmin && (
+        <ImportLeadsCsvModal
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          onLoadOpportunityRows={handleLoadOpportunityRows}
+          onImport={handleImportCsv}
+        />
+      )}
 
       <LeadDetailPanel
         lead={selectedLead}
