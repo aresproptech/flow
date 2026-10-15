@@ -138,6 +138,7 @@ function normalizeOpportunityLoaderHeader(value: string) {
 export function mapCsvRowsToOpportunityLoader(rows: Record<string, string>[]) {
   const headerMappings = Object.keys(rows[0] ?? {}).flatMap((header) => {
     const column = normalizeOpportunityLoaderHeader(header);
+    if (column === "created_at" || column === "created_by") return [];
     return OPPORTUNITY_LOADER_COLUMN_SET.has(column)
       ? [{ header, column: column as OpportunityLoaderColumn }]
       : [];

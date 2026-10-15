@@ -54,10 +54,10 @@ CREATE TABLE "public"."opportunity_loader" (
   "nota_3" text,
   "nota_4" text,
   "nota_5" text,
-  "created_at" timestamp without time zone,
+  "created_at" timestamp without time zone DEFAULT now(),
   "updated_at" timestamp without time zone,
   "deleted_at" timestamp without time zone,
-  "created_by" text,
+  "created_by" text DEFAULT public.crm_current_profile_id()::text,
   "updated_by" text,
   "deleted_by" text,
   CONSTRAINT "opportunity_loader_pkey" PRIMARY KEY ("id")
