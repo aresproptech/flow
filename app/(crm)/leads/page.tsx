@@ -1012,20 +1012,6 @@ export default function LeadsPage() {
       return "No se encontraron encabezados que coincidan con opportunity_loader.";
     }
 
-    const normalizedIds = rows.map((row) => {
-      const id = String(row.id ?? "").trim();
-      if (!/^\d+$/.test(id)) return null;
-      return id.replace(/^0+(?=\d)/, "");
-    });
-
-    if (normalizedIds.some((id) => id === null)) {
-      return "Todas las filas deben incluir un ID numérico para cargarse en opportunity_loader.";
-    }
-
-    if (new Set(normalizedIds).size !== normalizedIds.length) {
-      return "El CSV contiene IDs duplicados; corregilos antes de cargarlo.";
-    }
-
     const { data, error } = await supabase
       .from("opportunity_loader")
       .insert(rows)

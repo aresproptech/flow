@@ -128,6 +128,8 @@ function normalizeOpportunityLoaderHeader(value: string) {
     .replace(/_+/g, "_")
     .replace(/^_|_$/g, "");
 
+  if (normalized === "id") return "id_external";
+
   return normalized === "e_mail_priv_contacto"
     ? "email_priv_contacto"
     : normalized;
