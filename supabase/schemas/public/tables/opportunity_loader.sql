@@ -1,5 +1,12 @@
 CREATE TABLE "public"."opportunity_loader" (
-  "id" text,
+  "id" bigint,
+  "id_external" text,
+  "created_at" timestamp without time zone,
+  "updated_at" timestamp without time zone,
+  "deleted_at" timestamp without time zone,
+  "created_by" text,
+  "updated_by" text,
+  "deleted_by" text,
   "nombre_del_lead" text,
   "compania" text,
   "contacto_principal" text,

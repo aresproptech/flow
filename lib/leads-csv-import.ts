@@ -48,6 +48,13 @@ export type ColumnMapping = Partial<Record<ImportTargetField, string>>; // targe
 
 export const OPPORTUNITY_LOADER_COLUMNS = [
   "id",
+  "id_external",
+  "created_at",
+  "updated_at",
+  "deleted_at",
+  "created_by",
+  "updated_by",
+  "deleted_by",
   "nombre_del_lead",
   "compania",
   "contacto_principal",
@@ -105,7 +112,7 @@ export const OPPORTUNITY_LOADER_COLUMNS = [
 
 export type OpportunityLoaderColumn = (typeof OPPORTUNITY_LOADER_COLUMNS)[number];
 export type OpportunityLoaderRow = Partial<
-  Record<OpportunityLoaderColumn, string | null>
+  Record<OpportunityLoaderColumn, string | number | null>
 >;
 
 const OPPORTUNITY_LOADER_COLUMN_SET: ReadonlySet<string> = new Set(
@@ -171,7 +178,7 @@ export function mapOpportunityLoaderRowsToTargets(
   return rows.map((row) => {
     const mapped: Partial<Record<ImportTargetField, string>> = {};
     for (const { target, column } of targetColumns) {
-      mapped[target] = row[column] ?? "";
+      mapped[target] = String(row[column] ?? "");
     }
     return mapped;
   });
