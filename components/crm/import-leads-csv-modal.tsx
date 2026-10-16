@@ -253,7 +253,7 @@ export function ImportLeadsCsvModal({
       }}
     >
       <DialogContent className="h-[92vh] w-[96vw] max-w-[96vw] overflow-hidden p-0 sm:max-w-[96vw] lg:max-w-[96vw] xl:max-w-[96vw]">
-        <div className="flex h-full flex-col">
+        <div className="flex h-full min-h-0 min-w-0 flex-col">
           <DialogHeader className="shrink-0 border-b border-border px-5 py-4">
             <DialogTitle className="text-base font-semibold">Importar CSV</DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
@@ -272,7 +272,7 @@ export function ImportLeadsCsvModal({
             </div>
           </DialogHeader>
 
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-5 py-3">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-5 py-3">
             {error && (
               <div className="mb-3 flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -301,7 +301,7 @@ export function ImportLeadsCsvModal({
             )}
 
             {step === 2 && (
-              <div className="flex h-full min-h-0 flex-col gap-3">
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
                 <div className="shrink-0 rounded-lg border border-border bg-card px-3 py-2">
                   <div className="flex flex-col gap-2">
                     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -369,8 +369,13 @@ export function ImportLeadsCsvModal({
                   </div>
                 </div>
 
-                <div className="min-h-0 flex-1 rounded-lg border border-border">
-                  <div className="h-[calc(92vh-390px)] min-h-[240px] overflow-auto">
+                <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-border">
+                  <div
+                    className="min-h-0 min-w-0 w-full flex-1 overflow-auto"
+                    role="region"
+                    aria-label="Previsualización de leads"
+                    tabIndex={0}
+                  >
                     <table className="border-collapse text-xs" style={{ minWidth: 2400 }}>
                       <thead className="sticky top-0 z-10 bg-card">
                         <tr className="border-b border-border bg-card/95 text-left backdrop-blur">
