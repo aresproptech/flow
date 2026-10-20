@@ -18,15 +18,15 @@ CREATE UNIQUE INDEX idx_profiles_auth_id
   ON public.profiles USING btree (auth_id)
   WHERE auth_id IS NOT NULL;
 
-CREATE POLICY "profiles_delete_by_manager" ON "public"."profiles"
+CREATE POLICY "profiles_delete_by_admin" ON "public"."profiles"
   FOR DELETE
   TO "authenticated"
-  USING ((public.crm_current_role() = ANY (ARRAY['admin'::text, 'coordinador'::text])));
+  USING ((SELECT public.crm_current_role()) = 'admin'::text);
 
-CREATE POLICY "profiles_insert_by_manager" ON "public"."profiles"
+CREATE POLICY "profiles_insert_by_admin" ON "public"."profiles"
   FOR INSERT
   TO "authenticated"
-  WITH CHECK ((public.crm_current_role() = ANY (ARRAY['admin'::text, 'coordinador'::text])));
+  WITH CHECK ((SELECT public.crm_current_role()) = 'admin'::text);
 
 CREATE POLICY "profiles_select_by_role" ON "public"."profiles"
   FOR SELECT
@@ -39,18 +39,19 @@ CREATE POLICY "profiles_select_by_role" ON "public"."profiles"
     )
   );
 
-CREATE POLICY "profiles_update_by_manager" ON "public"."profiles"
+CREATE POLICY "profiles_update_by_admin" ON "public"."profiles"
   FOR UPDATE
   TO "authenticated"
-  USING ((public.crm_current_role() = ANY (ARRAY['admin'::text, 'coordinador'::text])))
-  WITH CHECK ((public.crm_current_role() = ANY (ARRAY['admin'::text, 'coordinador'::text])));
+  USING ((SELECT public.crm_current_role()) = 'admin'::text)
+  WITH CHECK ((SELECT public.crm_current_role()) = 'admin'::text);
 
-GRANT DELETE, INSERT, SELECT, UPDATE ON TABLE "public"."profiles" TO "appsheet_user";
+REVOKE ALL ON TABLE "public"."profiles" FROM "appsheet_user";
+GRANT SELECT ON TABLE "public"."profiles" TO "appsheet_user";
 
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE "public"."profiles" TO "postgres", "service_role";
 
 COMMENT ON TABLE "public"."profiles" IS 'Perfil y Roles del Usuario';
 
-REVOKE ALL ON TABLE "public"."profiles" FROM "authenticated";
+REVOKE ALL ON TABLE "public"."profiles" FROM "anon", "authenticated";
 
 GRANT DELETE, INSERT, SELECT, UPDATE ON TABLE "public"."profiles" TO "authenticated";

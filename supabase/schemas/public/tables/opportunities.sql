@@ -3,7 +3,7 @@ CREATE TABLE "public"."opportunities" (
   "fecha"               text,
   "occupancy"           text,
   "postal_id"           bigint,
-  "tasacion"            text,
+  "valuation"           text,
   "domicilio"           text,
   "propietario"         text,
   "telefono"            text,

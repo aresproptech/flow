@@ -17,7 +17,7 @@ type CrmLeadRow = {
   propietario: string | null;
   telefono: string | null;
   domicilio: string | null;
-  tasacion: string | null;
+  valuation: string | null;
   estado: string | null;
   en_venta: string | null;
   occupancy: string | null;
@@ -93,7 +93,7 @@ function mapCrmLeadToLead(row: CrmLeadRow, details?: CrmLeadDetails): RgLead {
     municipio: distrito,
     provincia,
     cp,
-    valor: row.tasacion?.trim() || "—",
+    valor: row.valuation?.trim() || "—",
     phone: row.telefono?.trim() || "—",
     source: row.source_name?.trim() || "Sin origen",
     sourceId: row.source_id,

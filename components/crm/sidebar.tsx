@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   Users,
-  UserCog,
   Settings,
   FileText,
   ClipboardCheck,
@@ -16,6 +15,7 @@ import {
   CalendarDays,
 } from "lucide-react";
 import { canManageVisits, useUser } from "@/lib/hooks/useUser";
+import { normalizeCrmRole } from "@/lib/crm-role";
 import type { CrmUser } from "@/lib/supabase";
 
 type NavItem = {
@@ -69,12 +69,6 @@ const navItems: NavItem[] = [
     roles: ["Admin", "Coordinador", "Comercial"],
   },
   {
-    label: "Usuarios",
-    href: "/usuarios",
-    icon: UserCog,
-    roles: ["Admin"],
-  },
-  {
     label: "Ajustes",
     href: "/ajustes",
     icon: Settings,
@@ -92,6 +86,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const { userWithRole } = useUser();
 
   const rol = userWithRole?.crmUser.rol;
+  const normalizedRole = normalizeCrmRole(rol);
   const nombre = userWithRole?.crmUser.name ?? "Usuario";
 
   const initials = nombre
@@ -104,7 +99,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const visibleItems = userWithRole?.crmUser && canManageVisits(userWithRole.crmUser)
     ? navItems.filter((item) => item.href === "/visitas")
     : rol
-      ? navItems.filter((item) => item.roles.includes(rol))
+      ? navItems.filter((item) => item.roles.some((role) => normalizeCrmRole(role) === normalizedRole))
       : [];
 
   return (

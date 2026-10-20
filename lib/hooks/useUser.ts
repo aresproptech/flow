@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase, type CrmUser } from "@/lib/supabase";
+import { normalizeCrmRole } from "@/lib/crm-role";
 import type { User } from "@supabase/supabase-js";
 
 export type UserWithRole = {
@@ -69,18 +70,18 @@ export function useUser() {
 }
 
 export function canViewAllLeads(crmUser: CrmUser): boolean {
-  const role = String(crmUser.rol || "").trim().toLowerCase();
+  const role = normalizeCrmRole(crmUser.rol);
   return role === "admin" || role === "coordinador";
 }
 
 export function canEditLeads(crmUser: CrmUser): boolean {
-  const role = String(crmUser.rol || "").trim().toLowerCase();
+  const role = normalizeCrmRole(crmUser.rol);
   if (canManageVisits(crmUser)) return false;
   return role === "admin" || role === "coordinador" || role === "comercial";
 }
 
 export function canManageVisits(crmUser: CrmUser): boolean {
-  const role = String(crmUser.rol || "").trim().toLowerCase();
+  const role = normalizeCrmRole(crmUser.rol);
   return role === "comercial" && crmUser.can_manage_visits === true;
 }
 

@@ -300,7 +300,7 @@ export default function VisitasPage() {
       municipio: district,
       provincia: text(row.provincia),
       cp: row.cp ? String(row.cp) : "—",
-      valor: text(row.tasacion),
+      valor: text(row.valuation),
       phone: text(row.telefono),
       source: text(row.source_name, "Sin origen"),
       sourceId: typeof row.source_id === "number" ? row.source_id : null,

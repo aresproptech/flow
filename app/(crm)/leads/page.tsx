@@ -7,7 +7,6 @@ import {
   type NewLeadFormData,
 } from "@/components/crm/new-lead-modal";
 import { LeadDetailPanel } from "@/components/crm/lead-detail-panel";
-import { ImportLeadsCsvModal } from "@/components/crm/import-leads-csv-modal";
 import { KanbanBoard } from "@/components/crm/kanban-board";
 import { MaskedPhone } from "@/components/crm/masked-phone";
 import {
@@ -21,16 +20,11 @@ import {
   RefreshCw,
   Star,
   Eraser,
-  FileUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { loadCrmLeadDetails, type CrmLeadDetails } from "@/lib/crm-lead-details";
-import {
-  mapCsvRowsToOpportunityLoader,
-  type OpportunityLoaderRow,
-} from "@/lib/leads-csv-import";
 import {
   normalizeEnVenta,
   normalizeOpportunityText,
@@ -81,7 +75,7 @@ const LEAD_SEARCH_COLUMNS = [
   "propietario",
   "telefono",
   "domicilio",
-  "tasacion",
+  "valuation",
   "estado",
   "en_venta",
   "fase_name",
@@ -119,7 +113,7 @@ type CrmLeadRow = {
   propietario: string | null;
   telefono: string | null;
   domicilio: string | null;
-  tasacion: string | null;
+  valuation: string | null;
   estado: string | null;
   memo: string | null;
   en_venta: string | null;
@@ -712,7 +706,7 @@ function mapCrmLeadToLead(row: CrmLeadRow, details?: CrmLeadDetails): LeadTableR
     municipio: distrito,
     provincia,
     cp,
-    valor: normalizeValor(row.tasacion),
+    valor: normalizeValor(row.valuation),
     phone: row.telefono?.trim() || "—",
     source: row.source_name?.trim() || "Sin origen",
     sourceId: row.source_id,
@@ -749,7 +743,6 @@ export default function LeadsPage() {
   const { userWithRole, loading: userLoading } = useUser();
   const canEdit = Boolean(userWithRole?.crmUser && canEditLeads(userWithRole.crmUser));
   const currentRole = String(userWithRole?.crmUser.rol || "").trim().toLowerCase();
-  const isAdmin = currentRole === "admin";
   const [phaseIdMap, setPhaseIdMap] =
     useState<Partial<Record<Lead["phase"], number>>>({});
   const [profileIdByName, setProfileIdByName] = useState<Map<string, number>>(
@@ -768,7 +761,6 @@ export default function LeadsPage() {
   const [sourceOptions, setSourceOptions] = useState<string[]>([]);
   const [domainOptions, setDomainOptions] = useState<string[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [leads, setLeads] = useState<LeadTableRow[]>([]);
   const [loadingLeads, setLoadingLeads] = useState(true);
@@ -1001,88 +993,6 @@ export default function LeadsPage() {
     setLoadingLeads(false);
   }
 
-  async function handleLoadOpportunityRows(
-    csvRows: Record<string, string>[]
-  ): Promise<OpportunityLoaderRow[] | string> {
-    if (!isAdmin) return "Solo un administrador puede cargar este archivo.";
-    if (csvRows.length === 0) return "El CSV no contiene filas para cargar.";
-
-    const { matchedColumns, rows } = mapCsvRowsToOpportunityLoader(csvRows);
-    if (matchedColumns === 0) {
-      return "No se encontraron encabezados que coincidan con opportunity_loader.";
-    }
-
-    const { data, error } = await supabase
-      .from("opportunity_loader")
-      .insert(rows)
-      .select("*");
-
-    if (error) {
-      console.error("Error cargando opportunity_loader:", error.code);
-      return "No se pudo cargar el archivo. Verificá que la migración esté aplicada e intentá nuevamente.";
-    }
-
-    if (!data || data.length !== rows.length) {
-      return "La base no confirmó todas las filas del CSV.";
-    }
-
-    return data as OpportunityLoaderRow[];
-  }
-
-  async function handleImportCsv(importedLeads: Lead[]): Promise<string | null> {
-    if (!isAdmin) return "Solo un administrador puede importar leads.";
-    setPageError(null);
-    if (importedLeads.length === 0) return "No hay filas válidas para importar.";
-
-    const phaseIds = new Map<Lead["phase"], number>();
-    const uniquePhases = Array.from(new Set(importedLeads.map((lead) => lead.phase)));
-
-    for (const phase of uniquePhases) {
-      phaseIds.set(phase, await resolvePhaseId(phase));
-    }
-
-    const rowsToInsert = importedLeads.map((lead) => ({
-      propietario: normalizeOpportunityText(lead.ownerName),
-      domicilio: normalizeOpportunityText(lead.address),
-      telefono: cleanNullable(lead.phone),
-      tasacion: cleanNullable(lead.valor),
-      estado: cleanNullable(lead.status),
-      fecha: cleanNullable(lead.fechaNoticia),
-      domain_id: domainIdFor((lead as Lead & { dominio?: string | null }).dominio),
-      postal_id: normalizePostalId(lead.cp),
-      fase_id: phaseIds.get(lead.phase) ?? PHASE_ID_MAP[lead.phase] ?? 1,
-      memo: cleanNullable(lead.notes),
-      en_venta: null,
-      occupancy: cleanNullable(lead.occupancy),
-      source_id: sourceIdFor(lead.source),
-      responsible_user_id: profileIdFor(lead.owner),
-    }));
-
-    const { data: insertedRows, error } = await supabase
-      .from("opportunities")
-      .insert(rowsToInsert)
-      .select("id");
-
-    if (error) {
-      console.error("Error importing CSV to Supabase:", error);
-      const message = "No se pudieron importar los leads. Revisá el archivo e intentá nuevamente.";
-      setPageError(message);
-      return message;
-    }
-
-    if (!insertedRows || insertedRows.length !== rowsToInsert.length) {
-      const message =
-        "La importación no confirmó todos los leads. No se cerrará el archivo para evitar perder datos.";
-      console.error(message, { insertedRows, expected: rowsToInsert.length });
-      setPageError(message);
-      return message;
-    }
-
-    await loadLeadsFromSupabase({ page: 1 });
-    setSearchRefreshKey((value) => value + 1);
-    return null;
-  }
-
   async function handleCreateLead(form: NewLeadFormData): Promise<string | null> {
     if (!canEdit) return "No tenés permisos para crear leads.";
     setPageError(null);
@@ -1093,7 +1003,7 @@ export default function LeadsPage() {
       propietario: normalizeOpportunityText(form.ownerName),
       domicilio: normalizeOpportunityText(form.address),
       telefono: cleanNullable(form.phone),
-      tasacion: cleanNullable(form.valor),
+      valuation: cleanNullable(form.valor),
       estado: cleanNullable(form.status),
       fecha: cleanNullable(form.fechaNoticia),
       domain_id: domainIdFor(form.dominio),
@@ -1143,7 +1053,7 @@ export default function LeadsPage() {
       propietario: normalizeOpportunityText(next.ownerName),
       domicilio: normalizeOpportunityText(next.address),
       telefono: cleanNullable(next.phone),
-      tasacion: cleanNullable(next.valor),
+      valuation: cleanNullable(next.valor),
       estado: cleanNullable(next.status),
       fecha: next.fechaNoticia ? next.fechaNoticia.slice(0, 10) : null,
       domain_id: domainIdFor(nextWithDominio.dominio),
@@ -1904,19 +1814,6 @@ export default function LeadsPage() {
               />
             </Button>
 
-            {isAdmin && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="hidden h-8 w-8 p-0 sm:inline-flex"
-                onClick={() => setImportOpen(true)}
-                title="Importar CSV"
-                aria-label="Importar CSV"
-              >
-                <FileUp className="h-3.5 w-3.5" />
-              </Button>
-            )}
-
             <div className="inline-flex items-center rounded-lg border border-border bg-background p-1">
               <button
                 type="button"
@@ -2434,15 +2331,6 @@ export default function LeadsPage() {
         sourceOptions={sourceOptions}
         domainOptions={domainOptions}
       />
-
-      {isAdmin && (
-        <ImportLeadsCsvModal
-          open={importOpen}
-          onOpenChange={setImportOpen}
-          onLoadOpportunityRows={handleLoadOpportunityRows}
-          onImport={handleImportCsv}
-        />
-      )}
 
       <LeadDetailPanel
         lead={selectedLead}

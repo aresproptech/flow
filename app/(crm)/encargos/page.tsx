@@ -46,7 +46,7 @@ type LeadRow = {
   propietario: string | null;
   telefono?: string | null;
   domicilio: string | null;
-  tasacion?: string | null;
+  valuation?: string | null;
   estado: string | null;
   en_venta: string | null;
   occupancy: string | null;
@@ -397,7 +397,7 @@ export default function EncargosPage() {
 
     let leadsQuery = supabase
       .from("crm_leads_view")
-      .select("id, created_at, fecha, propietario, telefono, domicilio, tasacion, estado, memo, source_id, source_name, responsible_user_id, responsable, domain_id, domain_name, provincia, distrito, cp")
+      .select("id, created_at, fecha, propietario, telefono, domicilio, valuation, estado, memo, source_id, source_name, responsible_user_id, responsable, domain_id, domain_name, provincia, distrito, cp")
       .in("id", safeLeadIds);
 
     if (userWithRole?.crmUser && !canViewAllLeads(userWithRole.crmUser) && nombre) {
@@ -559,7 +559,7 @@ export default function EncargosPage() {
       municipio: district,
       provincia: row.provincia?.trim() || "—",
       cp: row.cp ? String(row.cp) : "—",
-      valor: row.tasacion?.trim() || "—",
+      valor: row.valuation?.trim() || "—",
       phone: row.telefono?.trim() || "—",
       source: row.source_name?.trim() || "Sin origen",
       sourceId: row.source_id,

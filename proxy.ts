@@ -1,5 +1,22 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { hasActiveAdminProfile } from "@/lib/admin-profile";
+
+function redirectWithSession(request: NextRequest, pathname: string, response: NextResponse) {
+  const url = request.nextUrl.clone();
+  url.pathname = pathname;
+  const redirectResponse = NextResponse.redirect(url);
+
+  response.cookies.getAll().forEach(({ name, value, ...options }) => {
+    redirectResponse.cookies.set(name, value, options);
+  });
+  for (const header of ["cache-control", "expires", "pragma"]) {
+    const value = response.headers.get(header);
+    if (value) redirectResponse.headers.set(header, value);
+  }
+
+  return redirectResponse;
+}
 
 export default async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -34,15 +51,18 @@ export default async function proxy(request: NextRequest) {
     request.nextUrl.pathname === "/" &&
     ["code", "error", "error_code"].some((key) => request.nextUrl.searchParams.has(key));
   if (!user && !isLogin && !isRecoveryCallback) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
+    return redirectWithSession(request, "/login", response);
   }
 
   if (user && isLogin && !isPasswordRecovery) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
+    return redirectWithSession(request, "/dashboard", response);
+  }
+
+  const isAdminRoute = ["/ajustes", "/usuarios"].some(
+    (route) => request.nextUrl.pathname === route || request.nextUrl.pathname.startsWith(`${route}/`)
+  );
+  if (user && isAdminRoute && !(await hasActiveAdminProfile(supabase, user.id))) {
+    return redirectWithSession(request, "/dashboard", response);
   }
 
   return response;

@@ -19,7 +19,7 @@ SELECT
   o.estado,
   o.responsible_user_id,
   u.name AS responsable,
-  o.tasacion,
+  o.valuation,
   o.en_venta,
   o.memo,
   o.deleted_at,

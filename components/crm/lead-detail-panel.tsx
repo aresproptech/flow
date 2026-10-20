@@ -377,6 +377,7 @@ type ValuationHistoryEvent = {
   fecha: string;
   hora: string;
   medio: string;
+  valuation: string;
   confirmed: boolean;
   planner: string;
   owner: string;
@@ -403,6 +404,7 @@ type OpportunityContactRow = {
   hora?: string | null;
   medio?: string | null;
   confirmed?: boolean | null;
+  valuation?: string | null;
   resultado_text?: string | null;
   memo?: string | null;
   resultado?: boolean | null;
@@ -1823,6 +1825,7 @@ export function LeadDetailPanel({
     fecha: todayDateInput(),
     hora: currentQuarterTimeInput(),
     medio: "Teléfono",
+    valuation: "",
     confirmed: false,
     resultado: "",
     memo: "",
@@ -2389,7 +2392,7 @@ export function LeadDetailPanel({
         propietario: normalizeOpportunityText(next.ownerName),
         domicilio: normalizeOpportunityText(next.address),
         telefono: next.phone.trim() || null,
-        tasacion: next.valor.trim() || null,
+        valuation: next.valor.trim() || null,
         estado: next.status,
         fecha: next.fechaNoticia ? next.fechaNoticia.slice(0, 10) : null,
         memo: next.notes?.trim() || null,
@@ -2512,6 +2515,7 @@ export function LeadDetailPanel({
       fecha: todayDateInput(),
       hora: currentQuarterTimeInput(),
       medio: "Teléfono",
+      valuation: "",
       confirmed: false,
       resultado: "",
       memo: "",
@@ -2633,6 +2637,7 @@ export function LeadDetailPanel({
       fecha: dateOnlyValue(event.fecha),
       hora: roundTimeToQuarter(event.hora || ""),
       medio: event.medio === "—" ? "" : event.medio,
+      valuation: event.valuation,
       confirmed: event.confirmed,
       resultado: event.resultado === "—" ? "" : event.resultado,
       memo: event.memo || "",
@@ -2961,6 +2966,7 @@ export function LeadDetailPanel({
       fecha: valuationDate,
       hora: valuationForm.hora || null,
       medio: valuationForm.medio || null,
+      valuation: valuationForm.valuation.trim() || null,
       confirmed: valuationForm.confirmed,
       memo: valuationForm.memo.trim() || null,
       resultado: true,
@@ -3078,6 +3084,7 @@ export function LeadDetailPanel({
         fecha: row.fecha || row.created_at || "",
         hora: row.hora || "",
         medio: row.medio || "—",
+        valuation: formatEuroValue(row.valuation),
         confirmed: row.confirmed === true,
         planner:
           (Array.isArray(row.profile) ? row.profile[0] : row.profile)?.name?.trim() ||
@@ -3614,14 +3621,15 @@ export function LeadDetailPanel({
                     </div>
                   ) : (
                     <div className="max-h-[55vh] overflow-auto overscroll-contain rounded-lg border border-border bg-card">
-                      <div className="sticky top-0 z-20 grid min-w-[896px] grid-cols-[96px_72px_96px_112px_180px_180px_104px_56px] border-b border-border bg-muted/95 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur">
+                      <div className="sticky top-0 z-20 grid min-w-[928px] grid-cols-[96px_72px_88px_96px_160px_160px_96px_112px_48px] justify-between border-b border-border bg-muted/95 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur">
                         <span>Fecha</span>
                         <span>Hora</span>
                         <span>Medio</span>
-                        <span className="text-center">Confirmada</span>
+                        <span className="translate-x-2 text-center">Confirmada</span>
                         <span>Creado</span>
                         <span>Responsable</span>
                         <span>Resultado</span>
+                        <span>Valor</span>
                         <span />
                       </div>
 
@@ -3637,7 +3645,7 @@ export function LeadDetailPanel({
                                   current === event.id ? null : event.id
                                 )
                               }
-                              className="grid w-full min-w-[896px] grid-cols-[96px_72px_96px_112px_180px_180px_104px_56px] items-center px-3 py-3 text-left text-sm transition hover:bg-muted/40"
+                              className="grid w-full min-w-[928px] grid-cols-[96px_72px_88px_96px_160px_160px_96px_112px_48px] items-center justify-between px-3 py-3 text-left text-sm transition hover:bg-muted/40"
                             >
                               <span className="text-foreground">{fmtDateDdMmYy(event.fecha)}</span>
                               <span className="text-muted-foreground">
@@ -3648,7 +3656,7 @@ export function LeadDetailPanel({
                                 aria-hidden="true"
                                 title={event.confirmed ? "Confirmada" : "No confirmada"}
                                 className={cn(
-                                  "mx-auto inline-flex h-4 w-4 items-center justify-center rounded-sm border",
+                                  "mx-auto inline-flex h-4 w-4 translate-x-2 items-center justify-center rounded-sm border",
                                   event.confirmed
                                     ? "border-primary bg-primary text-primary-foreground"
                                     : "border-input bg-background text-transparent"
@@ -3666,6 +3674,7 @@ export function LeadDetailPanel({
                                   {event.resultado}
                                 </Badge>
                               </span>
+                              <span className="text-muted-foreground">{event.valuation || "—"}</span>
                               <span className="flex items-center justify-end gap-2">
                                 {!readOnly && (persistedRowId(event.id) ? (
                                   <span
@@ -4157,7 +4166,7 @@ export function LeadDetailPanel({
           if (!open) resetValuationForm();
         }}
       >
-        <DialogContent className="sm:max-w-[720px]">
+        <DialogContent className="sm:max-w-[900px]">
           <DialogHeader>
             <DialogTitle>
               {editingValuationId ? "Editar valoración" : "Agregar valoración"}
@@ -4169,7 +4178,7 @@ export function LeadDetailPanel({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs font-medium">Fecha</Label>
               <Input
@@ -4187,7 +4196,7 @@ export function LeadDetailPanel({
               onChange={(hora) => setValuationForm((previous) => ({ ...previous, hora }))}
             />
 
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1.5 md:col-span-2">
               <Label className="text-xs font-medium">Medio</Label>
               <Select
                 value={valuationForm.medio}
@@ -4291,7 +4300,25 @@ export function LeadDetailPanel({
               </Select>
             </div>
 
-            <div className="flex flex-col gap-1.5 md:col-span-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="valuation-value" className="text-xs font-medium">Valor</Label>
+              <Input
+                id="valuation-value"
+                type="text"
+                inputMode="numeric"
+                placeholder="Ej. 450.000 €"
+                className="h-9 text-sm"
+                value={valuationForm.valuation}
+                onChange={(event) =>
+                  setValuationForm((previous) => ({
+                    ...previous,
+                    valuation: formatEuroValue(event.target.value),
+                  }))
+                }
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5 md:col-span-4">
               <Label className="text-xs font-medium">Memo</Label>
               <Textarea
                 className="memo-scroll h-[96px] min-h-[96px] max-h-[180px] resize-none text-sm"

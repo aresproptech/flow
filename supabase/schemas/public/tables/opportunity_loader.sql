@@ -84,7 +84,7 @@ CREATE POLICY "opportunity_loader_insert_by_admin"
 
 REVOKE ALL
   ON TABLE "public"."opportunity_loader"
-  FROM "anon", "authenticated";
+  FROM "anon", "authenticated", "appsheet_user";
 
 GRANT INSERT, SELECT
   ON TABLE "public"."opportunity_loader"

@@ -86,7 +86,7 @@ type CrmLeadRow = {
   propietario: string | null;
   telefono: string | null;
   domicilio: string | null;
-  tasacion: string | null;
+  valuation: string | null;
   estado: string | null;
   memo: string | null;
   en_venta: string | null;
