@@ -872,7 +872,14 @@ export default function LeadsPage() {
   }
 
   function profileIdFor(name: string | null | undefined) {
-    return profileIdByName.get(normalizeLookupText(name)) ?? null;
+    const normalizedName = normalizeLookupText(name);
+    const currentUserName = normalizeLookupText(userWithRole?.crmUser.name);
+
+    if (normalizedName && normalizedName === currentUserName) {
+      return userWithRole?.crmUser.id ?? null;
+    }
+
+    return profileIdByName.get(normalizedName) ?? null;
   }
 
   function sourceIdFor(code: string | null | undefined) {
@@ -1014,6 +1021,7 @@ export default function LeadsPage() {
       occupancy: cleanNullable(form.occupancy),
       source_id: sourceIdFor(form.source),
       responsible_user_id: profileIdFor(form.owner),
+      created_by: userWithRole?.crmUser.id ?? null,
     };
 
     const { data: insertedLead, error } = await supabase
@@ -2325,9 +2333,8 @@ export default function LeadsPage() {
         open={modalOpen}
         onOpenChange={setModalOpen}
         onSubmit={handleCreateLead}
+        defaultOwner={userWithRole?.crmUser.name ?? ""}
         ownerOptions={ownerOptions}
-        plannerOptions={profileOptions}
-        buyerOptions={profileOptions}
         sourceOptions={sourceOptions}
         domainOptions={domainOptions}
       />

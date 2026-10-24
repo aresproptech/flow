@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { FileSpreadsheet, UserRoundCog } from "lucide-react";
+import { ExternalLink, FileSpreadsheet, MapPin, UserRoundCog } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AdminOpportunityImport } from "@/components/crm/admin-opportunity-import";
+import { AdminLocalizationSearch } from "@/components/crm/admin-localization-search";
 
 export function AdminSettingsPanel() {
   return (
@@ -39,6 +40,40 @@ export function AdminSettingsPanel() {
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             <AdminOpportunityImport />
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-md shadow-none">
+          <CardHeader className="flex flex-row items-start gap-3">
+            <ExternalLink className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+            <div className="space-y-1">
+              <CardTitle className="text-sm">Lead Management</CardTitle>
+              <CardDescription>Accede a la plataforma de gestión de leads.</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="flex justify-end">
+            <Button asChild size="sm">
+              <a
+                href="https://grupoaresproptech.kommo.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Abrir Lead Management
+              </a>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-md shadow-none">
+          <CardHeader className="flex flex-row items-start gap-3">
+            <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+            <div className="space-y-1">
+              <CardTitle className="text-sm">Localización</CardTitle>
+              <CardDescription>Busca códigos postales por CP o localidad.</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <AdminLocalizationSearch />
           </CardContent>
         </Card>
       </div>

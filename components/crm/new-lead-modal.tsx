@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -26,7 +26,7 @@ import {
   SOURCE_OPTIONS,
   EN_VENTA_OPTIONS,
 } from "@/lib/crm-data";
-import { AlertTriangle, LocateFixed, Loader2 } from "lucide-react";
+import { AlertTriangle, LocateFixed, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 
@@ -34,7 +34,6 @@ export interface NewLeadFormData {
   ownerName: string;
   address: string;
   distrito: string;
-  municipio: string;
   provincia: string;
   cp: string;
   valor: string;
@@ -51,36 +50,40 @@ export interface NewLeadFormData {
   fechaValoracion: string;
   hora: string;
   owner: string;
-  planner: string;
-  buyer: string;
   notes: string;
 }
 
-const EMPTY_FORM: NewLeadFormData = {
-  ownerName: "",
-  address: "",
-  distrito: "",
-  municipio: "",
-  provincia: "",
-  cp: "",
-  valor: "",
-  dominio: "",
-  occupancy: "",
-  phone: "",
-  source: "",
-  medio: "",
-  enVenta: "",
-  status: "",
-  phase: "",
-  fechaNoticia: "",
-  fechaContacto: "",
-  fechaValoracion: "",
-  hora: "",
-  owner: "",
-  planner: "",
-  buyer: "",
-  notes: "",
-};
+function todayDateInput(): string {
+  const today = new Date();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${today.getFullYear()}-${month}-${day}`;
+}
+
+function createEmptyForm(): NewLeadFormData {
+  return {
+    ownerName: "",
+    address: "",
+    distrito: "",
+    provincia: "",
+    cp: "",
+    valor: "",
+    dominio: "",
+    occupancy: "",
+    phone: "",
+    source: "",
+    medio: "",
+    enVenta: "",
+    status: "activa",
+    phase: "identificada",
+    fechaNoticia: todayDateInput(),
+    fechaContacto: "",
+    fechaValoracion: "",
+    hora: "",
+    owner: "",
+    notes: "",
+  };
+}
 
 const NEW_LEAD_PHASE_OPTIONS = PHASE_OPTIONS.filter((opt) =>
   ["Identificada", "Cualificada", "Valorada", "Encargo"].includes(opt.label)
@@ -100,29 +103,19 @@ function formatEuroValue(raw: string): string {
 }
 
 interface PostalCodeResult {
+  id: string;
   cp: string;
-  municipio: string;
+  municipio: string | null;
   provincia: string;
   distrito: string | null;
-}
-
-async function fetchPostalCode(cp: string): Promise<PostalCodeResult | null> {
-  try {
-    const res = await fetch(`/api/postal-code/${cp}`);
-    if (!res.ok) return null;
-    return res.json();
-  } catch {
-    return null;
-  }
 }
 
 interface NewLeadModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit?: (data: NewLeadFormData) => Promise<string | null>;
+  defaultOwner?: string;
   ownerOptions?: string[];
-  plannerOptions?: string[];
-  buyerOptions?: string[];
   sourceOptions?: string[];
   domainOptions?: string[];
 }
@@ -131,18 +124,26 @@ export function NewLeadModal({
   open,
   onOpenChange,
   onSubmit,
+  defaultOwner = "",
   ownerOptions = AGENT_OPTIONS,
-  plannerOptions = AGENT_OPTIONS,
-  buyerOptions = AGENT_OPTIONS,
   sourceOptions = SOURCE_OPTIONS,
   domainOptions = [],
 }: NewLeadModalProps) {
-  const [form, setForm] = useState<NewLeadFormData>(EMPTY_FORM);
+  const [form, setForm] = useState<NewLeadFormData>(createEmptyForm);
   const [cpLoading, setCpLoading] = useState(false);
+  const [cpSearchResults, setCpSearchResults] = useState<PostalCodeResult[]>([]);
+  const [cpSearchError, setCpSearchError] = useState<string | null>(null);
+  const [cpOpen, setCpOpen] = useState(false);
+  const [activeCpIndex, setActiveCpIndex] = useState(0);
+  const [selectedCp, setSelectedCp] = useState<string | null>(null);
   const [cpAutoFilled, setCpAutoFilled] = useState(false);
   const [occupancyOptions, setOccupancyOptions] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const availableOwnerOptions =
+    defaultOwner && !ownerOptions.includes(defaultOwner)
+      ? [defaultOwner, ...ownerOptions]
+      : ownerOptions;
 
   useEffect(() => {
     let active = true;
@@ -179,39 +180,146 @@ export function NewLeadModal({
     handleField("valor", formatEuroValue(value));
   }
 
-  const handleCpChange = useCallback(async (value: string) => {
-    const digits = value.replace(/\D/g, "").slice(0, 5);
-    handleField("cp", digits);
+  useEffect(() => {
+    const query = form.cp.trim().replace(/\s+/g, " ");
+    if (!open || query.length < 2 || selectedCp === query) return;
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(async () => {
+      setCpLoading(true);
+      setCpSearchError(null);
+
+      try {
+        const response = await fetch(
+          `/api/postal-search?q=${encodeURIComponent(query)}`,
+          { signal: controller.signal }
+        );
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.error || "No se pudieron buscar los CP.");
+        }
+
+        setCpSearchResults(payload.results as PostalCodeResult[]);
+        setActiveCpIndex(0);
+        setCpOpen(true);
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setCpSearchResults([]);
+        setCpSearchError(
+          error instanceof Error
+            ? error.message
+            : "No se pudieron buscar los códigos postales."
+        );
+        setCpOpen(true);
+      } finally {
+        if (!controller.signal.aborted) setCpLoading(false);
+      }
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [form.cp, open, selectedCp]);
+
+  function handleCpChange(value: string) {
+    const nextValue = value.slice(0, 80);
+    handleField("cp", nextValue);
+    setSelectedCp(null);
+    setCpSearchResults([]);
+    setCpSearchError(null);
+    setActiveCpIndex(0);
+    setCpLoading(nextValue.trim().length >= 2);
+    setCpOpen(nextValue.trim().length >= 2);
     setCpAutoFilled(false);
 
-    if (digits.length !== 5) return;
+    setForm((previous) => ({ ...previous, distrito: "", provincia: "" }));
+  }
 
-    setCpLoading(true);
-    try {
-      const result = await fetchPostalCode(digits);
-      if (result) {
-        setForm((prev) => ({
-          ...prev,
-          municipio: result.municipio,
-          provincia: result.provincia,
-          distrito: result.distrito || prev.distrito,
-        }));
-        setCpAutoFilled(true);
-      }
-    } finally {
-      setCpLoading(false);
+  function selectPostalCode(result: PostalCodeResult) {
+    const cp = String(Number(result.id)).padStart(5, "0");
+    setForm((previous) => ({
+      ...previous,
+      cp,
+      distrito: result.distrito ?? "",
+      provincia: result.provincia,
+    }));
+    setSelectedCp(cp);
+    setCpAutoFilled(true);
+    setCpSearchResults([]);
+    setCpLoading(false);
+    setCpSearchError(null);
+    setCpOpen(false);
+  }
+
+  function clearPostalCode() {
+    setForm((previous) => ({
+      ...previous,
+      cp: "",
+      distrito: "",
+      provincia: "",
+    }));
+    setSelectedCp(null);
+    setCpAutoFilled(false);
+    setCpSearchResults([]);
+    setCpLoading(false);
+    setCpSearchError(null);
+    setCpOpen(false);
+  }
+
+  function handleCpKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Escape") {
+      setCpOpen(false);
+      return;
     }
-  }, []);
+
+    if (event.key === "ArrowDown" && cpSearchResults.length > 0) {
+      event.preventDefault();
+      setCpOpen(true);
+      setActiveCpIndex((index) => (index + 1) % cpSearchResults.length);
+      return;
+    }
+
+    if (event.key === "ArrowUp" && cpSearchResults.length > 0) {
+      event.preventDefault();
+      setCpOpen(true);
+      setActiveCpIndex(
+        (index) => (index - 1 + cpSearchResults.length) % cpSearchResults.length
+      );
+      return;
+    }
+
+    if (event.key === "Enter" && cpOpen) {
+      event.preventDefault();
+      const result = cpSearchResults[activeCpIndex];
+      if (result) selectPostalCode(result);
+    }
+  }
+
+  function handleCpBlur(event: React.FocusEvent<HTMLDivElement>) {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setCpOpen(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!onSubmit || submitting) return;
 
+    const postalCode = form.cp.trim();
+    if (selectedCp !== postalCode || !/^\d{5}$/.test(postalCode)) {
+      setSubmitError("Selecciona un código postal de la lista antes de guardar.");
+      return;
+    }
+
     setSubmitting(true);
     setSubmitError(null);
 
     try {
-      const errorMessage = await onSubmit(form);
+      const errorMessage = await onSubmit({
+        ...form,
+        owner: form.owner || defaultOwner,
+      });
       if (errorMessage) {
         setSubmitError(errorMessage);
         return;
@@ -224,14 +332,26 @@ export function NewLeadModal({
       setSubmitting(false);
     }
 
-    setForm(EMPTY_FORM);
+    setForm(createEmptyForm());
+    setSelectedCp(null);
+    setCpSearchResults([]);
+    setCpLoading(false);
+    setCpSearchError(null);
+    setCpOpen(false);
+    setActiveCpIndex(0);
     setCpAutoFilled(false);
     onOpenChange(false);
   }
 
   function handleCancel() {
     if (submitting) return;
-    setForm(EMPTY_FORM);
+    setForm(createEmptyForm());
+    setSelectedCp(null);
+    setCpSearchResults([]);
+    setCpLoading(false);
+    setCpSearchError(null);
+    setCpOpen(false);
+    setActiveCpIndex(0);
     setCpAutoFilled(false);
     setSubmitError(null);
     onOpenChange(false);
@@ -242,7 +362,8 @@ export function NewLeadModal({
     form.address.trim() &&
     form.phone.trim() &&
     form.cp.trim() &&
-    form.municipio.trim() &&
+    selectedCp === form.cp.trim() &&
+    /^\d{5}$/.test(form.cp.trim()) &&
     form.distrito.trim() &&
     form.provincia.trim() &&
     form.valor.trim() &&
@@ -251,9 +372,7 @@ export function NewLeadModal({
     form.status &&
     form.phase &&
     form.fechaNoticia &&
-    form.owner &&
-    form.planner &&
-    form.buyer &&
+    (form.owner || defaultOwner) &&
     form.notes.trim();
 
   return (
@@ -266,7 +385,7 @@ export function NewLeadModal({
       <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-base font-semibold">
-            Nuevo lead
+            Nueva Oportunidad
           </DialogTitle>
         </DialogHeader>
 
@@ -281,6 +400,92 @@ export function NewLeadModal({
               <span>{submitError}</span>
             </div>
           )}
+          <div className="grid gap-3 md:grid-cols-4">
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="dominio" className="text-xs font-medium">
+                Dominio <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={form.dominio}
+                onValueChange={(value) => handleField("dominio", value)}
+              >
+                <SelectTrigger id="dominio" className="h-8 w-full min-w-0 text-sm">
+                  <SelectValue className="truncate" placeholder="Seleccionar" />
+                </SelectTrigger>
+                <SelectContent>
+                  {domainOptions.map((domain) => (
+                    <SelectItem key={domain} value={domain}>
+                      {domain}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="source" className="text-xs font-medium">
+                Origen <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={form.source}
+                onValueChange={(v) => handleField("source", v)}
+              >
+                <SelectTrigger id="source" className="h-8 w-full min-w-0 text-sm">
+                  <SelectValue className="truncate" placeholder="Seleccionar" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sourceOptions.map((opt) => (
+                    <SelectItem key={opt} value={opt}>
+                      {opt}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="phase" className="text-xs font-medium">
+                Fase <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={form.phase}
+                onValueChange={(v) => handleField("phase", v)}
+              >
+                <SelectTrigger id="phase" className="h-8 w-full min-w-0 text-sm">
+                  <SelectValue className="truncate" placeholder="Seleccionar" />
+                </SelectTrigger>
+                <SelectContent>
+                  {NEW_LEAD_PHASE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="status" className="text-xs font-medium">
+                Estado <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={form.status}
+                onValueChange={(v) => handleField("status", v)}
+              >
+                <SelectTrigger id="status" className="h-8 w-full min-w-0 text-sm">
+                  <SelectValue className="truncate" placeholder="Seleccionar" />
+                </SelectTrigger>
+                <SelectContent>
+                  {NEW_LEAD_STATUS_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           <div className="grid gap-3 md:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="ownerName" className="text-xs font-medium">
@@ -313,7 +518,8 @@ export function NewLeadModal({
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
-            <div className="flex flex-col gap-1.5 md:col-span-2">
+            <div className="grid gap-3 md:col-span-2 md:grid-cols-2">
+              <div className="flex min-w-0 flex-col gap-1.5">
               <Label htmlFor="address" className="text-xs font-medium">
                 Domicilio <span className="text-destructive">*</span>
               </Label>
@@ -325,95 +531,99 @@ export function NewLeadModal({
                 className="h-8 text-sm"
                 required
               />
-            </div>
+              </div>
 
-            <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-1.5">
               <Label htmlFor="cp" className="text-xs font-medium">
                 CP <span className="text-destructive">*</span>
               </Label>
-              <div className="relative">
+              <div className="relative" onBlur={handleCpBlur}>
                 <Input
-                  id="cp"
-                  placeholder="5 dígitos"
                   value={form.cp}
-                  onChange={(e) => void handleCpChange(e.target.value)}
-                  className="h-8 text-sm font-mono pr-8"
-                  maxLength={5}
-                  inputMode="numeric"
+                  onChange={(e) => handleCpChange(e.target.value)}
+                  onKeyDown={handleCpKeyDown}
+                  onFocus={() => {
+                    if (form.cp.trim().length >= 2 && selectedCp !== form.cp.trim()) {
+                      setCpOpen(true);
+                    }
+                  }}
+                  placeholder="Buscar CP o localidad"
+                  maxLength={80}
+                  className="h-8 pr-8 text-sm"
                   disabled={cpLoading}
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-expanded={cpOpen}
+                  aria-controls="new-lead-cp-options"
+                  aria-activedescendant={
+                    cpOpen && cpSearchResults[activeCpIndex]
+                      ? `new-lead-cp-option-${activeCpIndex}`
+                      : undefined
+                  }
+                  aria-busy={cpLoading}
                   required
                 />
-                {cpLoading && (
+                {cpLoading ? (
                   <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-primary" />
+                ) : form.cp ? (
+                  <button
+                    type="button"
+                    aria-label="Borrar código postal"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={clearPostalCode}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                ) : null}
+                {cpOpen && form.cp.trim().length >= 2 && (
+                  <div
+                    id="new-lead-cp-options"
+                    role="listbox"
+                    aria-label="Resultados de códigos postales"
+                    className="absolute left-0 top-full z-50 mt-1 max-h-[55vh] w-[min(24rem,calc(100vw-3rem))] overflow-y-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
+                  >
+                    {cpLoading ? (
+                      <div role="status" className="px-3 py-2 text-sm text-muted-foreground">
+                        Buscando...
+                      </div>
+                    ) : cpSearchError ? (
+                      <div role="alert" className="px-3 py-2 text-sm text-destructive">
+                        {cpSearchError}
+                      </div>
+                    ) : cpSearchResults.length === 0 ? (
+                      <div role="status" className="px-3 py-2 text-sm text-muted-foreground">
+                        No se encontraron resultados.
+                      </div>
+                    ) : (
+                      cpSearchResults.map((result, index) => (
+                        <button
+                          key={result.id}
+                          id={`new-lead-cp-option-${index}`}
+                          type="button"
+                          role="option"
+                          aria-selected={index === activeCpIndex}
+                          tabIndex={-1}
+                          onMouseDown={(event) => event.preventDefault()}
+                          onMouseEnter={() => setActiveCpIndex(index)}
+                          onClick={() => selectPostalCode(result)}
+                          className={cn(
+                            "w-full rounded-sm px-3 py-2 text-left text-sm outline-none",
+                            index === activeCpIndex
+                              ? "bg-accent text-accent-foreground"
+                              : "hover:bg-accent/60"
+                          )}
+                        >
+                          {[result.cp, result.distrito, result.provincia]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </button>
+                      ))
+                    )}
+                  </div>
                 )}
               </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="occupancy" className="text-xs font-medium">
-                Situación
-              </Label>
-              <Select
-                value={form.occupancy}
-                onValueChange={(value) => handleField("occupancy", value)}
-              >
-                <SelectTrigger id="occupancy" className="h-8 w-full min-w-0 text-sm">
-                  <SelectValue placeholder="Seleccionar" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[240px] overflow-y-auto">
-                  {occupancyOptions.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {option}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="en-venta" className="text-xs font-medium">
-                En Venta
-              </Label>
-              <Select
-                value={form.enVenta}
-                onValueChange={(value) => handleField("enVenta", value)}
-              >
-                <SelectTrigger id="en-venta" className="h-8 w-full min-w-0 text-sm">
-                  <SelectValue placeholder="Seleccionar" />
-                </SelectTrigger>
-                <SelectContent>
-                  {EN_VENTA_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label
-                htmlFor="municipio"
-                className="text-xs font-medium flex items-center gap-1.5"
-              >
-                Municipio
-                <span className="text-destructive">*</span>
-                {cpAutoFilled && (
-                  <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary leading-none">
-                    <LocateFixed className="h-2.5 w-2.5" />
-                    auto
-                  </span>
-                )}
-              </Label>
-              <Input
-                id="municipio"
-                value={form.municipio}
-                onChange={(e) => handleField("municipio", e.target.value)}
-                className={cn(
-                  "h-8 text-sm",
-                  cpAutoFilled && "border-primary/40 bg-primary/5"
-                )}
-                placeholder="—"
-                required
-              />
+              </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -485,94 +695,53 @@ export function NewLeadModal({
               />
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="dominio" className="text-xs font-medium">
-                Dominio <span className="text-destructive">*</span>
-              </Label>
-              <Select
-                value={form.dominio}
-                onValueChange={(value) => handleField("dominio", value)}
-              >
-                <SelectTrigger id="dominio" className="h-8 text-sm">
-                  <SelectValue placeholder="Seleccionar dominio" />
-                </SelectTrigger>
-                <SelectContent>
-                  {domainOptions.map((domain) => (
-                    <SelectItem key={domain} value={domain}>
-                      {domain}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <Label htmlFor="occupancy" className="text-xs font-medium">
+                  Situación
+                </Label>
+                <Select
+                  value={form.occupancy}
+                  onValueChange={(value) => handleField("occupancy", value)}
+                >
+                  <SelectTrigger id="occupancy" className="h-8 w-full min-w-0 text-sm">
+                    <SelectValue placeholder="Seleccionar" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[240px] overflow-y-auto">
+                    {occupancyOptions.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <Label htmlFor="en-venta" className="text-xs font-medium">
+                  En Venta
+                </Label>
+                <Select
+                  value={form.enVenta}
+                  onValueChange={(value) => handleField("enVenta", value)}
+                >
+                  <SelectTrigger id="en-venta" className="h-8 w-full min-w-0 text-sm">
+                    <SelectValue placeholder="Seleccionar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {EN_VENTA_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+
           </div>
 
-          <div className="grid gap-3 md:grid-cols-3">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="source" className="text-xs font-medium">
-                Origen <span className="text-destructive">*</span>
-              </Label>
-              <Select
-                value={form.source}
-                onValueChange={(v) => handleField("source", v)}
-              >
-                <SelectTrigger id="source" className="h-8 text-sm">
-                  <SelectValue placeholder="Seleccionar origen" />
-                </SelectTrigger>
-                <SelectContent>
-                  {sourceOptions.map((opt) => (
-                    <SelectItem key={opt} value={opt}>
-                      {opt}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="phase" className="text-xs font-medium">
-                Fase <span className="text-destructive">*</span>
-              </Label>
-              <Select
-                value={form.phase}
-                onValueChange={(v) => handleField("phase", v)}
-              >
-                <SelectTrigger id="phase" className="h-8 text-sm">
-                  <SelectValue placeholder="Seleccionar fase" />
-                </SelectTrigger>
-                <SelectContent>
-                  {NEW_LEAD_PHASE_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="status" className="text-xs font-medium">
-                Estado <span className="text-destructive">*</span>
-              </Label>
-              <Select
-                value={form.status}
-                onValueChange={(v) => handleField("status", v)}
-              >
-                <SelectTrigger id="status" className="h-8 text-sm">
-                  <SelectValue placeholder="Seleccionar estado" />
-                </SelectTrigger>
-                <SelectContent>
-                  {NEW_LEAD_STATUS_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-4">
+          <div className="grid gap-3 md:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="fechaNoticia" className="text-xs font-medium">
                 Fecha noticia <span className="text-destructive">*</span>
@@ -586,66 +755,22 @@ export function NewLeadModal({
                 required
               />
             </div>
-          </div>
 
-          <div className="grid gap-3 md:grid-cols-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="owner" className="text-xs font-medium">
-                Owner <span className="text-destructive">*</span>
+                RESPONSABLE <span className="text-destructive">*</span>
               </Label>
               <Select
-                value={form.owner}
-                onValueChange={(v) => handleField("owner", v)}
+                value={form.owner || defaultOwner}
+                onValueChange={(value) => handleField("owner", value)}
               >
                 <SelectTrigger id="owner" className="h-8 text-sm">
-                  <SelectValue placeholder="Seleccionar agente" />
+                  <SelectValue placeholder="Seleccionar" />
                 </SelectTrigger>
                 <SelectContent>
-                  {ownerOptions.map((agent) => (
-                    <SelectItem key={agent} value={agent}>
-                      {agent}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="planner" className="text-xs font-medium">
-                Planner <span className="text-destructive">*</span>
-              </Label>
-              <Select
-                value={form.planner}
-                onValueChange={(v) => handleField("planner", v)}
-              >
-                <SelectTrigger id="planner" className="h-8 text-sm">
-                  <SelectValue placeholder="Seleccionar planner" />
-                </SelectTrigger>
-                <SelectContent>
-                  {plannerOptions.map((agent) => (
-                    <SelectItem key={agent} value={agent}>
-                      {agent}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="buyer" className="text-xs font-medium">
-                Buyer <span className="text-destructive">*</span>
-              </Label>
-              <Select
-                value={form.buyer}
-                onValueChange={(value) => handleField("buyer", value)}
-              >
-                <SelectTrigger id="buyer" className="h-8 text-sm">
-                  <SelectValue placeholder="Seleccionar buyer" />
-                </SelectTrigger>
-                <SelectContent>
-                  {buyerOptions.map((agent) => (
-                    <SelectItem key={agent} value={agent}>
-                      {agent}
+                  {availableOwnerOptions.map((owner) => (
+                    <SelectItem key={owner} value={owner}>
+                      {owner}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -662,7 +787,7 @@ export function NewLeadModal({
               value={form.notes}
               onChange={(e) => handleField("notes", e.target.value)}
               className="min-h-[72px] text-sm resize-none"
-              placeholder="Memo inicial sobre el lead..."
+              placeholder="Comentarios iniciales de la oportunidad..."
               required
             />
           </div>
