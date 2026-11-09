@@ -45,7 +45,11 @@ Documento auditado desde el front actual. Indica que acciones leen o escriben da
 | Resolver fase | `phases` | `select` | `id`, `name` | Solo lectura | `app/(crm)/leads/page.tsx` |
 | Filtros, busqueda, orden, seleccion | Estado React local | N/A | No aplica | No guarda | `app/(crm)/leads/page.tsx` |
 
-El editor del lead incluye `Favorita` en Oportunidad, con la misma estrella de la lista para editar `is_favorite`. Lee el valor actual y lo guarda junto con los demas campos, registra el cambio en el historial y sincroniza la estrella y el filtro de favoritos. Conserva los permisos de edicion del lead; cancelar no escribe cambios.
+Los encabezados de la tabla incluyen filtros por texto y seleccion multiple; Fecha admite fecha exacta, desde y hasta. Al abrirlos se cargan por lotes todas las oportunidades consultables con RLS y la restriccion de responsable existente. Las opciones unicas y los resultados se memorizan; los filtros se combinan con AND entre columnas y OR entre valores, antes de ordenar y paginar. El icono de limpiar restablece todos los filtros superiores y de columnas; refrescar y abrir el detalle los conservan. La columna Periodo no se muestra en la lista; el filtro superior de fechas se mantiene. Pruebas: `node scripts/test-lead-column-filters.mjs`.
+
+El editor del lead no muestra el campo `Favorita`. El favorito se consulta y modifica desde las estrellas de la tabla y la cabecera del detalle.
+
+La estrella de cabecera del detalle abierto desde Oportunidades usa el mismo callback que la tabla. Actualiza optimistamente `favoriteIds`, leads, busqueda y detalle, y restaura esos valores si falla el UPDATE. Bloquea peticiones duplicadas por oportunidad y respeta el modo de solo lectura. Este acceso rapido no crea actividades; el formulario mantiene su guardado conjunto. En otras vistas sin callback, la estrella de cabecera permanece deshabilitada.
 
 ## Historial y observaciones
 

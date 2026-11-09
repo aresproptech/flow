@@ -90,6 +90,8 @@ interface LeadDetailPanelProps {
   lead: Lead | null;
   onClose: () => void;
   onSaveLead?: (next: Lead, changeDetails: string[]) => Promise<void>;
+  onToggleFavorite?: (leadId: string) => Promise<void>;
+  favoritePending?: boolean;
   readOnly?: boolean;
   ownerOptions?: string[];
   plannerProfiles?: Array<{ id: number; name: string; rol: string | null }>;
@@ -1356,31 +1358,7 @@ function EditLeadModal({
             <div className="min-h-0 overflow-y-auto px-6 py-5">
               {activeEditTab === "oportunidad" && (
                 <section className="space-y-3">
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[64px_minmax(180px,0.7fr)_minmax(240px,1.3fr)_minmax(0,1.4fr)]">
-                      <div className="flex w-16 flex-col items-center gap-1.5">
-                        <Label htmlFor="edit-lead-is-favorite" className="text-xs font-medium">
-                          Favorita
-                        </Label>
-                        <button
-                          type="button"
-                          id="edit-lead-is-favorite"
-                          aria-label="Favorita"
-                          aria-pressed={form.isFavorite === true}
-                          disabled={saving || form.isFavorite === undefined}
-                          onClick={() =>
-                            setForm((prev) => ({ ...prev, isFavorite: !prev.isFavorite }))
-                          }
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:cursor-default disabled:opacity-50"
-                        >
-                          <Star
-                            aria-hidden="true"
-                            className={cn(
-                              "h-4 w-4",
-                              form.isFavorite && "fill-current text-amber-500"
-                            )}
-                          />
-                        </button>
-                      </div>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[minmax(180px,0.7fr)_minmax(240px,1.3fr)_minmax(320px,1.7fr)]">
                       <div className="flex flex-col gap-1.5">
                         <Label className="text-xs font-medium">Estado</Label>
                         <Select
@@ -1707,6 +1685,8 @@ export function LeadDetailPanel({
   lead,
   onClose,
   onSaveLead,
+  onToggleFavorite,
+  favoritePending = false,
   readOnly: readOnlyOverride,
   ownerOptions = AGENT_OPTIONS,
   plannerProfiles = [],
@@ -3270,11 +3250,14 @@ export function LeadDetailPanel({
 
       <div className="grid shrink-0 gap-2 border-b border-border px-4 py-2.5 md:grid-cols-3 md:items-center md:gap-0 md:px-5 md:py-3">
         <div className="flex flex-wrap items-center justify-center gap-1.5 md:col-span-2 md:justify-start">
-          <span
-            role="img"
-            aria-label={effectiveLead.isFavorite ? "Favorita" : "No favorita"}
-            title={effectiveLead.isFavorite ? "Favorita" : "No favorita"}
-            className="order-first inline-flex h-6 w-6 items-center justify-center text-muted-foreground"
+          <button
+            type="button"
+            aria-pressed={effectiveLead.isFavorite === true}
+            aria-label={effectiveLead.isFavorite ? "Quitar de favoritas" : "Marcar como favorita"}
+            title={effectiveLead.isFavorite ? "Quitar de favoritas" : "Marcar como favorita"}
+            disabled={readOnly || !onToggleFavorite || favoritePending}
+            onClick={() => void onToggleFavorite?.(effectiveLead.id)}
+            className="order-first inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition enabled:hover:bg-muted enabled:hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:opacity-50"
           >
             <Star
               aria-hidden="true"
@@ -3283,7 +3266,7 @@ export function LeadDetailPanel({
                 effectiveLead.isFavorite && "fill-current text-amber-500"
               )}
             />
-          </span>
+          </button>
           <Badge
             variant="outline"
             className="order-3 h-6 rounded-md px-2 text-xs font-semibold"

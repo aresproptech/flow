@@ -1,12 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Topbar } from "@/components/crm/topbar";
 import {
   NewLeadModal,
   type NewLeadFormData,
 } from "@/components/crm/new-lead-modal";
 import { LeadDetailPanel } from "@/components/crm/lead-detail-panel";
+import { ColumnFilterPopover } from "@/components/crm/column-filter-popover";
+import {
+  getColumnOptions, isColumnFilterActive, matchesColumnFilters, LEAD_FILTER_COLUMNS,
+  type LeadColumnFilters, type LeadColumnKey, type ColumnFilter,
+} from "@/lib/lead-column-filters";
 import { KanbanBoard } from "@/components/crm/kanban-board";
 import { MaskedPhone } from "@/components/crm/masked-phone";
 import {
@@ -38,6 +43,7 @@ type LeadTableRow = Lead & {
   month: string;
   dominio: string;
   enVenta: string;
+  columnFilterValues?: Partial<Record<LeadColumnKey, string>>;
 };
 
 type SortKey = keyof LeadTableRow;
@@ -701,6 +707,12 @@ function mapCrmLeadToLead(row: CrmLeadRow, details?: CrmLeadDetails): LeadTableR
   return {
     id: String(row.id),
     isFavorite: row.is_favorite === true,
+    columnFilterValues: {
+      phase: row.fase_name?.trim() || row.fase_id
+        ? PHASE_LABELS[normalizePhase(row.fase_name, row.fase_id)]
+        : "",
+      status: row.estado?.trim() ? getStatusConfig(row.estado).label : "",
+    },
     ownerName: row.propietario?.trim() || "—",
     address: domicilio,
     distrito,
@@ -787,6 +799,34 @@ export default function LeadsPage() {
   const [viewMode, setViewMode] = useState<LeadsViewMode>("table");
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+  const [favoritePendingIds, setFavoritePendingIds] = useState<Set<string>>(new Set());
+  const favoriteRequests = useRef(new Set<string>());
+  const [columnFilters, setColumnFilters] = useState<LeadColumnFilters>({});
+  const [columnDataEnabled, setColumnDataEnabled] = useState(false);
+  const hasLeadFilters = Boolean(
+    searchTerm || showFavoritesOnly || domainFilter !== "all" ||
+    phaseFilter !== "all" || statusFilter !== "all" || dateQuickFilter !== "all" ||
+    Object.keys(columnFilters).length
+  );
+  const datasetSearchTerm = columnDataEnabled ? "" : searchTerm;
+  const columnOptions = useMemo(() => getColumnOptions(searchResults ?? []), [searchResults]);
+
+  function applyColumnFilter(key: LeadColumnKey, filter: ColumnFilter) {
+    setColumnFilters(prev => {
+      const next = { ...prev };
+      if (isColumnFilterActive(filter)) next[key] = filter;
+      else delete next[key];
+      return next;
+    });
+    setCurrentPage(1);
+  }
+
+  function renderColumnFilter(key: LeadColumnKey, label: string) {
+    return <ColumnFilterPopover column={key} label={label} filter={columnFilters[key]}
+      options={columnOptions[key]} loading={loadingSearchResults || !columnDataEnabled}
+      onOpen={() => setColumnDataEnabled(true)}
+      onApply={filter => applyColumnFilter(key, filter)} />;
+  }
 
   async function loadPhaseIdMap() {
     const { data, error } = await supabase.from("phases").select("id, name");
@@ -1177,6 +1217,7 @@ export default function LeadsPage() {
           ? {
               ...lead,
               phase: nextPhase,
+              columnFilterValues: { ...lead.columnFilterValues, phase: PHASE_LABELS[nextPhase] },
             }
           : lead
       )
@@ -1187,6 +1228,7 @@ export default function LeadsPage() {
           ? {
               ...lead,
               phase: nextPhase,
+              columnFilterValues: { ...lead.columnFilterValues, phase: PHASE_LABELS[nextPhase] },
             }
           : lead
       ) ?? null
@@ -1206,41 +1248,43 @@ export default function LeadsPage() {
 
   }
 
-  async function handleToggleFavorite(leadId: string) {
-    if (!canEdit) return;
-    setPageError(null);
-    const nextFavorite = !favoriteIds.has(leadId);
-
+  function applyFavorite(leadId: string, isFavorite: boolean) {
     setFavoriteIds((prev) => {
       const next = new Set(prev);
-      if (nextFavorite) next.add(leadId);
+      if (isFavorite) next.add(leadId);
       else next.delete(leadId);
       return next;
     });
-
-    const { error } = await supabase
-      .from("opportunities")
-      .update({ is_favorite: nextFavorite })
-      .eq("id", Number(leadId));
-
-    if (error) {
-      console.error("Error actualizando favorito:", error);
-      setPageError("No se pudo actualizar el favorito. Intentá nuevamente.");
-
-      setFavoriteIds((prev) => {
-        const next = new Set(prev);
-        if (nextFavorite) next.delete(leadId);
-        else next.add(leadId);
-        return next;
-      });
-      return;
-    }
-
     const updateFavorite = <T extends Lead,>(lead: T): T =>
-      lead.id === leadId ? { ...lead, isFavorite: nextFavorite } : lead;
+      lead.id === leadId ? { ...lead, isFavorite } : lead;
     setLeads((prev) => prev.map(updateFavorite));
     setSearchResults((prev) => prev?.map(updateFavorite) ?? null);
     setSelectedLead((prev) => prev ? updateFavorite(prev) : null);
+  }
+
+  async function handleToggleFavorite(leadId: string) {
+    if (!canEdit || favoriteRequests.current.has(leadId)) return;
+    favoriteRequests.current.add(leadId);
+    setFavoritePendingIds(new Set(favoriteRequests.current));
+    setPageError(null);
+    const previousFavorite = favoriteIds.has(leadId);
+    const nextFavorite = !previousFavorite;
+    applyFavorite(leadId, nextFavorite);
+
+    try {
+      const { error } = await supabase
+        .from("opportunities")
+        .update({ is_favorite: nextFavorite })
+        .eq("id", Number(leadId));
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error actualizando favorito:", error);
+      setPageError("No se pudo actualizar el favorito. Intentá nuevamente.");
+      applyFavorite(leadId, previousFavorite);
+    } finally {
+      favoriteRequests.current.delete(leadId);
+      setFavoritePendingIds(new Set(favoriteRequests.current));
+    }
   }
 
   useEffect(() => {
@@ -1255,7 +1299,7 @@ export default function LeadsPage() {
   }, [userLoading, userWithRole]);
 
   useEffect(() => {
-    if (userLoading || !userWithRole?.crmUser || searchTerm.trim()) return;
+    if (userLoading || !userWithRole?.crmUser || searchTerm.trim() || columnDataEnabled) return;
     void loadLeadsFromSupabase({ page: 1 });
   }, [
     dateFromFilter,
@@ -1268,12 +1312,13 @@ export default function LeadsPage() {
     statusFilter,
     userLoading,
     userWithRole,
+    columnDataEnabled,
   ]);
 
   useEffect(() => {
-    const trimmedSearch = searchTerm.trim();
+    const trimmedSearch = datasetSearchTerm.trim();
 
-    if (!trimmedSearch) {
+    if (!trimmedSearch && !columnDataEnabled) {
       setSearchResults(null);
       setLoadingSearchResults(false);
       return;
@@ -1286,8 +1331,8 @@ export default function LeadsPage() {
       return;
     }
 
-    const searchFilter = buildLeadSearchFilter(trimmedSearch);
-    if (!searchFilter) {
+    const searchFilter = columnDataEnabled ? null : buildLeadSearchFilter(trimmedSearch);
+    if (!searchFilter && !columnDataEnabled) {
       setSearchResults([]);
       setLoadingSearchResults(false);
       return;
@@ -1309,8 +1354,9 @@ export default function LeadsPage() {
           let query = supabase
             .from("crm_leads_view")
             .select("*")
-            .or(queryFilter)
-            .order("created_at", { ascending: false });
+            .order("created_at", { ascending: false })
+            .order("id", { ascending: false });
+          if (queryFilter) query = query.or(queryFilter);
 
           if (!canViewAllLeads(crmUser)) {
             query = query.eq("responsable", crmUser.name);
@@ -1342,6 +1388,7 @@ export default function LeadsPage() {
         if (cancelled) return;
 
         const detailsResult = await loadCrmLeadDetails(rows.map((row) => row.id));
+        if (cancelled) return;
         if (detailsResult.error) {
           console.error("Error cargando detalles de búsqueda:", detailsResult.error);
         }
@@ -1354,6 +1401,7 @@ export default function LeadsPage() {
           const next = new Set(prev);
           for (const row of rows) {
             if (row.is_favorite) next.add(String(row.id));
+            else next.delete(String(row.id));
           }
           return next;
         });
@@ -1367,7 +1415,7 @@ export default function LeadsPage() {
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [searchTerm, searchRefreshKey, userLoading, userWithRole]);
+  }, [datasetSearchTerm, searchRefreshKey, userLoading, userWithRole, columnDataEnabled]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -1383,6 +1431,8 @@ export default function LeadsPage() {
   ]);
 
   function clearLeadFilters() {
+    setColumnFilters({});
+    setCurrentPage(1);
     setSearchTerm("");
     setShowFavoritesOnly(false);
     setDomainFilter("all");
@@ -1470,14 +1520,30 @@ export default function LeadsPage() {
     }
   }
 
+  function sortHeaderProps(key: LeadColumnKey) {
+    return {
+      tabIndex: 0,
+      "aria-label": `Ordenar por ${LEAD_FILTER_COLUMNS.find(column => column.key === key)?.label}`,
+      "aria-sort": sortKey === key ? (sortDir === "asc" ? "ascending" : "descending") : "none",
+      onClick: () => handleSort(key),
+      onKeyDown: (event: React.KeyboardEvent<HTMLTableCellElement>) => {
+        if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          handleSort(key);
+        }
+      },
+    } as const;
+  }
+
   const filteredLeads = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    const searchableLeads = q ? searchResults ?? leads : leads;
+    const searchableLeads = columnDataEnabled ? searchResults ?? [] : q ? searchResults ?? leads : leads;
     const baseLeads = showFavoritesOnly
       ? searchableLeads.filter((lead) => favoriteIds.has(lead.id))
       : searchableLeads;
 
     return baseLeads.filter((lead) => {
+      if (!matchesColumnFilters(lead, columnFilters)) return false;
       if (domainFilter !== "all" && lead.dominio !== domainFilter) return false;
       if (phaseFilter !== "all" && lead.phase !== phaseFilter) return false;
       if (statusFilter !== "all" && lead.status !== statusFilter) return false;
@@ -1504,6 +1570,8 @@ export default function LeadsPage() {
       if (!q) return true;
 
       return [
+        lead.id,
+        lead.id.padStart(6, "0"),
         lead.ownerName,
         lead.address,
         lead.distrito,
@@ -1544,6 +1612,8 @@ export default function LeadsPage() {
     dateQuickFilter,
     dateFromFilter,
     dateToFilter,
+    columnFilters,
+    columnDataEnabled,
   ]);
 
   const sortedLeads = useMemo(() => {
@@ -1561,7 +1631,7 @@ export default function LeadsPage() {
     });
   }, [filteredLeads, sortKey, sortDir]);
 
-  const isSearchPagination = Boolean(searchTerm.trim());
+  const isSearchPagination = columnDataEnabled || Boolean(searchTerm.trim());
   const paginationTotal = isSearchPagination
     ? sortedLeads.length
     : totalLeadsCount ?? 0;
@@ -1782,47 +1852,23 @@ export default function LeadsPage() {
               variant="outline"
               className={cn(
                 "h-8 w-8 p-0",
-                !(searchTerm ||
-                  showFavoritesOnly ||
-                  domainFilter !== "all" ||
-                  phaseFilter !== "all" ||
-                  statusFilter !== "all" ||
-                  dateQuickFilter !== "all") &&
+                !hasLeadFilters &&
                   "pointer-events-none invisible"
               )}
               onClick={clearLeadFilters}
-              title="Limpiar filtros"
-              aria-label="Limpiar filtros"
-              tabIndex={
-                searchTerm ||
-                showFavoritesOnly ||
-                domainFilter !== "all" ||
-                phaseFilter !== "all" ||
-                statusFilter !== "all" ||
-                dateQuickFilter !== "all"
-                  ? 0
-                  : -1
-              }
-              aria-hidden={
-                !(searchTerm ||
-                  showFavoritesOnly ||
-                  domainFilter !== "all" ||
-                  phaseFilter !== "all" ||
-                  statusFilter !== "all" ||
-                  dateQuickFilter !== "all")
-              }
+              title="Limpiar todos los filtros"
+              aria-label="Limpiar todos los filtros"
+              tabIndex={hasLeadFilters ? 0 : -1}
+              aria-hidden={!hasLeadFilters}
             >
               <Eraser className="h-3.5 w-3.5" />
             </Button>
-          </div>
-
-          <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:flex-nowrap">
             <Button
               size="sm"
               variant="outline"
               className="h-8 w-8 p-0"
               onClick={() => {
-                if (searchTerm.trim()) {
+                if (searchTerm.trim() || columnDataEnabled) {
                   setSearchRefreshKey((value) => value + 1);
                   return;
                 }
@@ -1839,7 +1885,9 @@ export default function LeadsPage() {
                 )}
               />
             </Button>
+          </div>
 
+          <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:flex-nowrap">
             <div className="inline-flex items-center rounded-lg border border-border bg-background p-1">
               <button
                 type="button"
@@ -1901,15 +1949,14 @@ export default function LeadsPage() {
 
         {viewMode === "table" ? (
           <div className="relative flex-1 overflow-auto">
-            <table className="w-full table-fixed border-separate border-spacing-0 text-sm md:w-[2003px] md:[table-layout:fixed]">
+            <table className="w-[1913px] min-w-[1913px] table-fixed border-separate border-spacing-0 text-sm [&_th]:table-cell [&_td]:table-cell [&_th:focus-visible]:outline-2 [&_th:focus-visible]:outline-ring">
               <colgroup>
                 <col className="w-[40px] md:w-[48px]" />
                 <col className="w-[72px] md:w-[90px]" />
                 <col className="w-[200px] md:w-[230px]" />
                 <col className="w-[260px] md:w-[310px]" />
-                <col className="w-[30%] md:w-[175px]" />
+                <col className="w-[175px]" />
                 <col style={{ width: 100 }} />
-                <col style={{ width: 90 }} />
                 <col style={{ width: 130 }} />
                 <col style={{ width: 155 }} />
                 <col style={{ width: 115 }} />
@@ -1925,18 +1972,19 @@ export default function LeadsPage() {
                     <span className="sr-only">Favorito</span>
                   </th>
                   <th
-                    onClick={() => handleSort("id")}
+                    {...sortHeaderProps("id")}
                     className="sticky left-[40px] top-0 z-50 group cursor-pointer select-none whitespace-nowrap border-r border-border bg-card px-2 py-2.5 md:left-[48px] md:px-3"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
                       ID
                       <SortIcon col="id" sortKey={sortKey} sortDir={sortDir} />
+                      {renderColumnFilter("id", "ID")}
                     </span>
                   </th>
 
                   <th
-                    onClick={() => handleSort("ownerName")}
-                    className="sticky left-[112px] top-0 z-50 group cursor-pointer select-none whitespace-nowrap border-r border-border bg-card px-2 py-2.5 md:left-[138px] md:px-3"
+                    {...sortHeaderProps("ownerName")}
+                    className="md:sticky left-[112px] top-0 z-50 group cursor-pointer select-none whitespace-nowrap border-r border-border bg-card px-2 py-2.5 md:left-[138px] md:px-3"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
                       Propietario
@@ -1945,12 +1993,13 @@ export default function LeadsPage() {
                         sortKey={sortKey}
                         sortDir={sortDir}
                       />
+                      {renderColumnFilter("ownerName", "Propietario")}
                     </span>
                   </th>
 
                   <th
-                    onClick={() => handleSort("address")}
-                    className="sticky left-[312px] top-0 z-50 group cursor-pointer select-none whitespace-nowrap border-r border-border bg-card px-2 py-2.5 md:left-[368px] md:px-3"
+                    {...sortHeaderProps("address")}
+                    className="md:sticky left-[312px] top-0 z-50 group cursor-pointer select-none whitespace-nowrap border-r border-border bg-card px-2 py-2.5 md:left-[368px] md:px-3"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
                       Domicilio
@@ -1959,10 +2008,11 @@ export default function LeadsPage() {
                         sortKey={sortKey}
                         sortDir={sortDir}
                       />
+                      {renderColumnFilter("address", "Domicilio")}
                     </span>
                   </th>
                   <th
-                    onClick={() => handleSort("distrito")}
+                    {...sortHeaderProps("distrito")}
                     className="group cursor-pointer select-none whitespace-nowrap px-2 py-2.5 md:px-3"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
@@ -1972,10 +2022,11 @@ export default function LeadsPage() {
                         sortKey={sortKey}
                         sortDir={sortDir}
                       />
+                      {renderColumnFilter("distrito", "Distrito")}
                     </span>
                   </th>
                   <th
-                    onClick={() => handleSort("fechaNoticia")}
+                    {...sortHeaderProps("fechaNoticia")}
                     className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
@@ -1985,23 +2036,11 @@ export default function LeadsPage() {
                         sortKey={sortKey}
                         sortDir={sortDir}
                       />
+                      {renderColumnFilter("fechaNoticia", "Fecha")}
                     </span>
                   </th>
                   <th
-                    onClick={() => handleSort("month")}
-                    className="group cursor-pointer select-none whitespace-nowrap px-2 py-2.5 hidden md:table-cell"
-                  >
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
-                      Periodo
-                      <SortIcon
-                        col={"month"}
-                        sortKey={sortKey}
-                        sortDir={sortDir}
-                      />
-                    </span>
-                  </th>
-                  <th
-                    onClick={() => handleSort("dominio")}
+                    {...sortHeaderProps("dominio")}
                     className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
@@ -2011,10 +2050,11 @@ export default function LeadsPage() {
                         sortKey={sortKey}
                         sortDir={sortDir}
                       />
+                      {renderColumnFilter("dominio", "Dominio")}
                     </span>
                   </th>
                   <th
-                    onClick={() => handleSort("source")}
+                    {...sortHeaderProps("source")}
                     className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
@@ -2024,10 +2064,11 @@ export default function LeadsPage() {
                         sortKey={sortKey}
                         sortDir={sortDir}
                       />
+                      {renderColumnFilter("source", "Origen")}
                     </span>
                   </th>
                   <th
-                    onClick={() => handleSort("phase")}
+                    {...sortHeaderProps("phase")}
                     className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
@@ -2037,10 +2078,11 @@ export default function LeadsPage() {
                         sortKey={sortKey}
                         sortDir={sortDir}
                       />
+                      {renderColumnFilter("phase", "Fase")}
                     </span>
                   </th>
                   <th
-                    onClick={() => handleSort("status")}
+                    {...sortHeaderProps("status")}
                     className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
@@ -2050,10 +2092,11 @@ export default function LeadsPage() {
                         sortKey={sortKey}
                         sortDir={sortDir}
                       />
+                      {renderColumnFilter("status", "Estado")}
                     </span>
                   </th>
                   <th
-                    onClick={() => handleSort("owner")}
+                    {...sortHeaderProps("owner")}
                     className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
@@ -2063,10 +2106,11 @@ export default function LeadsPage() {
                         sortKey={sortKey}
                         sortDir={sortDir}
                       />
+                      {renderColumnFilter("owner", "Responsable")}
                     </span>
                   </th>
                   <th
-                    onClick={() => handleSort("valor")}
+                    {...sortHeaderProps("valor")}
                     className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
@@ -2076,10 +2120,11 @@ export default function LeadsPage() {
                         sortKey={sortKey}
                         sortDir={sortDir}
                       />
+                      {renderColumnFilter("valor", "Valor")}
                     </span>
                   </th>
                   <th
-                    onClick={() => handleSort("enVenta")}
+                    {...sortHeaderProps("enVenta")}
                     className="group cursor-pointer select-none whitespace-nowrap px-3 py-2.5 hidden md:table-cell"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors group-hover:text-foreground">
@@ -2089,6 +2134,7 @@ export default function LeadsPage() {
                         sortKey={sortKey}
                         sortDir={sortDir}
                       />
+                      {renderColumnFilter("enVenta", "En Venta")}
                     </span>
                   </th>
                 </tr>
@@ -2120,25 +2166,26 @@ export default function LeadsPage() {
                     >
                       <button
                         type="button"
-                        disabled={!canEdit}
+                        disabled={!canEdit || favoritePendingIds.has(lead.id)}
+                        aria-pressed={favoriteIds.has(lead.id)}
                         onClick={(event) => {
                           event.stopPropagation();
                           void handleToggleFavorite(lead.id);
                         }}
                         className={cn(
-                          "inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition",
+                          "inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
                           canEdit && "hover:bg-muted hover:text-foreground",
                           !canEdit && "cursor-default"
                         )}
                         aria-label={
                           favoriteIds.has(lead.id)
-                            ? "Quitar de favoritos"
-                            : "Marcar como favorito"
+                            ? "Quitar de favoritas"
+                            : "Marcar como favorita"
                         }
                         title={
                           favoriteIds.has(lead.id)
-                            ? "Quitar de favoritos"
-                            : "Marcar como favorito"
+                            ? "Quitar de favoritas"
+                            : "Marcar como favorita"
                         }
                       >
                         <Star
@@ -2164,7 +2211,7 @@ export default function LeadsPage() {
 
                     <td
                       className={cn(
-                        "sticky left-[112px] z-20 truncate whitespace-nowrap overflow-hidden border-r border-border px-2 py-2.5 md:left-[138px] md:px-3",
+                        "md:sticky left-[112px] z-20 truncate whitespace-nowrap overflow-hidden border-r border-border px-2 py-2.5 md:left-[138px] md:px-3",
                         selectedLead?.id === lead.id
                           ? "bg-accent"
                           : i % 2 === 0
@@ -2179,7 +2226,7 @@ export default function LeadsPage() {
 
                     <td
                       className={cn(
-                        "sticky left-[312px] z-20 truncate whitespace-nowrap overflow-hidden border-r border-border px-2 py-2.5 text-sm text-muted-foreground md:left-[368px] md:px-3",
+                        "md:sticky left-[312px] z-20 truncate whitespace-nowrap overflow-hidden border-r border-border px-2 py-2.5 text-sm text-muted-foreground md:left-[368px] md:px-3",
                         selectedLead?.id === lead.id
                           ? "bg-accent"
                           : i % 2 === 0
@@ -2198,9 +2245,6 @@ export default function LeadsPage() {
                       {fmt(lead.fechaNoticia)}
                     </td>
 
-                    <td className="whitespace-nowrap px-3 py-2.5 text-sm text-muted-foreground hidden md:table-cell">
-                      {lead.month}
-                    </td>
 
                     <td className="px-3 py-2.5 hidden md:table-cell">
                       {lead.dominio && lead.dominio !== "—" ? (
@@ -2280,7 +2324,7 @@ export default function LeadsPage() {
                 <tbody>
                   <tr>
                     <td
-                      colSpan={14}
+                      colSpan={13}
                       className="px-6 py-10 text-center text-sm text-muted-foreground"
                     >
                       No hay leads que coincidan con la búsqueda.
@@ -2361,6 +2405,8 @@ export default function LeadsPage() {
         lead={selectedLead}
         onClose={() => setSelectedLead(null)}
         onSaveLead={handleSaveLead}
+        onToggleFavorite={handleToggleFavorite}
+        favoritePending={selectedLead ? favoritePendingIds.has(selectedLead.id) : false}
         readOnly={!canEdit}
         ownerOptions={ownerOptions}
         plannerProfiles={plannerProfiles}
