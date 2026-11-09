@@ -700,6 +700,7 @@ function mapCrmLeadToLead(row: CrmLeadRow, details?: CrmLeadDetails): LeadTableR
 
   return {
     id: String(row.id),
+    isFavorite: row.is_favorite === true,
     ownerName: row.propietario?.trim() || "—",
     address: domicilio,
     distrito,
@@ -1058,6 +1059,7 @@ export default function LeadsPage() {
     const nextWithDominio = next as Lead & { dominio?: string | null };
 
     const updatePayload = {
+      ...(next.isFavorite !== undefined ? { is_favorite: next.isFavorite } : {}),
       propietario: normalizeOpportunityText(next.ownerName),
       domicilio: normalizeOpportunityText(next.address),
       telefono: cleanNullable(next.phone),
@@ -1094,6 +1096,15 @@ export default function LeadsPage() {
       console.error(message, { leadId: next.id, updatePayload, updatedLead });
       setPageError(message);
       throw new Error(message);
+    }
+
+    if (next.isFavorite !== undefined) {
+      setFavoriteIds((prev) => {
+        const ids = new Set(prev);
+        if (next.isFavorite) ids.add(next.id);
+        else ids.delete(next.id);
+        return ids;
+      });
     }
 
     if (changeDetails.length > 0) {
@@ -1222,7 +1233,14 @@ export default function LeadsPage() {
         else next.add(leadId);
         return next;
       });
+      return;
     }
+
+    const updateFavorite = <T extends Lead,>(lead: T): T =>
+      lead.id === leadId ? { ...lead, isFavorite: nextFavorite } : lead;
+    setLeads((prev) => prev.map(updateFavorite));
+    setSearchResults((prev) => prev?.map(updateFavorite) ?? null);
+    setSelectedLead((prev) => prev ? updateFavorite(prev) : null);
   }
 
   useEffect(() => {

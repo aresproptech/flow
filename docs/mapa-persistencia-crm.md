@@ -4,6 +4,16 @@ Documento auditado desde el front actual. Indica que acciones leen o escriben da
 
 > Nota: este mapa confirma el uso desde el codigo frontend. No confirma politicas RLS, triggers, constraints ni permisos internos de Supabase.
 
+## Navegacion de metricas
+
+- Admin (ruta `/ajustes`) incluye accesos independientes a `/ajustes/metricas-generales` y `/ajustes/metricas-comerciales`, sin pestanas ni entrada principal de Metricas en el menu.
+- `/dashboard` redirige a metricas generales para conservar enlaces anteriores y la entrada tras iniciar sesion.
+- Ambas rutas reutilizan `components/dashboard/metrics-dashboard.tsx`: no cambian consultas, filtros, calculos ni escrituras.
+- Admin y Coordinador acceden a ambas vistas; Comercial solo a generales, manteniendo el filtro por responsable. Los comerciales de solo visitas siguen limitados a `/visitas`; Partner no obtiene acceso.
+- Admin permite estos accesos sin mostrar herramientas administrativas a Coordinador o Comercial. Las herramientas de administracion siguen reservadas a Admin activo; `/usuarios` conserva su proteccion en servidor.
+- Las rutas de metricas comprueban el perfil en servidor, incluida la entrada directa o recarga. Volver a Admin y el historial del navegador usan rutas reales.
+- `npm run test:metrics` comprueba la matriz de acceso por rol y el indicador de solo visitas.
+
 ## Resumen de tablas
 
 | Tabla / vista | Uso principal | Escribe front | Lee front |
@@ -34,6 +44,8 @@ Documento auditado desde el front actual. Indica que acciones leen o escriben da
 | Eliminar seleccionados | `opportunities` | Borrado lógico | `deleted_at` | Guarda | No crea un evento auxiliar |
 | Resolver fase | `phases` | `select` | `id`, `name` | Solo lectura | `app/(crm)/leads/page.tsx` |
 | Filtros, busqueda, orden, seleccion | Estado React local | N/A | No aplica | No guarda | `app/(crm)/leads/page.tsx` |
+
+El editor del lead incluye `Favorita` en Oportunidad, con la misma estrella de la lista para editar `is_favorite`. Lee el valor actual y lo guarda junto con los demas campos, registra el cambio en el historial y sincroniza la estrella y el filtro de favoritos. Conserva los permisos de edicion del lead; cancelar no escribe cambios.
 
 ## Historial y observaciones
 

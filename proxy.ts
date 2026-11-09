@@ -58,7 +58,7 @@ export default async function proxy(request: NextRequest) {
     return redirectWithSession(request, "/dashboard", response);
   }
 
-  const isAdminRoute = ["/ajustes", "/usuarios"].some(
+  const isAdminRoute = ["/usuarios"].some(
     (route) => request.nextUrl.pathname === route || request.nextUrl.pathname.startsWith(`${route}/`)
   );
   if (user && isAdminRoute && !(await hasActiveAdminProfile(supabase, user.id))) {

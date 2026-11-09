@@ -5,7 +5,6 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
-  LayoutDashboard,
   Users,
   Settings,
   FileText,
@@ -26,12 +25,6 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-  {
-    label: "Métricas",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-    roles: ["Admin", "Coordinador", "Comercial"],
-  },
   {
     label: "Oportunidades",
     href: "/leads",
@@ -69,10 +62,10 @@ const navItems: NavItem[] = [
     roles: ["Admin", "Coordinador", "Comercial"],
   },
   {
-    label: "Ajustes",
+    label: "Admin",
     href: "/ajustes",
     icon: Settings,
-    roles: ["Admin"],
+    roles: ["Admin", "Coordinador", "Comercial"],
   },
 ];
 

@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "test:metrics": "node scripts/test-metrics-access.mjs",
     "security:supabase:anon": "node --env-file=.env.local scripts/verify-supabase-anon-access.mjs",
     "supabase:test": "npx supabase@2.117.0 test db"
   },

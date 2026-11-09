@@ -18,6 +18,7 @@ export interface Observacion {
 
 export interface Lead {
   id: string;
+  isFavorite?: boolean;
   ownerName: string;
   address: string;
   distrito: string;

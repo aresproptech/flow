@@ -19,6 +19,7 @@ import {
   ChevronRight,
   FileDown,
   Check,
+  Star,
 } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -917,6 +918,8 @@ function phaseLabel(value: string) {
 
 function fieldDisplayName(field: keyof LeadWithDominio): string {
   switch (field) {
+    case "isFavorite":
+      return "Favorita";
     case "ownerName":
       return "Propietario";
     case "phone":
@@ -967,6 +970,7 @@ function fieldDisplayName(field: keyof LeadWithDominio): string {
 }
 
 function formatFieldValue(field: keyof LeadWithDominio, value: string) {
+  if (field === "isFavorite") return value === "true" ? "Sí" : "No";
   if (!value) return "—";
   if (field === "status") return statusLabel(value);
   if (field === "phase") return phaseLabel(value);
@@ -1352,7 +1356,31 @@ function EditLeadModal({
             <div className="min-h-0 overflow-y-auto px-6 py-5">
               {activeEditTab === "oportunidad" && (
                 <section className="space-y-3">
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[minmax(180px,0.7fr)_minmax(240px,1.3fr)_minmax(320px,1.7fr)]">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[64px_minmax(180px,0.7fr)_minmax(240px,1.3fr)_minmax(0,1.4fr)]">
+                      <div className="flex w-16 flex-col items-center gap-1.5">
+                        <Label htmlFor="edit-lead-is-favorite" className="text-xs font-medium">
+                          Favorita
+                        </Label>
+                        <button
+                          type="button"
+                          id="edit-lead-is-favorite"
+                          aria-label="Favorita"
+                          aria-pressed={form.isFavorite === true}
+                          disabled={saving || form.isFavorite === undefined}
+                          onClick={() =>
+                            setForm((prev) => ({ ...prev, isFavorite: !prev.isFavorite }))
+                          }
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:cursor-default disabled:opacity-50"
+                        >
+                          <Star
+                            aria-hidden="true"
+                            className={cn(
+                              "h-4 w-4",
+                              form.isFavorite && "fill-current text-amber-500"
+                            )}
+                          />
+                        </button>
+                      </div>
                       <div className="flex flex-col gap-1.5">
                         <Label className="text-xs font-medium">Estado</Label>
                         <Select
@@ -1383,7 +1411,7 @@ function EditLeadModal({
                         />
                       </div>
 
-                      <div className="flex flex-col gap-1.5">
+                      <div className="flex min-w-0 flex-col gap-1.5">
                         <Label className="text-xs font-medium">Responsable</Label>
                         <Select value={form.owner} onValueChange={(v) => set("owner", v)}>
                           <SelectTrigger className="h-9 w-full min-w-0 text-sm">
@@ -2058,7 +2086,7 @@ export function LeadDetailPanel({
     setNote("");
     const { data: opportunityMemo, error: memoError } = await supabase
       .from("opportunities")
-      .select("memo")
+      .select("memo, is_favorite")
       .eq("id", Number(leadId))
       .single();
 
@@ -2068,7 +2096,11 @@ export function LeadDetailPanel({
     } else {
       const memo = opportunityMemo.memo?.trim() || "";
       setNote(memo);
-      setLocalLead((current) => (current ? { ...current, notes: memo } : current));
+      setLocalLead((current) =>
+        current?.id === leadId
+          ? { ...current, notes: memo, isFavorite: opportunityMemo.is_favorite === true }
+          : current
+      );
     }
 
     const { data, error } = await supabase
@@ -2312,11 +2344,12 @@ export function LeadDetailPanel({
       "buyer",
       "enVenta",
       "notes",
+      "isFavorite",
     ];
 
     return tracked.flatMap((field) => {
-      const before = normalizeValue(prev[field]);
-      const after = normalizeValue(next[field]);
+      const before = normalizeValue(field === "isFavorite" ? prev[field] ?? false : prev[field]);
+      const after = normalizeValue(field === "isFavorite" ? next[field] ?? false : next[field]);
       if (before === after) return [];
 
       return [
@@ -2389,6 +2422,7 @@ export function LeadDetailPanel({
     const { error } = await supabase
       .from("opportunities")
       .update({
+        ...(next.isFavorite !== undefined ? { is_favorite: next.isFavorite } : {}),
         propietario: normalizeOpportunityText(next.ownerName),
         domicilio: normalizeOpportunityText(next.address),
         telefono: next.phone.trim() || null,
@@ -3236,6 +3270,20 @@ export function LeadDetailPanel({
 
       <div className="grid shrink-0 gap-2 border-b border-border px-4 py-2.5 md:grid-cols-3 md:items-center md:gap-0 md:px-5 md:py-3">
         <div className="flex flex-wrap items-center justify-center gap-1.5 md:col-span-2 md:justify-start">
+          <span
+            role="img"
+            aria-label={effectiveLead.isFavorite ? "Favorita" : "No favorita"}
+            title={effectiveLead.isFavorite ? "Favorita" : "No favorita"}
+            className="order-first inline-flex h-6 w-6 items-center justify-center text-muted-foreground"
+          >
+            <Star
+              aria-hidden="true"
+              className={cn(
+                "h-4 w-4",
+                effectiveLead.isFavorite && "fill-current text-amber-500"
+              )}
+            />
+          </span>
           <Badge
             variant="outline"
             className="order-3 h-6 rounded-md px-2 text-xs font-semibold"
