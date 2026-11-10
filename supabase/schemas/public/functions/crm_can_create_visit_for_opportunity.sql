@@ -11,6 +11,10 @@ CREATE OR REPLACE FUNCTION public.crm_can_create_visit_for_opportunity(target_id
     join public.phases phase on phase.id = o.fase_id
     where o.id = target_id
       and o.deleted_at is null
+      and (
+        public.crm_current_role() = 'admin'
+        or lower(btrim(coalesce(o.estado, ''))) <> 'desestimada'
+      )
       and lower(btrim(phase.name)) = 'encargo'
       and (
         public.crm_can_manage_visits()

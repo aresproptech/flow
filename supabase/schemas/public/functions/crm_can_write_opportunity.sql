@@ -13,6 +13,10 @@ CREATE OR REPLACE FUNCTION public.crm_can_write_opportunity (
     where o.id = target_id
       and o.deleted_at is null
       and (
+        public.crm_current_role() = 'admin'
+        or lower(btrim(coalesce(o.estado, ''))) <> 'desestimada'
+      )
+      and (
         public.crm_current_role() in ('admin', 'coordinador')
         or (
           public.crm_current_role() = 'comercial'

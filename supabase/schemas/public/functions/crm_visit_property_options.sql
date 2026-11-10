@@ -32,6 +32,10 @@ begin
   left join public.profiles owner_profile on owner_profile.id = o.responsible_user_id
     left join public.domain domain on domain.id = o.domain_id
   where o.deleted_at is null
+    and (
+      public.crm_current_role() = 'admin'
+      or lower(btrim(coalesce(o.estado, ''))) <> 'desestimada'
+    )
     and lower(btrim(phase.name)) = 'encargo'
     and (
       public.crm_can_manage_visits()

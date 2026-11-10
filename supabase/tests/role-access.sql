@@ -12,17 +12,19 @@ begin
   for p in select id, auth_id, name, lower(btrim(rol)) rol, can_manage_visits from public.profiles where enabled and auth_id is not null loop
     target_id := null;
     foreign_id := null;
-    select count(*) into expected from public.opportunities o where deleted_at is null and
+    select count(*) into expected from public.opportunities o where deleted_at is null
+      and (p.rol = 'admin' or lower(btrim(coalesce(o.estado, ''))) <> 'desestimada') and
       (p.rol in ('admin','coordinador') or (p.rol='comercial' and not p.can_manage_visits and
         o.responsible_user_id=p.id));
     select count(*) into expected_visit_options
     from public.opportunities o
     join public.phases phase on phase.id = o.fase_id
     where o.deleted_at is null
+      and (p.rol = 'admin' or lower(btrim(coalesce(o.estado, ''))) <> 'desestimada')
       and lower(btrim(phase.name)) = 'encargo'
       and (
         p.rol in ('admin', 'coordinador')
-        or p.can_manage_visits
+        or (p.rol = 'comercial' and p.can_manage_visits)
         or (
           p.rol = 'comercial'
           and not p.can_manage_visits
@@ -31,18 +33,12 @@ begin
       );
     select count(*) into expected_visits
     from public.opportunity_buyers v
-    left join public.opportunities o on o.id = v.opportunity_id
-    where p.can_manage_visits
-      or (
+    join public.opportunities o on o.id = v.opportunity_id
+    where o.deleted_at is null
+      and (p.rol = 'admin' or lower(btrim(coalesce(o.estado, ''))) <> 'desestimada')
+      and (
         p.rol in ('admin', 'coordinador')
-        and o.id is not null
-        and o.deleted_at is null
-      )
-      or (
-        p.rol = 'comercial'
-        and not p.can_manage_visits
-        and o.deleted_at is null
-        and o.responsible_user_id = p.id
+        or (p.rol = 'comercial' and (p.can_manage_visits or o.responsible_user_id = p.id))
       );
     if p.rol='comercial' then
       select o.id into foreign_id

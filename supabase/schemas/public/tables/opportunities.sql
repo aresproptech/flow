@@ -39,11 +39,17 @@ CREATE POLICY "opportunities_insert_by_role" ON "public"."opportunities"
   FOR INSERT
   TO "authenticated"
   WITH CHECK (
-    public.crm_current_role() = ANY (ARRAY['admin'::text, 'coordinador'::text])
-    OR (
-      public.crm_current_role() = 'comercial'::text
-      AND NOT public.crm_can_manage_visits()
-      AND responsible_user_id = public.crm_current_profile_id()
+    (
+      public.crm_current_role() = 'admin'
+      OR lower(btrim(coalesce(estado, ''))) <> 'desestimada'
+    )
+    AND (
+      public.crm_current_role() = ANY (ARRAY['admin'::text, 'coordinador'::text])
+      OR (
+        public.crm_current_role() = 'comercial'::text
+        AND NOT public.crm_can_manage_visits()
+        AND responsible_user_id = public.crm_current_profile_id()
+      )
     )
   );
 
@@ -52,6 +58,10 @@ CREATE POLICY "opportunities_select_by_role" ON "public"."opportunities"
   TO "authenticated"
   USING (
     deleted_at IS NULL
+    AND (
+      (SELECT public.crm_current_role()) = 'admin'
+      OR lower(btrim(coalesce(estado, ''))) <> 'desestimada'
+    )
     AND (
       (SELECT public.crm_current_role())
         = ANY (ARRAY['admin'::text, 'coordinador'::text])
@@ -69,7 +79,21 @@ CREATE POLICY "opportunities_update_by_role" ON "public"."opportunities"
   FOR UPDATE
   TO "authenticated"
   USING (public.crm_can_write_opportunity(id))
-  WITH CHECK (public.crm_can_write_opportunity(id));
+  WITH CHECK (
+    public.crm_can_write_opportunity(id)
+    AND (
+      public.crm_current_role() = 'admin'
+      OR lower(btrim(coalesce(estado, ''))) <> 'desestimada'
+    )
+    AND (
+      public.crm_current_role() = ANY (ARRAY['admin'::text, 'coordinador'::text])
+      OR (
+        public.crm_current_role() = 'comercial'
+        AND NOT public.crm_can_manage_visits()
+        AND responsible_user_id = public.crm_current_profile_id()
+      )
+    )
+  );
 
 GRANT INSERT, SELECT, UPDATE ON TABLE "public"."opportunities" TO "appsheet_user";
 
