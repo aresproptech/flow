@@ -19,6 +19,12 @@ datos del formulario ante un fallo y hacer visibles los errores operativos.
 
 ### Importación CSV
 
+- Los encabezados Kommo `Nombre completo` y `Teléfono oficina` se normalizan a
+  `contacto_principal` y `telefono_oficina_contacto` tanto en la carga temporal
+  como en el mapeo posterior a Propietario y Teléfono. Los encabezados anteriores
+  `Contacto principal` y `Teléfono oficina contacto` siguen siendo compatibles.
+- Prueba local sin escrituras en base de datos:
+  `node scripts/test-leads-csv-import.mjs [ruta-al-csv-kommo]`.
 - Los tres botones capaces de confirmar la importación comparten un único estado
   de ejecución y no pueden disparar importaciones simultáneas.
 - El diálogo espera a que finalice la inserción, no se puede cerrar durante el
